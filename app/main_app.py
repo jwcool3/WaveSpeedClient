@@ -28,6 +28,7 @@ from ui.tabs.image_to_video_tab import ImageToVideoTab
 from ui.tabs.seededit_tab import SeedEditTab
 from ui.tabs.seeddance_tab import SeedDanceTab
 from ui.components.balance_indicator import BalanceIndicator
+from ui.components.recent_results_panel import RecentResultsPanel
 from utils.utils import show_error, show_warning, show_success
 import utils.utils as utils
 from core.auto_save import auto_save_manager
@@ -123,8 +124,8 @@ class WaveSpeedAIApp:
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(2, weight=1)
+        main_frame.columnconfigure(0, weight=1)  # Main frame expands
+        main_frame.rowconfigure(2, weight=1)  # Content area expands vertically
         
         # Create header frame to hold title and balance indicator
         header_frame = ttk.Frame(main_frame)
@@ -153,15 +154,59 @@ class WaveSpeedAIApp:
         )
         api_label.grid(row=1, column=0, pady=(0, 10))
         
-        # Create notebook for tabs
-        self.notebook = ttk.Notebook(main_frame)
-        self.notebook.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+        # Create resizable paned window for main content
+        self.setup_resizable_layout(main_frame)
         
         # Create tabs
         self.setup_tabs()
         
         # Setup menu
         self.setup_menu()
+    
+    def setup_resizable_layout(self, parent):
+        """Setup resizable paned window layout"""
+        # Create horizontal paned window (resizable splitter)
+        self.paned_window = tk.PanedWindow(
+            parent,
+            orient=tk.HORIZONTAL,
+            sashrelief=tk.RAISED,
+            sashwidth=4,
+            bg='#e0e0e0',
+            handlesize=8,
+            handlepad=20
+        )
+        self.paned_window.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+        
+        # Create recent results panel (left pane)
+        self.setup_recent_results_panel(self.paned_window)
+        
+        # Create notebook for tabs (right pane)
+        self.notebook = ttk.Notebook(self.paned_window)
+        
+        # Add both panes to the paned window
+        self.paned_window.add(self.recent_results_frame, minsize=150, width=200)  # Left pane: min 150px, default 200px
+        self.paned_window.add(self.notebook, minsize=400)  # Right pane: min 400px, gets remaining space
+        
+        # Configure the paned window to be responsive
+        self.paned_window.paneconfigure(self.recent_results_frame, sticky="nsew")
+        self.paned_window.paneconfigure(self.notebook, sticky="nsew")
+        
+        # Bind keyboard shortcuts for quick resizing
+        self.root.bind('<Control-bracketleft>', self.collapse_sidebar)  # Ctrl+[ to collapse sidebar
+        self.root.bind('<Control-bracketright>', self.expand_sidebar)   # Ctrl+] to expand sidebar
+        self.root.bind('<Control-equal>', self.reset_splitter)          # Ctrl+= to reset splitter
+        
+        # Load saved splitter position if available
+        self.load_splitter_position()
+    
+    def setup_recent_results_panel(self, parent):
+        """Setup the recent results panel"""
+        # Create frame for recent results (for paned window)
+        self.recent_results_frame = ttk.LabelFrame(parent, text="📂 Recent Results", padding="3")
+        
+        # Create recent results panel
+        self.recent_results_panel = RecentResultsPanel(self.recent_results_frame, self)
+        self.recent_results_panel.get_frame().pack(fill=tk.BOTH, expand=True)
     
     def setup_tabs(self):
         """Setup all application tabs"""
@@ -398,12 +443,66 @@ Created with Python and tkinter"""
             if hasattr(self, 'balance_indicator'):
                 self.balance_indicator.destroy()
             
+            # Cleanup recent results panel
+            if hasattr(self, 'recent_results_panel'):
+                self.recent_results_panel.destroy()
+            
+            # Save splitter position before closing
+            self.save_splitter_position()
+            
             resource_manager.cleanup_all()
             self.root.quit()
             self.root.destroy()
         except Exception as e:
             logger.error(f"Error during cleanup: {str(e)}")
             self.root.quit()
+    
+    def collapse_sidebar(self, event=None):
+        """Collapse the sidebar to minimum size"""
+        if hasattr(self, 'paned_window'):
+            self.paned_window.paneconfigure(self.recent_results_frame, width=150)
+    
+    def expand_sidebar(self, event=None):
+        """Expand the sidebar to larger size"""
+        if hasattr(self, 'paned_window'):
+            self.paned_window.paneconfigure(self.recent_results_frame, width=300)
+    
+    def reset_splitter(self, event=None):
+        """Reset splitter to default position"""
+        if hasattr(self, 'paned_window'):
+            self.paned_window.paneconfigure(self.recent_results_frame, width=200)
+    
+    def save_splitter_position(self):
+        """Save current splitter position to config"""
+        try:
+            if hasattr(self, 'paned_window'):
+                # Get current sash position (splitter position)
+                sash_pos = self.paned_window.sash_coord(0)[0]  # Get x-coordinate of first sash
+                
+                # Save to a simple config file
+                config_file = "ui_layout.conf"
+                with open(config_file, 'w') as f:
+                    f.write(f"splitter_position={sash_pos}\n")
+                
+                logger.info(f"Saved splitter position: {sash_pos}")
+        except Exception as e:
+            logger.error(f"Error saving splitter position: {e}")
+    
+    def load_splitter_position(self):
+        """Load saved splitter position from config"""
+        try:
+            config_file = "ui_layout.conf"
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    for line in f:
+                        if line.startswith("splitter_position="):
+                            pos = int(line.split("=")[1].strip())
+                            # Apply the position after a short delay to ensure UI is ready
+                            self.root.after(100, lambda: self.paned_window.sash_place(0, pos, 0))
+                            logger.info(f"Loaded splitter position: {pos}")
+                            break
+        except Exception as e:
+            logger.error(f"Error loading splitter position: {e}")
 
 
 def main():
