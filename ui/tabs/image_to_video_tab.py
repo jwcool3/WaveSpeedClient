@@ -270,7 +270,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         """Upload image and return URL for video generation"""
         try:
             # Use the privacy-aware uploader
-            from secure_upload import privacy_uploader
+            from core.secure_upload import privacy_uploader
             success, image_url, privacy_info = privacy_uploader.upload_with_privacy_warning(image_path, 'video')
             
             if success and image_url:
@@ -288,11 +288,9 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
                 # Fallback to sample URL if upload fails
                 sample_url = Config.SAMPLE_URLS.get('video', Config.SAMPLE_URLS.get('seededit'))
                 
-                self.frame.after(0, lambda: show_warning(
-                    "Using Sample Image", 
-                    f"Could not upload your image: {privacy_info}\n\n"
-                    f"Using sample image for demonstration.\n"
-                    f"Your selected image: {os.path.basename(image_path)}"
+                # Show enhanced warning dialog
+                self.frame.after(0, lambda: self._show_sample_image_warning(
+                    image_path, 'video', privacy_info
                 ))
                 
                 return sample_url
@@ -300,13 +298,19 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         except Exception as e:
             logger.error(f"Upload failed: {e}")
             sample_url = Config.SAMPLE_URLS.get('video', Config.SAMPLE_URLS.get('seededit'))
+            error_msg = str(e)  # Capture the error message
             
-            self.frame.after(0, lambda: show_warning(
-                "Upload Error", 
-                f"Upload failed: {str(e)}\n\nUsing sample image for demonstration."
+            # Show enhanced warning dialog
+            self.frame.after(0, lambda: self._show_sample_image_warning(
+                image_path, 'video', f"Upload error: {error_msg}"
             ))
             
             return sample_url
+    
+    def _show_sample_image_warning(self, image_path, ai_model, reason):
+        """Show enhanced warning dialog for sample image usage"""
+        from utils.warning_dialogs import show_sample_image_warning
+        show_sample_image_warning(self.frame, image_path, ai_model, reason)
     
     def handle_success(self, output_url, duration_time):
         """Handle successful completion"""

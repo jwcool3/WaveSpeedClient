@@ -42,8 +42,18 @@ def main():
     
     print("\n📦 Installing video player library...")
     
-    # Install tkvideoplayer
-    if install_package("tkvideoplayer==2.3"):
+    # Install tkvideoplayer with compatible av version
+    print("Installing compatible versions...")
+    
+    # First install the compatible av version
+    print("Step 1: Installing compatible av library...")
+    av_success = install_package("av==10.0.0")  # Use compatible av version
+    
+    # Then install tkvideoplayer
+    print("Step 2: Installing tkVideoPlayer...")
+    player_success = install_package("tkvideoplayer==2.3")
+    
+    if av_success and player_success:
         print("\n🎉 Installation completed successfully!")
         print("\n📋 Next steps:")
         print("1. Restart the WaveSpeed AI application")

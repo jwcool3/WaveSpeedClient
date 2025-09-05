@@ -195,7 +195,7 @@ class ImageUpscalerTab(BaseTab):
         """Upload image and return URL for upscaler"""
         try:
             # Use the privacy-aware uploader
-            from secure_upload import privacy_uploader
+            from core.secure_upload import privacy_uploader
             success, image_url, privacy_info = privacy_uploader.upload_with_privacy_warning(image_path, 'upscaler')
             
             if success and image_url:

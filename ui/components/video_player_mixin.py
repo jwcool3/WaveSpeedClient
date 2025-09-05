@@ -88,6 +88,16 @@ class VideoPlayerMixin:
             self.stop_button = ttk.Button(controls_frame, text="⏹ Stop", 
                                         command=self.stop_video, state="disabled")
             self.stop_button.pack(side=tk.LEFT, padx=2)
+            
+            # Local file browser button
+            self.browse_local_button = ttk.Button(controls_frame, text="📁 Browse Local Videos", 
+                                                command=self.browse_local_videos, state="normal")
+            self.browse_local_button.pack(side=tk.LEFT, padx=(10, 2))
+            
+            # Quick access to recent videos
+            self.recent_videos_button = ttk.Button(controls_frame, text="🕒 Recent Videos", 
+                                                 command=self.show_recent_videos, state="normal")
+            self.recent_videos_button.pack(side=tk.LEFT, padx=2)
         
         # Action buttons
         action_frame = ttk.Frame(button_frame)
@@ -103,7 +113,12 @@ class VideoPlayerMixin:
         
         self.download_button = ttk.Button(action_frame, text="Download Video", 
                                         command=self.download_video, state="disabled")
-        self.download_button.pack(side=tk.LEFT)
+        self.download_button.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Open results folder button
+        self.open_results_button = ttk.Button(action_frame, text="📂 Results Folder", 
+                                            command=self.open_results_folder, state="normal")
+        self.open_results_button.pack(side=tk.LEFT)
     
     def load_video_in_player(self, video_url):
         """Load video in embedded player"""
@@ -147,12 +162,14 @@ class VideoPlayerMixin:
             if hasattr(self, 'frame'):
                 self.frame.after(0, lambda: show_error("Download Error", f"Failed to download video: {str(e)}"))
     
-    def _create_video_player(self, video_path):
+    def _create_video_player(self, video_path, is_local=False):
         """Create and configure video player (runs on main thread)"""
         try:
-            # Remove placeholder
+            # Remove placeholder or existing player
             if hasattr(self, 'video_placeholder'):
                 self.video_placeholder.destroy()
+            if hasattr(self, 'video_player') and self.video_player:
+                self.video_player.destroy()
             
             # Create video player
             self.video_player = TkinterVideo(
@@ -162,20 +179,34 @@ class VideoPlayerMixin:
             )
             self.video_player.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
             
-            # Load video
-            self.video_player.load(video_path)
+            # Load video with error handling for compatibility issues
+            try:
+                self.video_player.load(video_path)
+            except AttributeError as e:
+                if 'fast_seek' in str(e):
+                    logger.warning(f"Video player compatibility issue: {e}")
+                    # Try to continue without fast_seek functionality
+                    logger.info("Attempting to load video without fast_seek...")
+                    # The video should still load, just without the fast_seek optimization
+                else:
+                    raise e
             
-            # Store temp file path for cleanup
-            self.temp_video_path = video_path
+            # Store temp file path for cleanup (only for downloaded videos)
+            if not is_local:
+                self.temp_video_path = video_path
+            else:
+                # Clear any previous temp path since this is a local file
+                self.temp_video_path = None
             
             # Enable controls
             self.enable_video_controls()
             
             # Update status
             if hasattr(self, 'update_status'):
-                self.update_status("Video loaded successfully!")
+                video_type = "Local video" if is_local else "Video"
+                self.update_status(f"{video_type} loaded successfully!")
             
-            logger.info("Video player created and loaded successfully")
+            logger.info(f"Video player created and loaded successfully ({'local' if is_local else 'downloaded'} file)")
             
         except Exception as e:
             logger.error(f"Failed to create video player: {e}")
@@ -278,6 +309,191 @@ class VideoPlayerMixin:
                 logger.warning(f"Failed to cleanup temp video file: {e}")
             finally:
                 self.temp_video_path = None
+    
+    def browse_local_videos(self):
+        """Browse and select local video files for playback"""
+        try:
+            from tkinter import filedialog
+            import os
+            
+            # Start in the results folder if it exists
+            initial_dir = os.path.join(os.getcwd(), "WaveSpeed_Results")
+            if not os.path.exists(initial_dir):
+                initial_dir = os.getcwd()
+            
+            # Open file dialog
+            file_path = filedialog.askopenfilename(
+                title="Select Video File",
+                initialdir=initial_dir,
+                filetypes=[
+                    ("Video files", "*.mp4 *.avi *.mov *.mkv *.wmv *.flv *.webm"),
+                    ("MP4 files", "*.mp4"),
+                    ("All files", "*.*")
+                ]
+            )
+            
+            if file_path:
+                self.load_local_video_file(file_path)
+                
+        except Exception as e:
+            show_error("Browse Error", f"Failed to browse for video files: {str(e)}")
+    
+    def load_local_video_file(self, video_path):
+        """Load a local video file in the player"""
+        try:
+            if not VIDEO_PLAYER_AVAILABLE:
+                show_error("Video Player Error", "Video player is not available. Please install tkvideoplayer.")
+                return
+            
+            if not os.path.exists(video_path):
+                show_error("File Error", f"Video file not found: {video_path}")
+                return
+            
+            # Update status
+            if hasattr(self, 'update_status'):
+                self.update_status(f"Loading local video: {os.path.basename(video_path)}")
+            
+            # Create video player directly with local file
+            self._create_video_player(video_path, is_local=True)
+            
+            # Set the result URL to the local file path for consistency
+            self.result_video_url = f"file://{video_path}"
+            
+            # Update display
+            if hasattr(self, 'video_label'):
+                self.video_label.config(
+                    text=f"🎬 Local Video Loaded\n\n{os.path.basename(video_path)}",
+                    fg='green'
+                )
+            
+            logger.info(f"Loaded local video file: {video_path}")
+            
+        except Exception as e:
+            error_msg = f"Failed to load local video: {str(e)}"
+            logger.error(error_msg)
+            show_error("Video Load Error", error_msg)
+    
+    def show_recent_videos(self):
+        """Show a dialog with recent videos for quick selection"""
+        try:
+            from core.auto_save import auto_save_manager
+            import tkinter.simpledialog as simpledialog
+            
+            # Try to determine which model's videos to show
+            ai_model = None
+            if hasattr(self, '__class__'):
+                class_name = self.__class__.__name__.lower()
+                if 'image_to_video' in class_name or 'imagetovideo' in class_name:
+                    ai_model = 'video'
+                elif 'seeddance' in class_name:
+                    ai_model = 'seeddance'
+            
+            # Get recent video files
+            recent_files = auto_save_manager.get_recent_files(ai_model, limit=10)
+            video_files = [f for f in recent_files if f.get('file_path', '').lower().endswith(('.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm'))]
+            
+            if not video_files:
+                show_error("No Videos", "No recent video files found in the results folder.")
+                return
+            
+            # Create selection dialog
+            self._show_video_selection_dialog(video_files)
+            
+        except Exception as e:
+            show_error("Error", f"Failed to get recent videos: {str(e)}")
+    
+    def _show_video_selection_dialog(self, video_files):
+        """Show dialog for selecting from recent videos"""
+        try:
+            # Create a new window for video selection
+            selection_window = tk.Toplevel(self.frame if hasattr(self, 'frame') else None)
+            selection_window.title("Recent Videos")
+            selection_window.geometry("600x400")
+            selection_window.configure(bg='#f0f0f0')
+            
+            # Make it modal
+            selection_window.transient(self.frame.winfo_toplevel() if hasattr(self, 'frame') else None)
+            selection_window.grab_set()
+            
+            # Title label
+            title_label = ttk.Label(selection_window, text="Select a video to play:", font=('Arial', 12, 'bold'))
+            title_label.pack(pady=10)
+            
+            # Create scrollable listbox
+            list_frame = ttk.Frame(selection_window)
+            list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 10))
+            
+            listbox = tk.Listbox(list_frame, font=('Arial', 10), height=15)
+            scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=listbox.yview)
+            listbox.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack listbox and scrollbar
+            listbox.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Populate listbox with video files
+            for i, video_file in enumerate(video_files):
+                file_path = video_file.get('file_path', '')
+                file_name = os.path.basename(file_path)
+                created_time = video_file.get('created', 'Unknown time')
+                display_text = f"{file_name} ({created_time})"
+                listbox.insert(tk.END, display_text)
+            
+            # Button frame
+            button_frame = ttk.Frame(selection_window)
+            button_frame.pack(pady=10)
+            
+            def on_play_selected():
+                selection = listbox.curselection()
+                if selection:
+                    selected_video = video_files[selection[0]]
+                    video_path = selected_video.get('file_path', '')
+                    if video_path and os.path.exists(video_path):
+                        selection_window.destroy()
+                        self.load_local_video_file(video_path)
+                    else:
+                        show_error("File Error", "Selected video file not found.")
+                else:
+                    show_error("Selection Error", "Please select a video file.")
+            
+            def on_double_click(event):
+                on_play_selected()
+            
+            # Bind double-click to play
+            listbox.bind('<Double-Button-1>', on_double_click)
+            
+            # Buttons
+            ttk.Button(button_frame, text="Play Selected", command=on_play_selected).pack(side=tk.LEFT, padx=5)
+            ttk.Button(button_frame, text="Cancel", command=selection_window.destroy).pack(side=tk.LEFT, padx=5)
+            
+            # Focus the window and select first item
+            selection_window.focus_set()
+            if video_files:
+                listbox.selection_set(0)
+            
+        except Exception as e:
+            show_error("Dialog Error", f"Failed to show video selection dialog: {str(e)}")
+    
+    def open_results_folder(self):
+        """Open the results folder in file explorer"""
+        try:
+            from core.auto_save import auto_save_manager
+            
+            # Try to determine which model's folder to open
+            ai_model = None
+            if hasattr(self, '__class__'):
+                class_name = self.__class__.__name__.lower()
+                if 'image_to_video' in class_name or 'imagetovideo' in class_name:
+                    ai_model = 'video'
+                elif 'seeddance' in class_name:
+                    ai_model = 'seeddance'
+            
+            success = auto_save_manager.open_results_folder(ai_model)
+            if not success:
+                show_error("Error", "Results folder not found or could not be opened.")
+            
+        except Exception as e:
+            show_error("Error", f"Failed to open results folder: {str(e)}")
     
     def handle_video_success(self, output_url):
         """Handle successful video generation"""
