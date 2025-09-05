@@ -64,7 +64,17 @@ class ImageEditorTab(BaseTab):
     
     def browse_image(self):
         """Browse for image file"""
-        file_path = browse_image_file()
+        from tkinter import filedialog
+        
+        file_path = filedialog.askopenfilename(
+            title="Select Image to Edit",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
         if file_path:
             self.on_image_selected(file_path)
     
