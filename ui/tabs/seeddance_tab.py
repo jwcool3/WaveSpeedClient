@@ -28,6 +28,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
     """SeedDance Image to Video Tab"""
     
     def __init__(self, parent_frame, api_client, main_app=None):
+        self.prompts_file = "data/seeddance_prompts.json"
+        self.saved_prompts = load_json_file(self.prompts_file, [])
         self.main_app = main_app  # Reference to main app for cross-tab operations
         BaseTab.__init__(self, parent_frame, api_client)
         VideoPlayerMixin.__init__(self)
@@ -115,7 +117,10 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         # Add helpful hint
         hint_label = ttk.Label(prompt_frame, text="💡 Tip: Leave blank for automatic motion detection", 
                               font=('Arial', 8), foreground="gray")
-        hint_label.grid(row=2, column=0, sticky=tk.W, pady=(2, 0))
+        hint_label.grid(row=2, column=0, sticky=tk.W, pady=(2, 5))
+        
+        # Prompt management section
+        self.setup_prompt_management(prompt_frame)
     
     def setup_compact_progress_section(self):
         """Setup compact progress section"""
@@ -254,6 +259,102 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         )
         self.on_image_selected(file_path)
     
+    def setup_prompt_management(self, parent):
+        """Setup prompt management UI for SeedDance"""
+        # Saved prompts section
+        ttk.Label(parent, text="Saved Prompts:", font=('Arial', 9, 'bold')).grid(row=3, column=0, sticky=tk.W, pady=(10, 2))
+        
+        # Saved prompts listbox with scrollbar
+        listbox_frame = ttk.Frame(parent)
+        listbox_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        listbox_frame.columnconfigure(0, weight=1)
+        
+        self.saved_prompts_listbox = tk.Listbox(listbox_frame, height=4, font=('Arial', 9))
+        self.saved_prompts_listbox.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        
+        listbox_scroll = ttk.Scrollbar(listbox_frame, orient="vertical", command=self.saved_prompts_listbox.yview)
+        listbox_scroll.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.saved_prompts_listbox.configure(yscrollcommand=listbox_scroll.set)
+        
+        # Prompt management buttons
+        buttons_frame = ttk.Frame(parent)
+        buttons_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        buttons_frame.columnconfigure(0, weight=1)
+        buttons_frame.columnconfigure(1, weight=1)
+        buttons_frame.columnconfigure(2, weight=1)
+        
+        ttk.Button(buttons_frame, text="💾 Save", command=self.save_current_prompt, width=8).grid(row=0, column=0, padx=(0, 2))
+        ttk.Button(buttons_frame, text="📋 Load", command=self.load_selected_prompt, width=8).grid(row=0, column=1, padx=2)
+        ttk.Button(buttons_frame, text="🗑️ Delete", command=self.delete_selected_prompt, width=8).grid(row=0, column=2, padx=(2, 0))
+        
+        # Load saved prompts into listbox
+        self.refresh_prompts_list()
+
+    def refresh_prompts_list(self):
+        """Refresh the saved prompts list"""
+        self.saved_prompts_listbox.delete(0, tk.END)
+        for i, prompt_data in enumerate(self.saved_prompts):
+            display_text = prompt_data.get('name', f'Prompt {i+1}')
+            self.saved_prompts_listbox.insert(tk.END, display_text)
+
+    def save_current_prompt(self):
+        """Save current prompt to the saved prompts list"""
+        video_prompt = self.prompt_text.get("1.0", tk.END).strip()
+        
+        if not video_prompt:
+            show_error("Error", "Please enter a video prompt before saving.")
+            return
+        
+        # Create a simple dialog to get prompt name
+        from tkinter import simpledialog
+        prompt_name = simpledialog.askstring(
+            "Save Prompt", 
+            "Enter a name for this SeedDance prompt:",
+            initialvalue=video_prompt[:30] + "..." if len(video_prompt) > 30 else video_prompt
+        )
+        
+        if prompt_name:
+            prompt_data = {
+                'name': prompt_name,
+                'video_prompt': video_prompt
+            }
+            
+            self.saved_prompts.append(prompt_data)
+            save_json_file(self.prompts_file, self.saved_prompts)
+            self.refresh_prompts_list()
+            show_success("Saved", f"SeedDance prompt '{prompt_name}' saved successfully!")
+
+    def load_selected_prompt(self):
+        """Load the selected prompt from the saved prompts list"""
+        selection = self.saved_prompts_listbox.curselection()
+        if not selection:
+            show_error("Error", "Please select a prompt to load.")
+            return
+        
+        prompt_data = self.saved_prompts[selection[0]]
+        
+        # Load prompt into text area
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", prompt_data.get('video_prompt', ''))
+        
+        show_success("Loaded", f"SeedDance prompt '{prompt_data['name']}' loaded successfully!")
+
+    def delete_selected_prompt(self):
+        """Delete the selected prompt from the saved prompts list"""
+        selection = self.saved_prompts_listbox.curselection()
+        if not selection:
+            show_error("Error", "Please select a prompt to delete.")
+            return
+        
+        prompt_data = self.saved_prompts[selection[0]]
+        
+        from tkinter import messagebox
+        if messagebox.askyesno("Confirm Delete", f"Delete SeedDance prompt '{prompt_data['name']}'?"):
+            del self.saved_prompts[selection[0]]
+            save_json_file(self.prompts_file, self.saved_prompts)
+            self.refresh_prompts_list()
+            show_success("Deleted", f"SeedDance prompt '{prompt_data['name']}' deleted successfully!")
+
     def clear_prompts(self):
         """Clear all prompts"""
         if hasattr(self, 'prompt_text'):

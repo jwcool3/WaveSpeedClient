@@ -103,6 +103,9 @@ class OptimizedImageLayout:
         self.preview_label = ttk.Label(self.preview_frame, text="📷", 
                                       font=('Arial', 24), foreground="lightgray")
         self.preview_label.grid(row=0, column=0)
+        
+        # Setup drag and drop for browse area
+        self.setup_browse_area_drag_drop()
     
     def setup_compact_settings(self, parent):
         """Setup compact settings section"""
@@ -211,6 +214,80 @@ class OptimizedImageLayout:
         # Store reference to parent tab for drag and drop handling
         self.parent_tab = None
     
+    def setup_browse_area_drag_drop(self):
+        """Setup drag and drop for the browse button area"""
+        if DND_AVAILABLE:
+            try:
+                # Enable drag and drop on the browse button
+                self.browse_button.drop_target_register(DND_FILES)
+                self.browse_button.dnd_bind('<<Drop>>', self.on_browse_drop)
+                self.browse_button.dnd_bind('<<DragEnter>>', self.on_browse_drag_enter)
+                self.browse_button.dnd_bind('<<DragLeave>>', self.on_browse_drag_leave)
+                
+                # Enable drag and drop on the preview label
+                self.preview_label.drop_target_register(DND_FILES)
+                self.preview_label.dnd_bind('<<Drop>>', self.on_browse_drop)
+                self.preview_label.dnd_bind('<<DragEnter>>', self.on_preview_drag_enter)
+                self.preview_label.dnd_bind('<<DragLeave>>', self.on_preview_drag_leave)
+                
+                # Enable drag and drop on the entire image section
+                self.image_path_label.drop_target_register(DND_FILES)
+                self.image_path_label.dnd_bind('<<Drop>>', self.on_browse_drop)
+                
+                logger.info("Drag and drop enabled for browse area")
+            except Exception as e:
+                logger.warning(f"Failed to setup browse area drag and drop: {e}")
+    
+    def on_browse_drop(self, event):
+        """Handle drag and drop on browse button area"""
+        success, result = parse_drag_drop_data(event.data)
+        
+        if not success:
+            show_error("Drag & Drop Error", result)
+            return
+        
+        file_path = result
+        
+        # Validate the image file
+        is_valid, error = validate_image_file(file_path)
+        if not is_valid:
+            show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+            return
+        
+        # Call parent tab's image selection method if available
+        if self.parent_tab and hasattr(self.parent_tab, 'on_image_selected'):
+            self.parent_tab.on_image_selected(file_path)
+        else:
+            # Fallback to direct update
+            self.update_input_image(file_path)
+        
+        # Reset visual feedback
+        self.reset_drag_feedback()
+    
+    def on_browse_drag_enter(self, event):
+        """Handle drag enter on browse button"""
+        self.browse_button.config(style="Accent.TButton")
+    
+    def on_browse_drag_leave(self, event):
+        """Handle drag leave on browse button"""
+        self.browse_button.config(style="TButton")
+    
+    def on_preview_drag_enter(self, event):
+        """Handle drag enter on preview label"""
+        self.preview_label.config(background='#e8f4f8')
+    
+    def on_preview_drag_leave(self, event):
+        """Handle drag leave on preview label"""
+        self.preview_label.config(background='#f0f0f0')
+    
+    def reset_drag_feedback(self):
+        """Reset all drag visual feedback"""
+        try:
+            self.browse_button.config(style="TButton")
+            self.preview_label.config(background='#f0f0f0')
+        except:
+            pass  # Ignore if widgets are destroyed
+    
     def setup_result_image_display(self):
         """Setup result image display"""
         self.result_frame.columnconfigure(0, weight=1)
@@ -279,22 +356,25 @@ class OptimizedImageLayout:
             filename = os.path.basename(image_path)
             self.image_path_label.config(text=filename, foreground="black")
             
-            # Load and display image
-            image = Image.open(image_path)
+            # Load and display image with proper file handling
+            with Image.open(image_path) as image:
+                # Calculate size to fit display area while maintaining aspect ratio
+                display_width = 800  # Max width for display
+                display_height = 600  # Max height for display
+                
+                # Create a copy for processing to avoid file locking
+                image_copy = image.copy()
             
-            # Calculate size to fit display area while maintaining aspect ratio
-            display_width = 800  # Max width for display
-            display_height = 600  # Max height for display
-            
-            image.thumbnail((display_width, display_height), Image.Resampling.LANCZOS)
-            photo = ImageTk.PhotoImage(image)
+            # Process the copy (file is now closed)
+            image_copy.thumbnail((display_width, display_height), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(image_copy)
             
             # Update input display
             self.input_image_label.config(image=photo, text="")
             self.input_image_label.image = photo  # Keep a reference
             
             # Update small preview
-            preview_image = image.copy()
+            preview_image = image_copy.copy()
             preview_image.thumbnail((80, 80), Image.Resampling.LANCZOS)
             preview_photo = ImageTk.PhotoImage(preview_image)
             self.preview_label.config(image=preview_photo, text="")
@@ -326,7 +406,9 @@ class OptimizedImageLayout:
                     tmp_file.write(response.content)
                     temp_path = tmp_file.name
                 
-                image = Image.open(temp_path)
+                # Open image and create a copy, then clean up temp file
+                with Image.open(temp_path) as temp_image:
+                    image = temp_image.copy()
                 os.unlink(temp_path)  # Clean up temp file
             else:
                 # It's already a PIL Image
@@ -431,7 +513,28 @@ class OptimizedImageLayout:
     
     def on_drop(self, event):
         """Handle drag and drop"""
+        # Try parent tab's on_drop first
         if self.parent_tab and hasattr(self.parent_tab, 'on_drop'):
             self.parent_tab.on_drop(event)
         else:
-            logger.warning("No parent tab set for drag and drop handling")
+            # Handle it directly if parent doesn't have on_drop
+            success, result = parse_drag_drop_data(event.data)
+            
+            if not success:
+                show_error("Drag & Drop Error", result)
+                return
+            
+            file_path = result
+            
+            # Validate the image file
+            is_valid, error = validate_image_file(file_path)
+            if not is_valid:
+                show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+                return
+            
+            # Call parent tab's image selection method if available
+            if self.parent_tab and hasattr(self.parent_tab, 'on_image_selected'):
+                self.parent_tab.on_image_selected(file_path)
+            else:
+                # Fallback to direct update
+                self.update_input_image(file_path)

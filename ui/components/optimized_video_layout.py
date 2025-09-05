@@ -131,6 +131,9 @@ class OptimizedVideoLayout:
         
         # Setup drag and drop
         self.setup_drag_and_drop()
+        
+        # Setup drag and drop for browse button area
+        self.setup_browse_area_drag_drop()
     
     def setup_compact_settings(self, parent):
         """Setup compact settings panel"""
@@ -272,6 +275,61 @@ class OptimizedVideoLayout:
         
         # Reset visual feedback
         self.thumbnail_label.config(bg='#f0f0f0', relief='groove')
+    
+    def setup_browse_area_drag_drop(self):
+        """Setup drag and drop for the browse button area"""
+        if DND_AVAILABLE:
+            try:
+                # Enable drag and drop on the browse button
+                self.browse_button.drop_target_register(DND_FILES)
+                self.browse_button.dnd_bind('<<Drop>>', self.on_browse_drop)
+                self.browse_button.dnd_bind('<<DragEnter>>', self.on_browse_drag_enter)
+                self.browse_button.dnd_bind('<<DragLeave>>', self.on_browse_drag_leave)
+                
+                # Enable drag and drop on the image size label
+                self.image_size_label.drop_target_register(DND_FILES)
+                self.image_size_label.dnd_bind('<<Drop>>', self.on_browse_drop)
+                
+                logger.info("Drag and drop enabled for video browse area")
+            except Exception as e:
+                logger.warning(f"Failed to setup video browse area drag and drop: {e}")
+    
+    def on_browse_drop(self, event):
+        """Handle drag and drop on browse button area"""
+        success, result = parse_drag_drop_data(event.data)
+        
+        if not success:
+            show_error("Drag & Drop Error", result)
+            return
+        
+        file_path = result
+        
+        # Validate the image file
+        is_valid, error = validate_image_file(file_path)
+        if not is_valid:
+            show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+            return
+        
+        # Update the image
+        self.on_image_selected(file_path)
+        
+        # Reset visual feedback
+        self.reset_browse_drag_feedback()
+    
+    def on_browse_drag_enter(self, event):
+        """Handle drag enter on browse button"""
+        self.browse_button.config(style="Accent.TButton")
+    
+    def on_browse_drag_leave(self, event):
+        """Handle drag leave on browse button"""
+        self.browse_button.config(style="TButton")
+    
+    def reset_browse_drag_feedback(self):
+        """Reset browse area drag visual feedback"""
+        try:
+            self.browse_button.config(style="TButton")
+        except:
+            pass  # Ignore if widgets are destroyed
     
     def browse_image(self):
         """Browse for image file"""
