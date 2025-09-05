@@ -14,6 +14,7 @@ import tempfile
 import time
 from ui.components.ui_components import BaseTab, ImagePreview, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector
+from ui.components.optimized_video_layout import OptimizedVideoLayout
 from app.config import Config
 from utils.utils import *
 from core.auto_save import auto_save_manager
@@ -32,43 +33,105 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         VideoPlayerMixin.__init__(self)
     
     def setup_ui(self):
-        """Setup the SeedDance UI"""
-        self.frame.columnconfigure(1, weight=1)
+        """Setup the optimized SeedDance UI"""
+        # Create optimized layout
+        self.optimized_layout = OptimizedVideoLayout(self.frame, "SeedDance Video Generation")
         
-        # Enhanced image selector (compact for video tabs)
-        self.image_selector = EnhancedImageSelector(
-            self.frame, 0, self.on_image_selected, "Select Image for SeedDance Video:", show_preview=False
-        )
+        # Setup the layout with SeedDance-specific settings
+        self.setup_seeddance_settings()
         
-        # Image preview (modified for video context)
-        self.image_preview = ImagePreview(self.frame, 2, "Image & Video Preview")
-        self.image_preview.result_frame.config(text="Generated Video")
+        # Setup prompt section in the left panel
+        self.setup_compact_prompt_section()
         
-        # Setup drag and drop
-        self.image_preview.setup_drag_and_drop(self.on_drop)
+        # Configure main action button
+        self.optimized_layout.set_main_action("🎭 Generate SeedDance Video", self.process_task)
         
-        # Video result section (replace the image result)
-        self.setup_video_result_section()
+        # Connect sample button to load sample prompt
+        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
         
-        # Prompt section
-        self.setup_prompt_section()
+        # Connect clear button to clear prompts
+        self.optimized_layout.clear_button.config(command=self.clear_prompts)
         
-        # Settings panel
-        self.setup_settings_panel()
+        # Get references to important components
+        self.enhanced_video_player = self.optimized_layout.get_video_player()
         
-        # Progress and results (moved up since button is now sticky)
-        self.setup_progress_section(6)
-        self.setup_results_section(7)
+        # Setup progress and results (compact)
+        self.setup_compact_progress_section()
         
-        # Setup sticky buttons at the bottom
-        buttons_config = [
-            ("Generate SeedDance Video", self.process_task, "primary"),
-        ]
-        self.setup_sticky_buttons(buttons_config)
+        logger.info("Optimized SeedDance UI setup complete")
+    
+    def setup_seeddance_settings(self):
+        """Setup SeedDance generation settings in the optimized layout"""
+        settings_container = self.optimized_layout.settings_container
+        
+        # Duration setting
+        duration_frame = ttk.Frame(settings_container)
+        duration_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=2)
+        duration_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(duration_frame, text="Duration:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.duration_var = tk.StringVar(value="5")
+        duration_combo = ttk.Combobox(duration_frame, textvariable=self.duration_var, 
+                                     values=["5"], state="readonly", width=8)
+        duration_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Camera fixed setting
+        camera_frame = ttk.Frame(settings_container)
+        camera_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=2)
+        camera_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(camera_frame, text="Camera Fixed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.camera_fixed_var = tk.BooleanVar(value=True)
+        camera_check = ttk.Checkbutton(camera_frame, variable=self.camera_fixed_var)
+        camera_check.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Seed setting
+        seed_frame = ttk.Frame(settings_container)
+        seed_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=2)
+        seed_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(seed_frame, text="Seed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.seed_var = tk.StringVar(value="-1")
+        seed_entry = ttk.Entry(seed_frame, textvariable=self.seed_var, width=10)
+        seed_entry.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+    
+    def setup_compact_prompt_section(self):
+        """Setup compact prompt section for SeedDance"""
+        # Add prompt section below settings
+        prompt_frame = ttk.LabelFrame(self.optimized_layout.settings_frame.master, text="📝 Video Prompt (Optional)", padding="8")
+        prompt_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        prompt_frame.columnconfigure(0, weight=1)
+        
+        # Video prompt (optional for SeedDance)
+        ttk.Label(prompt_frame, text="Describe the motion or scene:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.prompt_text = tk.Text(prompt_frame, height=3, wrap=tk.WORD, font=('Arial', 10))
+        self.prompt_text.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(2, 0))
+        
+        # Add helpful hint
+        hint_label = ttk.Label(prompt_frame, text="💡 Tip: Leave blank for automatic motion detection", 
+                              font=('Arial', 8), foreground="gray")
+        hint_label.grid(row=2, column=0, sticky=tk.W, pady=(2, 0))
+    
+    def setup_compact_progress_section(self):
+        """Setup compact progress section"""
+        # Add progress bar at the bottom of left panel
+        progress_frame = ttk.Frame(self.optimized_layout.settings_frame.master)
+        progress_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        progress_frame.columnconfigure(0, weight=1)
+        
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(progress_frame, mode='indeterminate')
+        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        
+        # Status label
+        self.status_label = ttk.Label(progress_frame, text="Ready to generate SeedDance video", font=('Arial', 8))
+        self.status_label.grid(row=1, column=0, sticky=tk.W)
     
     def setup_video_result_section(self):
-        """Setup video result display section"""
-        self.setup_video_result_section_with_player(self.image_preview.result_frame)
+        """Setup video result display section (now handled by optimized layout)"""
+        # Video display is now handled by the OptimizedVideoLayout
+        # The enhanced video player is already created and available
+        pass
     
     def setup_prompt_section(self):
         """Setup prompt section for video generation"""
@@ -149,14 +212,12 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         # Check if replacing existing image
         replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
-        self.selected_image_path = image_path
-        self.original_image = self.image_preview.update_original_image(image_path)
+        # Use the optimized layout's image selection handler
+        original_image = self.optimized_layout.on_image_selected(image_path)
         
-        # Reset video result
-        self.video_label.config(text="🎬 No video generated yet\n\nSeedDance video will be available as a download link")
-        self.open_video_button.config(state="disabled")
-        self.copy_url_button.config(state="disabled")
-        self.result_video_url = None
+        # Store references for compatibility
+        self.selected_image_path = image_path
+        self.original_image = original_image
         
         # Provide feedback about image replacement
         if replacing_image:
@@ -187,6 +248,29 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             text=os.path.basename(file_path), foreground="black"
         )
         self.on_image_selected(file_path)
+    
+    def clear_prompts(self):
+        """Clear all prompts"""
+        if hasattr(self, 'prompt_text'):
+            self.prompt_text.delete("1.0", tk.END)
+        # Also clear the image selection
+        self.optimized_layout.clear_all()
+    
+    def update_status(self, message):
+        """Update status display"""
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text=message)
+    
+    def show_progress(self, message):
+        """Show progress"""
+        self.update_status(message)
+        if hasattr(self, 'progress_bar'):
+            self.progress_bar.start()
+    
+    def hide_progress(self):
+        """Hide progress"""
+        if hasattr(self, 'progress_bar'):
+            self.progress_bar.stop()
     
     def process_task(self):
         """Process SeedDance video generation task"""
@@ -299,8 +383,20 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
     
     def handle_success(self, output_url, duration_time):
         """Handle successful completion"""
-        # Use mixin method for video handling
-        self.handle_video_success(output_url)
+        # Hide progress
+        self.hide_progress()
+        
+        # Load video in enhanced player if available
+        if self.enhanced_video_player:
+            # Download and load the video in the enhanced player
+            try:
+                # For now, we'll use the existing video handling
+                # In the future, we could enhance this to download and load locally
+                self.result_video_url = output_url
+                self.update_status("SeedDance video generated! Click 'Recent Videos' to load it.")
+            except Exception as e:
+                logger.error(f"Failed to load video in enhanced player: {e}")
+                self.update_status("SeedDance video generated! Available in browser.")
         
         # Auto-save the result
         prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
@@ -317,37 +413,32 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             file_type="video"
         )
         
-        # Show results
-        message = f"SeedDance video generated successfully!\n"
-        message += f"Processing time: {format_duration(duration_time)}\n"
-        message += f"Video duration: {duration} seconds\n"
-        message += f"Camera fixed: {camera_fixed}\n"
-        message += f"Seed: {seed}\n"
-        message += f"Video URL: {output_url}\n"
-        
-        if success and saved_path:
-            message += f"Auto-saved to: {saved_path}\n"
-        elif error:
-            message += f"Auto-save failed: {error}\n"
-        
-        message += "\nClick 'Open Video in Browser' to view and download the video."
-        
-        self.show_results(message, True)
-        
-        success_msg = f"SeedDance video generated successfully in {format_duration(duration_time)}!"
+        # Update status with success info
+        success_msg = f"✅ SeedDance video generated in {format_duration(duration_time)}!"
         if saved_path:
-            success_msg += f"\n\nAuto-saved to:\n{saved_path}"
+            success_msg += f" Auto-saved locally."
+        self.update_status(success_msg)
         
-        show_success("Success", success_msg)
+        # Show success dialog
+        dialog_msg = f"SeedDance video generated successfully in {format_duration(duration_time)}!"
+        if saved_path:
+            dialog_msg += f"\n\nAuto-saved to:\n{os.path.basename(saved_path)}"
+        dialog_msg += f"\n\nCamera Fixed: {camera_fixed}"
+        dialog_msg += f"\nSeed: {seed}"
+        dialog_msg += f"\n\nVideo URL: {output_url}"
+        
+        show_success("SeedDance Complete!", dialog_msg)
     
     def handle_error(self, error_message):
         """Handle error"""
-        self.video_label.config(
-            text="❌ SeedDance Video Generation Failed\n\nCheck the results section for details",
-            fg='red'
-        )
-        self.show_results(f"Error: {error_message}", False)
-        show_error("Error", error_message)
+        # Hide progress
+        self.hide_progress()
+        
+        # Update status
+        self.update_status(f"❌ Error: {error_message}")
+        
+        # Show error dialog
+        show_error("SeedDance Generation Error", error_message)
     
     def open_video_in_browser(self):
         """Open video in browser"""
@@ -377,14 +468,16 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
     
     def validate_inputs(self):
         """Validate inputs before processing"""
-        if not super().validate_inputs():
+        # Check if image is selected
+        if not self.optimized_layout.get_selected_image():
+            show_error("Error", "Please select an image for SeedDance video generation.")
             return False
         
         # Check video-specific inputs
         try:
             duration = int(self.duration_var.get())
-            if duration not in Config.SEEDDANCE_DURATIONS:
-                show_error("Error", f"Duration must be one of: {', '.join(map(str, Config.SEEDDANCE_DURATIONS))} seconds.")
+            if duration not in [5]:  # SeedDance typically supports 5 seconds
+                show_error("Error", "Duration must be 5 seconds for SeedDance.")
                 return False
         except ValueError:
             show_error("Error", "Invalid duration value.")
@@ -394,8 +487,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             seed = self.seed_var.get().strip()
             if seed and seed != "-1":
                 seed_int = int(seed)
-                if seed_int < -1 or seed_int > Config.SEED_RANGE[1]:
-                    show_error("Error", f"Seed must be -1 or between 0 and {Config.SEED_RANGE[1]}.")
+                if seed_int < -1 or seed_int > 2147483647:
+                    show_error("Error", "Seed must be -1 or between 0 and 2147483647.")
                     return False
         except ValueError:
             show_error("Error", "Invalid seed value. Use -1 for random or a valid integer.")
