@@ -466,12 +466,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             if success and image_url:
                 logger.info(f"Image to Video upload: {privacy_info}")
                 
-                # Show privacy info to user (non-blocking)
-                if Config.PRIVACY_MODE.lower() != "high":  # Don't show for high privacy since it works
-                    self.frame.after(0, lambda: show_info(
-                        "Upload Status", 
-                        f"{privacy_info}\n\nSelected image: {os.path.basename(image_path)}"
-                    ))
+                # Privacy info logged but no popup
                 
                 return image_url
             else:

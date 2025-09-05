@@ -387,7 +387,8 @@ class ImageEditorTab(BaseTab):
             elif error:
                 success_msg += f"\n\nAuto-save failed: {error}"
             
-            show_success("Success", success_msg)
+            # Update status instead of showing dialog
+            self.update_status("✅ " + success_msg.replace('\n\n', ' '))
         else:
             self.handle_error("Failed to download result image")
     
@@ -436,7 +437,8 @@ class ImageEditorTab(BaseTab):
         
         file_path, error = save_image_dialog(self.result_image, "Save Edited Image")
         if file_path:
-            show_success("Success", f"Image saved to:\n{file_path}")
+            # File saved successfully - no dialog needed
+            pass
         elif error and "cancelled" not in error.lower():
             show_error("Error", error)
     
@@ -453,7 +455,7 @@ class ImageEditorTab(BaseTab):
         
         # Use the result as new input
         self.on_image_selected(temp_path)
-        show_success("Success", "Result image is now set as the input image!")
+        # Image set successfully - no dialog needed
     
     def save_current_prompt(self):
         """Save current prompt"""

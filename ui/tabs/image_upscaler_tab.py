@@ -91,10 +91,32 @@ class ImageUpscalerTab(BaseTab):
         factor_frame.columnconfigure(1, weight=1)
         
         ttk.Label(factor_frame, text="Upscale Factor:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
-        self.upscale_factor_var = tk.StringVar(value="2K")
+        self.upscale_factor_var = tk.StringVar(value="2k")
         factor_combo = ttk.Combobox(factor_frame, textvariable=self.upscale_factor_var, 
-                                   values=["2K", "4K"], state="readonly", width=8)
+                                   values=["2k", "4k", "8k"], state="readonly", width=8)
         factor_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Creativity Level setting
+        creativity_frame = ttk.Frame(self.optimized_layout.settings_container)
+        creativity_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 5))
+        creativity_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(creativity_frame, text="Creativity:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.creativity_var = tk.StringVar(value="0")
+        creativity_combo = ttk.Combobox(creativity_frame, textvariable=self.creativity_var, 
+                                       values=["-2", "-1", "0", "1", "2"], state="readonly", width=8)
+        creativity_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Output Format setting
+        format_frame = ttk.Frame(self.optimized_layout.settings_container)
+        format_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        format_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(format_frame, text="Format:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.format_var = tk.StringVar(value="png")
+        format_combo = ttk.Combobox(format_frame, textvariable=self.format_var, 
+                                   values=["png", "jpeg", "webp"], state="readonly", width=8)
+        format_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
     
     def setup_compact_progress_section(self):
         """Setup compact progress section"""
@@ -243,7 +265,7 @@ class ImageUpscalerTab(BaseTab):
             # Submit task
             request_id, error = self.api_client.submit_image_upscale_task(
                 image_url,
-                self.resolution_var.get(),
+                self.upscale_factor_var.get(),
                 int(self.creativity_var.get()),
                 self.format_var.get()
             )
@@ -282,12 +304,7 @@ class ImageUpscalerTab(BaseTab):
             if success and image_url:
                 logger.info(f"Upscaler image uploaded: {privacy_info}")
                 
-                # Show privacy info to user (non-blocking)
-                if Config.PRIVACY_MODE.lower() != "high":  # Don't show for high privacy since it works
-                    self.frame.after(0, lambda: show_info(
-                        "Upload Status", 
-                        f"{privacy_info}\n\nSelected image: {os.path.basename(image_path)}"
-                    ))
+                # Privacy info logged but no popup
                 
                 return image_url
             else:
@@ -326,7 +343,7 @@ class ImageUpscalerTab(BaseTab):
             self.result_image = self.optimized_layout.result_image
             
             # Auto-save the result
-            resolution = self.resolution_var.get().upper()
+            resolution = self.upscale_factor_var.get()
             creativity = self.creativity_var.get()
             extra_info = f"upscaled_{resolution}_c{creativity}"
             
@@ -349,21 +366,22 @@ class ImageUpscalerTab(BaseTab):
             elif error:
                 message += f"Auto-save failed: {error}\n"
             
-            message += "\nThe upscaled image is displayed above."
-            
-            self.show_results(message, True)
+            # Result is displayed in the optimized layout - no need for old show_results
             
             success_msg = f"Image upscaled successfully in {format_duration(duration)}!"
             if saved_path:
                 success_msg += f"\n\nAuto-saved to:\n{saved_path}"
             
-            show_success("Success", success_msg)
+            # Update status instead of showing dialog
+            self.update_status("✅ " + success_msg.replace('\n\n', ' '))
         else:
             self.handle_error("Failed to download result image")
     
     def handle_error(self, error_message):
         """Handle error"""
-        self.show_results(f"Error: {error_message}", False)
+        # Update status in optimized layout
+        self.update_status(f"Error: {error_message}")
+        self.hide_progress()
         show_error("Error", error_message)
     
     def save_result_image(self):
@@ -374,7 +392,8 @@ class ImageUpscalerTab(BaseTab):
         
         file_path, error = save_image_dialog(self.result_image, "Save Upscaled Image")
         if file_path:
-            show_success("Success", f"Upscaled image saved to:\n{file_path}")
+            # File saved successfully - no dialog needed
+            pass
         elif error and "cancelled" not in error.lower():
             show_error("Error", error)
     
@@ -397,7 +416,7 @@ class ImageUpscalerTab(BaseTab):
             
             # Switch to editor tab and set image
             self.main_app.switch_to_editor_with_image(temp_path)
-            show_success("Success", "Upscaled image is now set as the editor input image!")
+            # Image set successfully - no dialog needed
             
         except Exception as e:
             show_error("Error", f"Failed to use upscaled result as editor input: {str(e)}")

@@ -408,20 +408,21 @@ class RecentResultsPanel:
     def send_result_to_tab(self, result, target_tab_id, target_tab_name):
         """Send result to specified tab"""
         try:
+            # Load the image file as PIL Image
+            from PIL import Image
+            image_path = result['image_path']
+            with Image.open(image_path) as img:
+                image = img.copy()  # Create a copy to avoid file locking
+            
             navigator = CrossTabNavigator(self.main_app)
             success = navigator.send_to_tab(
-                result['image_path'], 
+                image, 
                 target_tab_id, 
                 target_tab_name, 
                 result['tab_name']
             )
             
-            if success:
-                show_success(
-                    "Image Sent!",
-                    f"Result from {result['tab_name']} sent to {target_tab_name}.\n\n"
-                    f"You are now on the {target_tab_name} tab."
-                )
+            # Success - no dialog needed, user can see the tab switch
                 
         except Exception as e:
             logger.error(f"Error sending result to tab: {e}")

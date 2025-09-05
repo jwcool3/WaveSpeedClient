@@ -430,14 +430,7 @@ class SeedEditTab(BaseTab):
             success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(image_path, 'seededit')
             
             if success:
-                # Show privacy information to user
-                self.frame.after(0, lambda: show_success(
-                    "Image Upload", 
-                    f"Image uploaded for SeedEdit processing.\n\n"
-                    f"Privacy Status: {privacy_info}\n\n"
-                    f"Your image: {os.path.basename(image_path)}\n"
-                    f"Processing will begin shortly..."
-                ))
+                # Privacy info logged but no popup
                 
                 logger.info(f"SeedEdit image uploaded: {privacy_info}")
                 return url
@@ -501,7 +494,8 @@ class SeedEditTab(BaseTab):
             elif error:
                 success_msg += f"\n\nAuto-save failed: {error}"
             
-            show_success("Success", success_msg)
+            # Update status instead of showing dialog
+            self.update_status("✅ " + success_msg.replace('\n\n', ' '))
         else:
             self.handle_error("Failed to download result image")
     
@@ -572,7 +566,8 @@ class SeedEditTab(BaseTab):
         
         file_path, error = save_image_dialog(self.result_image, "Save SeedEdit Result")
         if file_path:
-            show_success("Success", f"SeedEdit result saved to:\n{file_path}")
+            # File saved successfully - no dialog needed
+            pass
         elif error and "cancelled" not in error.lower():
             show_error("Error", error)
     
@@ -595,7 +590,7 @@ class SeedEditTab(BaseTab):
             
             # Switch to editor tab and set image
             self.main_app.switch_to_editor_with_image(temp_path)
-            show_success("Success", "SeedEdit result is now set as the editor input image!")
+            # Image set successfully - no dialog needed
             
         except Exception as e:
             show_error("Error", f"Failed to use SeedEdit result as editor input: {str(e)}")

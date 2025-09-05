@@ -180,7 +180,7 @@ def create_temp_file(image, prefix="temp_", suffix=".png"):
     """Create a temporary file from PIL Image"""
     from core.resource_manager import get_resource_manager
     resource_manager = get_resource_manager()
-    return resource_manager.create_temp_file(prefix, suffix, image)
+    return resource_manager.create_temp_file(prefix=prefix, suffix=suffix, content=image)
 
 
 def setup_drag_and_drop(widget, callback, dnd_available=True):

@@ -98,13 +98,7 @@ class CrossTabNavigator:
             # Navigate to target tab and set the image
             success = self.navigate_to_tab_with_image(target_tab_id, temp_path, target_tab_name)
             
-            if success:
-                show_success(
-                    "Image Sent Successfully!",
-                    f"Result image sent from {source_tab_name} to {target_tab_name}.\n\n"
-                    f"You are now on the {target_tab_name} tab with your image loaded."
-                )
-            else:
+            if not success:
                 show_error("Navigation Error", f"Failed to navigate to {target_tab_name} tab.")
                 
         except Exception as e:
