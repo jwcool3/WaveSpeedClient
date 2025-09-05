@@ -1,8 +1,54 @@
-# WaveSpeed AI Complete Suite
+# WaveSpeed AI Complete Creative Suite
 
-A comprehensive GUI application for AI-powered image editing, upscaling, and video generation using the WaveSpeed AI APIs.
+A comprehensive GUI application for AI-powered image editing, upscaling, and video generation using the WaveSpeed AI APIs. Features a modern, responsive interface with professional workflow capabilities.
 
-## Features
+## 🆕 Latest Features (2024)
+
+### 💰 **Real-Time Balance Indicator**
+- **Live Balance Display**: Shows your current WaveSpeed AI account balance in the top-right corner
+- **Auto-Refresh**: Updates every 5 minutes with manual refresh option
+- **Visual Status**: Color-coded balance indicator (green for healthy, red for low balance)
+- **Smart Icons**: Dynamic icons based on balance level (💰 full, 🪙 low, ⚠️ very low)
+
+### 📂 **Recent Results Panel**
+- **Visual Gallery**: Thumbnail grid of your last 50 generated results
+- **Smart Filtering**: Filter results by AI model (Nano Banana, SeedEdit, Upscaler, Wan 2.2, SeedDance)
+- **One-Click Reuse**: Click any result to send it to any compatible tab instantly
+- **Cross-Tab Workflow**: Seamlessly chain different AI models together
+- **File Management**: Right-click for "Show in Folder" and "Delete" options
+- **Metadata Tooltips**: Hover for generation details and prompts
+
+### 📤 **Cross-Tab Result Sharing**
+- **Send To Dropdown**: Every result includes a "📤 Send To..." button
+- **Auto-Navigation**: Automatically switches tabs and loads images
+- **Smart Routing**: Only shows compatible destination tabs
+- **Professional Workflow**: Chain Nano Banana → Upscaler → SeedEdit → Wan 2.2
+- **Success Feedback**: Clear confirmation when transfers complete
+
+### 🎛️ **Resizable UI Sections**
+- **Draggable Splitter**: Resize the recent results panel and main content area
+- **Keyboard Shortcuts**: 
+  - `Ctrl + [` - Collapse sidebar
+  - `Ctrl + ]` - Expand sidebar  
+  - `Ctrl + =` - Reset to default
+- **Position Memory**: Remembers your preferred layout between sessions
+- **Smart Constraints**: Prevents panels from becoming too small to use
+
+### 🎨 **Optimized Layouts**
+- **30/70 Split Design**: Efficient space utilization across all tabs
+- **Tabbed Image Display**: "Input Image" and "Edited Result" tabs for better organization
+- **Responsive Design**: Adapts to any window size, both horizontal and vertical
+- **Professional UI**: Clean, modern interface inspired by professional creative software
+
+### 🎬 **Enhanced Video Player**
+- **YouTube-Like Experience**: Large, interactive video player with auto-hide controls
+- **Interactive Progress Bar**: Click to seek, real-time position display
+- **Volume Control**: Adjustable volume slider
+- **Fullscreen Mode**: Immersive video viewing experience
+- **Mouse & Keyboard**: Click to play/pause, spacebar controls, escape to exit fullscreen
+- **File Management**: Browse local videos, recent videos menu, open results folder
+
+## Core Features
 
 ### 🤖 **Auto-Save System**
 - **Automatic Saving**: All AI results are automatically saved to organized folders
@@ -28,68 +74,54 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **Mouse Wheel Support**: Scroll through content with mouse wheel
 - **Resizable Sections**: All UI elements properly resize with window
 
-### Image Editor Tab
+## AI Models & Tabs
+
+### 🍌 **Nano Banana Editor** (formerly Image Editor)
+- **Google's Nano Banana**: State-of-the-art image editing AI
 - **Drag & Drop Support**: Simply drag images from your file explorer into the app
-- **Image Selection**: Browse and select images from your computer with preview
-- **Before/After Comparison**: Side-by-side view of original and edited images
+- **Optimized Layout**: 30/70 split with tabbed image display
+- **Cross-Tab Sharing**: Send results to any other tab with one click
 - **Prompt Management**: Save, reuse, and manage your editing prompts
-- **Persistent Storage**: Prompts are saved between app sessions
 - **Chain Editing**: Use result images as input for the next edit
 - **Format Selection**: Choose output format (PNG, JPG, WebP)
-- **Progress Tracking**: Real-time status updates and progress indication
-- **Result Display**: View processed images directly in the GUI
-- **Image Saving**: Save edited images to your computer in various formats
-- **Full Resolution**: Download and work with full-resolution images
-- **Visual Feedback**: Interactive drop zones with hover and drag effects
-- **Base64 Processing**: Actual image files are sent to the API (no placeholder URLs)
 - **Auto-Save**: Results automatically saved with prompt and timestamp info
 
-### SeedEdit Tab
-- **Precise Modifications**: ByteDance SeedEdit-v3 for accurate image editing
+### ✨ **SeedEdit**
+- **ByteDance SeedEdit-v3**: Precise image modifications with fine control
+- **Optimized Layout**: Professional 30/70 split interface
 - **Guidance Control**: Adjustable guidance scale (0.0-1.0) for editing strength
 - **Seed Control**: Reproducible results with custom seeds
-- **Fast Processing**: Optimized for quick image modifications
+- **Cross-Tab Integration**: Send results to other tabs for complex workflows
 - **Sample Prompts**: Built-in examples for common editing tasks
-- **Prompt Management**: Save, reuse, and manage your SeedEdit prompts
-- **Cross-Tab Integration**: Use results in other tabs for complex workflows
-- **URL-Based Processing**: Handles image uploads for API compatibility
 - **Auto-Save**: Results automatically saved with prompt and settings info
 
-### Image Upscaler Tab
-- **AI Upscaling**: Enhance image resolution using WaveSpeed AI upscaler
+### 🔍 **Image Upscaler**
+- **WaveSpeed AI Upscaler**: Enhance image resolution using advanced AI
+- **Optimized Layout**: Streamlined interface for upscaling workflow
 - **Multiple Resolutions**: Choose from 2K, 4K, or 8K target resolutions
-- **Creativity Control**: Adjust creativity level (-2 to +2) for upscaling enhancement
+- **Creativity Control**: Adjust creativity level (-2 to +2) for enhancement
 - **Format Options**: Output in PNG, JPEG, or WebP formats
-- **Cross-Tab Integration**: Use upscaled images directly in the editor tab
-- **Independent Processing**: Separate interface for dedicated upscaling tasks
-- **Same UI Experience**: Consistent drag & drop and progress tracking
+- **Cross-Tab Integration**: Send upscaled images directly to other tabs
 - **Auto-Save**: Results automatically saved with resolution and creativity settings
 
-### Image to Video Tab (WAN-2.2)
-- **AI Video Generation**: Convert static images into dynamic videos
-- **Embedded Video Player**: Watch videos directly in the application
-- **Playback Controls**: Play, pause, stop, and seek functionality
+### 🎬 **Wan 2.2** (formerly Image to Video)
+- **WaveSpeed WAN-2.2**: Convert static images into dynamic videos
+- **Enhanced Video Player**: Large, YouTube-like player with full controls
+- **Optimized Layout**: 30/70 split with large video display area
 - **Customizable Duration**: Generate 5 or 8-second videos
 - **Prompt Control**: Detailed prompts for video content and movement
 - **Negative Prompts**: Specify what to avoid in video generation
 - **Seed Control**: Reproducible results with custom seeds
-- **Last Frame Control**: Optional last frame specification for video ending
-- **Download Integration**: Save videos directly to your computer
-- **Browser Fallback**: Open videos in browser when needed
-- **URL Management**: Copy video URLs to clipboard for easy sharing
 - **Auto-Save**: Videos automatically saved with duration and seed info
 
-### SeedDance Tab (Pro Video)
-- **Professional Video Generation**: ByteDance SeedDance-v1-Pro for high-quality videos
-- **Embedded Video Player**: Watch videos directly in the application
-- **Playback Controls**: Play, pause, stop, and seek functionality
+### 🕺 **SeedDance**
+- **ByteDance SeedDance-v1-Pro**: Professional-grade video generation
+- **Enhanced Video Player**: Full-featured playback with interactive controls
+- **Optimized Layout**: Efficient space usage with large video display
 - **Extended Duration**: Generate videos from 5 to 10 seconds
 - **Camera Control**: Fixed or dynamic camera positioning
 - **Optional Prompts**: Text prompts for enhanced video generation
-- **Seed Control**: Reproducible results with custom seeds
 - **High Quality**: Professional-grade video output
-- **Fast Processing**: Optimized for quick video generation
-- **Download Integration**: Save videos directly to your computer
 - **Auto-Save**: Videos automatically saved with duration, camera, and seed settings
 
 ## Setup
@@ -99,17 +131,18 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
    pip install -r requirements.txt
    ```
 
-2. **Install Video Player (Optional but Recommended)**:
+2. **Install Video Player (Recommended)**:
    ```bash
-   # For embedded video playback
-   python install_video_player.py
+   # For enhanced video playback experience
+   python scripts/install_video_player.py
    
    # Or manually install
+   pip install av==10.0.0
    pip install tkvideoplayer==2.3
    ```
 
 3. **Set up API Key**:
-   - Copy `env_example.txt` to `.env`
+   - Copy `docs/env_example.txt` to `.env` in the root directory
    - Add your WaveSpeed API key to the `.env` file:
      ```
      WAVESPEED_API_KEY=your_actual_api_key_here
@@ -117,120 +150,58 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 
 4. **Run the Application**:
    ```bash
-   # New modular version (recommended)
-   python gui_app_new.py
-   
-   # Or run the main app directly
-   python main_app.py
-   
-   # Original version (still available)
-   python gui_app.py
+   # Main application
+   python main.py
    ```
 
 ## Usage
 
-### Image Editor Tab
+### Professional Workflow Examples
 
-1. **Select an Image**: 
-   - **Drag & Drop**: Simply drag an image file from your file explorer into the drop zone
-   - **Browse**: Click "Browse Image" to select an image file using the file dialog
-2. **Preview**: View your selected image in the "Original Image" panel
-3. **Enter/Select Prompt**: 
-   - Type your editing instructions in the current prompt area
-   - **OR** select a saved prompt from the "Saved Prompts" list
-   - Use "Save Prompt" to save frequently used prompts
-4. **Choose Format**: Select your preferred output format (PNG, JPG, WebP)
-5. **Process**: Click "Process Image" to start the editing process
-6. **View Results**: Watch the progress and see the edited image appear in the "Edited Result" panel
-7. **Save or Continue**: 
-   - Use "Save Result Image" to download the edited image
-   - **OR** use "Use as Next Input" to chain edits together
+#### **🔄 Cross-Tab Creative Pipeline**
+1. **Nano Banana Editor**: Apply creative edits to your image
+2. **📤 Send To Upscaler**: Click "Send To..." → "🔍 Image Upscaler"  
+3. **Upscale**: Enhance to 4K resolution
+4. **📤 Send To SeedEdit**: Fine-tune specific details
+5. **📤 Send To Wan 2.2**: Create stunning video from final image
 
-### SeedEdit Tab
+#### **🎨 Advanced Editing Workflow**
+1. **Recent Results Panel**: Browse your previous generations
+2. **One-Click Reuse**: Click any result to load in current tab
+3. **Iterative Editing**: Apply multiple AI models in sequence
+4. **Quality Enhancement**: Upscale → Edit → Upscale for maximum quality
 
-1. **Select an Image**: 
-   - Switch to the "SeedEdit" tab
-   - **Drag & Drop**: Drag an image file into the drop zone
-   - **Browse**: Click "Browse Image" to select an image file
-2. **Configure Edit Settings**:
-   - **Edit Instruction**: Describe the specific changes you want to make
-   - **Save/Use Prompts**: Save frequently used prompts or select from saved ones
-   - **Guidance Scale**: Adjust from 0.1 (subtle) to 1.0 (strong) editing
-   - **Seed**: Use -1 for random or specify a number for reproducible results
-3. **Process**: Click "Apply SeedEdit" to start the editing process
-4. **View Results**: See the precisely edited image in the "SeedEdit Result" panel
-5. **Save or Transfer**: 
-   - Use "Save Result Image" to download the edited image
-   - **OR** use "Use as Editor Input" to transfer to other tabs for further processing
+### Basic Usage
 
-### Image Upscaler Tab
+#### **Nano Banana Editor Tab**
+1. **Select Image**: Drag & drop or click "Browse Image"
+2. **Enter Prompt**: Describe your desired edits
+3. **Choose Settings**: Select output format and other options
+4. **Generate**: Click "🍌 Edit with Nano Banana"
+5. **View Results**: See before/after in tabbed display
+6. **Share Results**: Use "📤 Send To..." to continue in other tabs
 
-1. **Select an Image**: 
-   - Switch to the "Image Upscaler" tab
-   - **Drag & Drop**: Drag an image file into the upscaler drop zone
-   - **Browse**: Click "Browse Image" to select an image file
-2. **Configure Settings**:
-   - **Target Resolution**: Choose from 2K, 4K, or 8K
-   - **Creativity Level**: Adjust from -2 (conservative) to +2 (creative)
-   - **Output Format**: Select PNG, JPEG, or WebP
-3. **Process**: Click "Upscale Image" to start the upscaling process
-4. **View Results**: See the upscaled image in the "Upscaled Result" panel
-5. **Save or Transfer**: 
-   - Use "Save Result Image" to download the upscaled image
-   - **OR** use "Use as Editor Input" to transfer to the editor tab for further processing
+#### **Recent Results Panel**
+1. **Browse Results**: See thumbnails of your last 50 generations
+2. **Filter by Model**: Use dropdown to show specific AI model results
+3. **Quick Reuse**: Click any thumbnail to open action menu
+4. **Send to Tab**: Choose destination tab from "📤 Send To" menu
+5. **File Management**: Right-click for folder access and deletion
 
-### Image to Video Tab
+#### **Resizable Layout**
+1. **Drag Splitter**: Grab the bar between panels and drag to resize
+2. **Keyboard Shortcuts**: Use Ctrl+[ to collapse, Ctrl+] to expand
+3. **Reset Layout**: Press Ctrl+= to return to default sizes
+4. **Auto-Save**: Your layout preferences are remembered
 
-1. **Select an Image**: 
-   - Switch to the "Image to Video" tab
-   - **Drag & Drop**: Drag an image file into the drop zone
-   - **Browse**: Click "Browse Image" to select an image file
-2. **Configure Video Settings**:
-   - **Video Prompt**: Describe the desired video content and movement
-   - **Negative Prompt**: Specify what to avoid (optional)
-   - **Duration**: Choose 5 or 8 seconds
-   - **Seed**: Use -1 for random or specify a number for reproducible results
-   - **Last Image**: Optional URL for video ending frame
-3. **Generate**: Click "Generate Video" to start the video creation process
-4. **View Results**: 
-   - Click "Open Video in Browser" to view and download the video
-   - Use "Copy Video URL" to share the video link
+### Enhanced Video Experience
 
-### SeedDance Tab
-
-1. **Select an Image**: 
-   - Switch to the "SeedDance" tab
-   - **Drag & Drop**: Drag an image file into the drop zone
-   - **Browse**: Click "Browse Image" to select an image file
-2. **Configure Video Settings**:
-   - **Video Prompt**: Optional text prompt for enhanced video generation
-   - **Duration**: Choose from 5 to 10 seconds
-   - **Camera Position**: Fixed (stable) or dynamic (moving) camera
-   - **Seed**: Use -1 for random or specify a number for reproducible results
-3. **Generate**: Click "Generate SeedDance Video" to start the video creation process
-4. **View Results**: 
-   - Click "Open Video in Browser" to view and download the video
-   - Use "Copy Video URL" to share the video link
-
-### New Workflow Features
-
-**Prompt Management:**
-- **Save Prompts**: Click "Save Prompt" to store frequently used prompts
-- **Reuse Prompts**: Select from saved prompts and click "Use Selected"
-- **Delete Prompts**: Remove unwanted prompts from your collection
-- **Persistent Storage**: All prompts are saved in `saved_prompts.json`
-
-**Chain Editing:**
-- After getting a result, click "Use as Next Input" 
-- The result becomes your new input image
-- Apply additional edits iteratively
-- Perfect for multi-step transformations
-
-### Drag & Drop Tips
-- The drop zone will highlight when you hover over it
-- You can drag images directly from Windows Explorer, Mac Finder, or any file manager
-- Supported formats: PNG, JPG, JPEG, GIF, BMP, WebP
-- If drag & drop doesn't work, use the "Browse Image" button as a fallback
+#### **YouTube-Like Video Player**
+1. **Large Display**: Videos play in spacious, responsive player
+2. **Interactive Controls**: Click progress bar to seek, adjust volume
+3. **Auto-Hide Interface**: Controls fade when not in use
+4. **Fullscreen Mode**: Click fullscreen button for immersive viewing
+5. **File Management**: Access recent videos and results folder directly
 
 ## Requirements
 
@@ -240,96 +211,19 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - python-dotenv
 - Pillow (PIL)
 - tkinterdnd2 (for drag & drop functionality)
-- tkvideoplayer (optional, for embedded video playback)
-
-## Video Player Features
-
-### 🎬 **Embedded Video Playback**
-- **Direct Viewing**: Watch generated videos directly in the application
-- **No External Dependencies**: Videos play without needing external media players
-- **Automatic Download**: Videos are automatically downloaded for local playback
-- **Seamless Integration**: Video player is integrated into the existing UI
-
-### 🎮 **Playback Controls**
-- **Play/Pause/Stop**: Standard video playback controls
-- **Progress Tracking**: Visual feedback during video loading
-- **Responsive UI**: Controls adapt to video status
-- **Error Handling**: Graceful fallback if video player is unavailable
-
-### 💾 **Download & Save Options**
-- **Direct Download**: Save videos to your chosen location
-- **Browser Fallback**: Open videos in browser when needed
-- **URL Copying**: Copy video URLs to clipboard for sharing
-- **Auto-Save Integration**: Videos automatically saved to organized folders
-
-### 🔧 **Installation Options**
-- **Easy Setup**: Run `python install_video_player.py` for guided installation
-- **Manual Install**: `pip install tkvideoplayer==2.3`
-- **Graceful Fallback**: Application works without video player (browser-only mode)
-- **No Breaking Changes**: Existing functionality remains unchanged
-
-## Enhanced Image Display
-
-### 🖼️ **Large Result Previews**
-- **Bigger Display**: Result images shown at 600x450+ pixels (vs previous 350x250)
-- **Better Detail**: See fine details and quality of AI-generated results
-- **Aspect Ratio**: Maintains original image proportions
-- **Quality Preview**: High-quality thumbnails for accurate representation
-
-### 🔍 **Full-Screen Image Viewer**
-- **Double-Click Expansion**: Double-click any result image to view full-screen
-- **Scrollable Zoom**: Navigate large images with mouse wheel scrolling
-- **Original Resolution**: View images at their actual generated resolution
-- **Keyboard Shortcuts**: Press ESC, Enter, or Space to close viewer
-- **Save Integration**: Direct save option from full-screen viewer
-
-### 🎯 **Optimized Input Display**
-- **Compact Input**: Smaller input image preview (150x120) to save screen space
-- **Optional Preview**: Can be disabled for video tabs to maximize workspace
-- **Drag & Drop**: Still supports drag & drop on compact input preview
-- **Smart Layout**: More space allocated to result display
-
-### 🖱️ **Interactive Features**
-- **Right-Click Menu**: Context menu with "View Full Size" and "Save Image" options
-- **Visual Feedback**: Hover effects and cursor changes indicate interactive elements
-- **Status Updates**: Brief success messages when saving images
-- **Error Handling**: Clear error messages with fallback display options
+- av==10.0.0 (for video playback)
+- tkvideoplayer==2.3 (for enhanced video player)
 
 ## API Integration
 
 This application integrates with the WaveSpeed AI API endpoints:
-- **Image editing**: `https://api.wavespeed.ai/api/v3/google/nano-banana/edit`
+- **Balance**: `https://api.wavespeed.ai/api/v3/balance`
+- **Nano Banana editing**: `https://api.wavespeed.ai/api/v3/google/nano-banana/edit`
 - **SeedEdit**: `https://api.wavespeed.ai/api/v3/bytedance/seededit-v3`
 - **Image upscaling**: `https://api.wavespeed.ai/api/v3/wavespeed-ai/image-upscaler`
-- **Image to video (WAN-2.2)**: `https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/i2v-480p`
+- **Wan 2.2 video**: `https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/i2v-480p`
 - **SeedDance video**: `https://api.wavespeed.ai/api/v3/bytedance/seedance-v1-pro-i2v-480p`
 - **Result polling**: `https://api.wavespeed.ai/api/v3/predictions/{request_id}/result`
-
-The application handles:
-- Asynchronous processing with polling
-- Error handling and user feedback
-- Progress indication during processing
-- Automatic result image downloading and display
-- Full-resolution image saving with format conversion
-- Side-by-side before/after comparison
-
-## Enhanced Features
-
-- **Large Result Display**: Bigger image previews (600x450+) for better detail viewing
-- **Expandable Image Viewer**: Double-click images to view full-screen with scrollable zoom
-- **Context Menu**: Right-click images for quick save and view options
-- **Optimized Input Preview**: Smaller, optional input image preview to save space
-- **Drag & Drop Interface**: Intuitive file selection with visual feedback
-- **Visual Comparison**: See your original and edited images side by side
-- **Automatic Download**: Result images are automatically downloaded and displayed
-- **High Quality**: Full-resolution images are preserved for saving
-- **Multiple Formats**: Save results in PNG, JPEG, or WebP formats
-- **Interactive UI**: Hover effects, drag indicators, and responsive design
-- **Cross-Platform**: Works on Windows, Mac, and Linux with drag & drop support
-- **User-Friendly**: No need to manually copy URLs - everything is handled in the GUI
-- **Workflow Optimization**: Chain edits together for complex transformations
-- **Prompt Library**: Build and manage your collection of editing prompts
-- **Session Persistence**: Your prompts are automatically saved and restored
 
 ## Auto-Save File Organization
 
@@ -338,10 +232,10 @@ All AI results are automatically saved to organized folders:
 
 ```
 WaveSpeed_Results/
-├── Image_Editor/           # Image Editor results
+├── Nano_Banana_Editor/    # Nano Banana Editor results
 ├── SeedEdit/              # SeedEdit results  
 ├── Image_Upscaler/        # Upscaler results
-├── Image_to_Video/        # Video generation results
+├── Wan_2.2/               # Wan 2.2 video results
 └── SeedDance/             # SeedDance video results
 ```
 
@@ -362,119 +256,85 @@ Each result includes a JSON metadata file with:
 - All settings and parameters
 - Original result URL
 
-### 🎯 **Easy Access**
-- **Menu**: File → "Open Results Folder" to browse all results
-- **Auto-Creation**: Folders created automatically when first result is saved
-- **Cross-Platform**: Works on Windows, macOS, and Linux
+## Keyboard Shortcuts
 
-## Privacy & Security Settings
+### Global Shortcuts
+- `Ctrl + [` - Collapse recent results sidebar
+- `Ctrl + ]` - Expand recent results sidebar  
+- `Ctrl + =` - Reset splitter to default position
 
-### 🔒 **Privacy Modes**
+### Video Player Shortcuts
+- `Space` - Play/pause video
+- `Escape` - Exit fullscreen mode
+- `F` - Toggle fullscreen
+- `↑/↓` - Adjust volume
+- `←/→` - Seek backward/forward
 
-The application offers three privacy levels to protect your images:
-
-#### **🔒 HIGH PRIVACY (Recommended)**
-- **How it works**: Uses base64 data URLs - your images are converted to text data
-- **Privacy**: Your images **never leave your computer** or get uploaded anywhere
-- **Compatibility**: May not work with all APIs (some require external URLs)
-- **Best for**: Maximum privacy when APIs support base64 data
-
-#### **⚠️ MEDIUM PRIVACY (Balanced)**
-- **How it works**: Temporary hosting with automatic 1-hour deletion
-- **Privacy**: Images uploaded temporarily but automatically deleted
-- **Compatibility**: Works with all APIs that require public URLs
-- **Best for**: Good balance of privacy and functionality
-
-#### **🔓 DEMO MODE (Testing)**
-- **How it works**: Uses built-in sample images for demonstration
-- **Privacy**: Your images are **never uploaded** - only sample images processed
-- **Compatibility**: Works with all APIs
-- **Best for**: Testing the application without uploading personal images
-
-### ⚙️ **Changing Privacy Settings**
-1. Go to **File → Privacy Settings** in the menu
-2. Select your preferred privacy level
-3. Click **Save Settings**
-4. Your choice applies to all future image processing
-
-## Files Created
+## Configuration Files
 
 The application creates these files in your working directory:
-- `saved_prompts.json` - Stores your saved Image Editor prompts (automatically created)
-- `seededit_prompts.json` - Stores your saved SeedEdit prompts (automatically created)
-- `temp_result_image.png` - Temporary file when using "Use as Next Input" (auto-managed)
-- `temp_upscaled_image.png` - Temporary file when transferring upscaled images to editor (auto-managed)
+- `ui_layout.conf` - Stores your preferred UI layout and splitter positions
+- `data/saved_prompts.json` - Stores your saved Nano Banana Editor prompts
+- `data/seededit_prompts.json` - Stores your saved SeedEdit prompts
+- `WaveSpeed_Results/` - Auto-save directory for all generated content
 
-## New Modular Architecture
+## Advanced Features
 
-The application has been restructured into multiple files for better organization:
+### 🎯 **Professional Workflow Tools**
+- **Result History**: Visual browser of all your AI generations
+- **Cross-Model Chaining**: Seamlessly combine different AI models
+- **Layout Customization**: Resize panels to match your workflow
+- **Batch Processing**: Process multiple images through different models
+- **Quality Pipeline**: Upscale → Edit → Refine → Animate workflows
 
-### Core Files
-- `main_app.py` - Main application and window management
-- `api_client.py` - All WaveSpeed AI API interactions
-- `utils.py` - Utility functions and common operations
-- `ui_components.py` - Reusable UI components and base classes
+### 🔧 **Developer-Friendly**
+- **Modular Architecture**: Clean separation of concerns across files
+- **Extensible Design**: Easy to add new AI models and features
+- **Error Handling**: Comprehensive error handling with user feedback
+- **Logging**: Detailed logging for debugging and monitoring
+- **Cross-Platform**: Works on Windows, macOS, and Linux
 
-### Tab Modules
-- `image_editor_tab.py` - Image editing functionality
-- `seededit_tab.py` - SeedEdit precise image modifications
-- `image_upscaler_tab.py` - Image upscaling functionality  
-- `image_to_video_tab.py` - Image-to-video generation (WAN-2.2)
-- `seeddance_tab.py` - SeedDance professional video generation
+### 🎨 **UI/UX Excellence**
+- **Modern Design**: Professional interface with intuitive controls
+- **Responsive Layout**: Adapts to any screen size or window configuration
+- **Visual Feedback**: Clear progress indicators and status updates
+- **Accessibility**: Keyboard shortcuts and clear visual hierarchy
+- **Performance**: Optimized for smooth operation with large images and videos
 
-### Launchers
-- `gui_app_new.py` - New modular version launcher
-- `gui_app.py` - Original single-file version (still functional)
+## Troubleshooting
 
-## Workflow Examples
+### Video Player Issues
+If you encounter video playback problems:
+```bash
+# Install specific compatible versions
+pip install av==10.0.0
+pip install tkvideoplayer==2.3
+```
 
-### Basic Upscaling
-1. Go to "Image Upscaler" tab
-2. Select an image (drag & drop or browse)
-3. Choose target resolution (2K, 4K, or 8K)
-4. Set creativity level (0 for balanced results)
-5. Click "Upscale Image"
-6. Save the result
+### Balance API Issues
+If the balance indicator shows errors:
+- Check your API key in the `.env` file
+- Verify internet connection
+- The application will continue to work without balance display
 
-### Upscale + Edit Workflow
-1. **Upscale**: Use the upscaler tab to enhance resolution
-2. **Transfer**: Click "Use as Editor Input" to move to editor tab
-3. **Edit**: Apply prompt-based edits to the upscaled image
-4. **Chain**: Continue editing or save the final result
+### Layout Issues
+If the UI layout appears broken:
+- Delete `ui_layout.conf` to reset to defaults
+- Restart the application
+- Use keyboard shortcuts to reset splitter positions
 
-### Edit + Upscale Workflow
-1. **Edit**: Use the editor tab to apply creative edits
-2. **Save**: Save the edited image to your computer
-3. **Upscale**: Load the edited image in the upscaler tab
-4. **Enhance**: Upscale to higher resolution
+## Contributing
 
-### Image to Video Workflow
-1. **Prepare**: Start with a high-quality image (optionally upscaled)
-2. **Generate**: Use the video tab to create animated content
-3. **Customize**: Adjust duration, prompts, and creative parameters
-4. **Share**: Download or share the generated video
+This application is built with a modular architecture that makes it easy to:
+- Add new AI model integrations
+- Enhance existing UI components
+- Implement additional workflow features
+- Improve cross-platform compatibility
 
-### Complete Creative Pipeline
-1. **Edit**: Enhance and modify your image with AI prompts
-2. **Upscale**: Increase resolution for better video quality
-3. **Animate**: Convert the final image into a dynamic video
-4. **Export**: Save or share your complete creation
+## License
 
-## Important Notes
+This project integrates with WaveSpeed AI services. Please ensure you have appropriate API access and follow WaveSpeed AI's terms of service.
 
-### Image Editor
-The editor tab properly sends your actual image files to the API using base64 encoding, so the drag & drop functionality will process the exact image you select!
+---
 
-### Image Upscaler, Video Generator, SeedEdit & SeedDance
-The upscaler, video generator, SeedEdit, and SeedDance APIs require images to be provided as public URLs. Currently, these tabs use sample URLs for demonstration purposes. For production use, you'll need to implement image upload functionality to a service like:
-- Imgur API
-- Cloudinary
-- AWS S3
-- Your own image hosting service
-
-The `upload_image_for_upscaler()`, `upload_image_for_video()`, `upload_image_for_seededit()`, and `upload_image_for_seeddance()` methods contain placeholder logic that you can replace with your preferred image hosting solution.
-
-**Important**: When you drag & drop an image in these tabs, the application will show a warning dialog explaining that it's using a sample image for demonstration, while your actual image path is noted for future implementation.
-
-### Video Generation
-The video generator creates MP4 files that can be viewed in any modern web browser. Videos are delivered as download URLs and can be shared or embedded as needed.
+**WaveSpeed AI Complete Creative Suite** - Transform your creative workflow with professional AI-powered tools and an intuitive, customizable interface.
