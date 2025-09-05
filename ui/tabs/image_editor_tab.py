@@ -32,7 +32,7 @@ class ImageEditorTab(BaseTab):
         
         # For optimized layout, bypass the scrollable canvas and use the main container directly
         # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedImageLayout(self.container, "Image Editor")
+        self.optimized_layout = OptimizedImageLayout(self.container, "Nano Banana Editor")
         
         # Setup the layout with image editing specific settings
         self.setup_image_editor_settings()
@@ -41,7 +41,7 @@ class ImageEditorTab(BaseTab):
         self.setup_compact_prompt_section()
         
         # Configure main action button
-        self.optimized_layout.set_main_action("✨ Edit Image", self.process_task)
+        self.optimized_layout.set_main_action("🍌 Edit with Nano Banana", self.process_task)
         
         # Connect image selector
         self.optimized_layout.set_image_selector_command(self.browse_image)
@@ -67,7 +67,7 @@ class ImageEditorTab(BaseTab):
         from tkinter import filedialog
         
         file_path = filedialog.askopenfilename(
-            title="Select Image to Edit",
+            title="Select Image for Nano Banana Editor",
             filetypes=[
                 ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
                 ("PNG files", "*.png"),
@@ -94,7 +94,7 @@ class ImageEditorTab(BaseTab):
     def setup_compact_prompt_section(self):
         """Setup compact prompt section"""
         # Add prompt section in the spacer area
-        prompt_frame = ttk.LabelFrame(self.optimized_layout.settings_frame.master, text="📝 Edit Prompt", padding="8")
+        prompt_frame = ttk.LabelFrame(self.optimized_layout.settings_frame.master, text="🍌 Nano Banana Prompt", padding="8")
         prompt_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
         prompt_frame.columnconfigure(0, weight=1)
         prompt_frame.rowconfigure(1, weight=1)  # Make prompt text area expandable
@@ -130,7 +130,7 @@ class ImageEditorTab(BaseTab):
         self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         
         # Status label
-        self.status_label = ttk.Label(progress_frame, text="Ready to edit images", font=('Arial', 9))
+        self.status_label = ttk.Label(progress_frame, text="Ready for Nano Banana editing", font=('Arial', 9))
         self.status_label.grid(row=1, column=0, sticky=tk.W)
     
     def load_sample_prompt(self):
@@ -396,7 +396,7 @@ class ImageEditorTab(BaseTab):
         self.update_status(f"❌ Error: {error_message}")
         
         # Show error dialog
-        show_error("Image Editing Error", error_message)
+        show_error("Nano Banana Editor Error", error_message)
     
     def show_progress(self, message):
         """Show progress"""

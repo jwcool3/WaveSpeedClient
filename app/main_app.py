@@ -154,9 +154,9 @@ class WaveSpeedAIApp:
     
     def setup_tabs(self):
         """Setup all application tabs"""
-        # Image Editor Tab
+        # Nano Banana Editor Tab
         self.editor_tab = ImageEditorTab(self.notebook, self.api_client)
-        self.notebook.add(self.editor_tab.container, text="🎨 Image Editor")
+        self.notebook.add(self.editor_tab.container, text="🍌 Nano Banana Editor")
         
         # SeedEdit Tab
         self.seededit_tab = SeedEditTab(self.notebook, self.api_client, self)
@@ -166,9 +166,9 @@ class WaveSpeedAIApp:
         self.upscaler_tab = ImageUpscalerTab(self.notebook, self.api_client, self)
         self.notebook.add(self.upscaler_tab.container, text="🔍 Image Upscaler")
         
-        # Image to Video Tab
+        # Wan 2.2 Tab
         self.video_tab = ImageToVideoTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.video_tab.container, text="🎬 Image to Video")
+        self.notebook.add(self.video_tab.container, text="🎬 Wan 2.2")
         
         # SeedDance Tab
         self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)

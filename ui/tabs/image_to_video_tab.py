@@ -40,7 +40,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         
         # For optimized layout, bypass the scrollable canvas and use the main container directly
         # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedVideoLayout(self.container, "Image to Video")
+        self.optimized_layout = OptimizedVideoLayout(self.container, "Wan 2.2")
         
         # Setup the layout with video-specific settings
         self.setup_video_settings()
@@ -49,7 +49,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.setup_compact_prompt_section()
         
         # Configure main action button
-        self.optimized_layout.set_main_action("🎬 Generate Video", self.process_task)
+        self.optimized_layout.set_main_action("🎬 Generate with Wan 2.2", self.process_task)
         
         # Connect sample button to load sample prompt
         self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
@@ -103,7 +103,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
     def setup_compact_prompt_section(self):
         """Setup compact prompt section"""
         # Add prompt section below settings (in the spacer area)
-        prompt_frame = ttk.LabelFrame(self.optimized_layout.settings_frame.master, text="📝 Prompts", padding="8")
+        prompt_frame = ttk.LabelFrame(self.optimized_layout.settings_frame.master, text="🎬 Wan 2.2 Prompts", padding="8")
         prompt_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N), pady=(10, 0))
         prompt_frame.columnconfigure(0, weight=1)
         
@@ -129,7 +129,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         
         # Status label
-        self.status_label = ttk.Label(progress_frame, text="Ready to generate video", font=('Arial', 8))
+        self.status_label = ttk.Label(progress_frame, text="Ready for Wan 2.2 generation", font=('Arial', 8))
         self.status_label.grid(row=1, column=0, sticky=tk.W)
     
     def setup_video_result_section(self):
@@ -450,7 +450,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.update_status(f"❌ Error: {error_message}")
         
         # Show error dialog
-        show_error("Video Generation Error", error_message)
+        show_error("Wan 2.2 Generation Error", error_message)
     
     def open_video_in_browser(self):
         """Open video in browser"""

@@ -44,10 +44,10 @@ class Config:
     AUTO_SAVE_ENABLED = True
     AUTO_SAVE_FOLDER = "WaveSpeed_Results"
     AUTO_SAVE_SUBFOLDERS = {
-        'image_editor': 'Image_Editor',
+        'image_editor': 'Nano_Banana_Editor',
         'seededit': 'SeedEdit',
         'upscaler': 'Image_Upscaler',
-        'video': 'Image_to_Video',
+        'video': 'Wan_2.2',
         'seeddance': 'SeedDance'
     }
     
