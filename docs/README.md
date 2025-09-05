@@ -2,7 +2,35 @@
 
 A comprehensive GUI application for AI-powered image editing, upscaling, and video generation using the WaveSpeed AI APIs. Features a modern, responsive interface with professional workflow capabilities.
 
-## 🆕 Latest Features (2024)
+**Created by Jackson Weed** - Professional AI workflow application with advanced UI/UX design.
+
+## 🆕 Latest Features (2025)
+
+### 🎯 **Enhanced User Experience**
+- **No Popup Interruptions**: Removed all success dialog boxes for streamlined workflow
+- **Silent Operations**: Privacy uploads, cross-tab transfers, and file saves happen seamlessly
+- **Status Bar Updates**: Success messages appear in status bars instead of blocking popups
+- **Professional Feel**: Clean, uninterrupted workflow like modern creative software
+
+### 🔧 **Improved Stability & Performance**
+- **Fixed Cross-Tab Sharing**: Resolved temporary file creation errors when transferring images between tabs
+- **Enhanced File Handling**: Proper image file management prevents Windows file locking issues
+- **API Compatibility**: Fixed upscaler resolution format to match API requirements (2k/4k/8k)
+- **Error Recovery**: Better error handling with graceful fallbacks
+
+### 📝 **Enhanced Prompt Management**
+- **Video Tab Prompts**: Added prompt saving/loading for Wan 2.2 and SeedDance tabs
+- **Organized Storage**: Separate prompt files for each AI model type
+- **Quick Access**: Save, load, and delete prompts directly from the interface
+- **Workflow Efficiency**: Reuse successful prompts across sessions
+
+### 🎨 **Drag & Drop Enhancements**
+- **Universal Drop Zones**: Drop images on browse buttons, preview areas, or main displays
+- **Visual Feedback**: Button highlighting and preview changes during drag operations
+- **Improved Recognition**: Enhanced drag and drop parsing for better file detection
+- **Multiple Formats**: Support for all major image formats with validation
+
+## 🆕 Previous Major Features (2024)
 
 ### 💰 **Real-Time Balance Indicator**
 - **Live Balance Display**: Shows your current WaveSpeed AI account balance in the top-right corner
@@ -98,11 +126,12 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 ### 🔍 **Image Upscaler**
 - **WaveSpeed AI Upscaler**: Enhance image resolution using advanced AI
 - **Optimized Layout**: Streamlined interface for upscaling workflow
-- **Multiple Resolutions**: Choose from 2K, 4K, or 8K target resolutions
-- **Creativity Control**: Adjust creativity level (-2 to +2) for enhancement
+- **Multiple Resolutions**: Choose from 2k, 4k, or 8k target resolutions (API compatible)
+- **Creativity Control**: Adjust creativity level (-2 to +2) for enhancement style
 - **Format Options**: Output in PNG, JPEG, or WebP formats
 - **Cross-Tab Integration**: Send upscaled images directly to other tabs
 - **Auto-Save**: Results automatically saved with resolution and creativity settings
+- **Fixed API Integration**: Resolved resolution format issues for reliable upscaling
 
 ### 🎬 **Wan 2.2** (formerly Image to Video)
 - **WaveSpeed WAN-2.2**: Convert static images into dynamic videos
@@ -160,10 +189,11 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 
 #### **🔄 Cross-Tab Creative Pipeline**
 1. **Nano Banana Editor**: Apply creative edits to your image
-2. **📤 Send To Upscaler**: Click "Send To..." → "🔍 Image Upscaler"  
-3. **Upscale**: Enhance to 4K resolution
-4. **📤 Send To SeedEdit**: Fine-tune specific details
+2. **📤 Send To Upscaler**: Click "Send To..." → "🔍 Image Upscaler" (seamless transfer)
+3. **Upscale**: Enhance to 4k resolution with no popup interruptions
+4. **📤 Send To SeedEdit**: Fine-tune specific details with automatic tab switching
 5. **📤 Send To Wan 2.2**: Create stunning video from final image
+6. **Save & Reuse**: All results automatically saved and available in Recent Results panel
 
 #### **🎨 Advanced Editing Workflow**
 1. **Recent Results Panel**: Browse your previous generations
@@ -334,6 +364,20 @@ This application is built with a modular architecture that makes it easy to:
 ## License
 
 This project integrates with WaveSpeed AI services. Please ensure you have appropriate API access and follow WaveSpeed AI's terms of service.
+
+---
+
+## Credits
+
+**Created by Jackson Weed**
+
+This application represents a comprehensive approach to AI-powered creative workflows, combining multiple cutting-edge AI models with a professional, user-friendly interface. The design emphasizes seamless workflows, minimal interruptions, and maximum creative potential.
+
+### Key Contributions:
+- **Advanced UI/UX Design**: Responsive layouts, cross-tab workflows, and professional interface
+- **Seamless Integration**: Multiple AI model integration with unified workflow
+- **Performance Optimization**: Enhanced file handling, error recovery, and stability improvements
+- **User Experience**: Eliminated popup interruptions, added drag & drop enhancements, and streamlined operations
 
 ---
 

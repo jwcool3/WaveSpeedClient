@@ -369,22 +369,35 @@ class WaveSpeedAIApp:
     
     def show_about(self):
         """Show about dialog"""
-        about_text = """WaveSpeed AI GUI Application
+        about_text = """WaveSpeed AI Complete Creative Suite
         
-Version: 2.2
+Version: 2.5
+Created by: Jackson Weed
         
-Features:
-• Image Editing with AI prompts
-• SeedEdit - Precise image modifications
-• Image Upscaling (2K, 4K, 8K)
-• Image to Video Generation (WAN-2.2)
-• SeedDance - Pro video generation
-• Drag & Drop Support
-• Cross-tab Workflows
+🆕 Latest Features:
+• Enhanced User Experience (No popup interruptions)
+• Improved Stability & Performance 
+• Enhanced Prompt Management for all tabs
+• Universal Drag & Drop support
+• Fixed Cross-Tab Sharing & File Handling
+
+🤖 AI Models:
+• 🍌 Nano Banana Editor - Advanced image editing
+• ✨ SeedEdit - Precise image modifications  
+• 🔍 Image Upscaler - 2k/4k/8k resolution enhancement
+• 🎬 Wan 2.2 - Image to video generation
+• 🕺 SeedDance - Professional video generation
+
+🎯 Professional Features:
+• Real-time Balance Indicator
+• Recent Results Panel with visual gallery
+• Cross-tab Result Sharing & Workflows
+• Resizable UI Sections with keyboard shortcuts
+• Enhanced Video Player (YouTube-like experience)
+• Auto-save System with organized folders
 
 Powered by WaveSpeed AI APIs
-        
-Created with Python and tkinter"""
+Built with Python, tkinter, and modern UI/UX principles"""
         
         about_window = tk.Toplevel(self.root)
         about_window.title("About WaveSpeed AI")
