@@ -17,10 +17,11 @@ from core.auto_save import auto_save_manager
 class ImageEditorTab(BaseTab):
     """Image Editor Tab"""
     
-    def __init__(self, parent_frame, api_client):
+    def __init__(self, parent_frame, api_client, main_app=None):
         self.prompts_file = "data/saved_prompts.json"
         self.saved_prompts = load_json_file(self.prompts_file, [])
         self.result_image = None
+        self.main_app = main_app  # Reference to main app for cross-tab operations
         
         super().__init__(parent_frame, api_client)
     
@@ -58,6 +59,9 @@ class ImageEditorTab(BaseTab):
         
         # Connect drag and drop handling
         self.optimized_layout.set_parent_tab(self)
+        
+        # Setup cross-tab sharing
+        self.optimized_layout.create_cross_tab_button(self.main_app, "Nano Banana Editor")
         
         # Setup progress section in the left panel
         self.setup_compact_progress_section()

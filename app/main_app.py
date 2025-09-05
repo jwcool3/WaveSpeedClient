@@ -155,7 +155,7 @@ class WaveSpeedAIApp:
     def setup_tabs(self):
         """Setup all application tabs"""
         # Nano Banana Editor Tab
-        self.editor_tab = ImageEditorTab(self.notebook, self.api_client)
+        self.editor_tab = ImageEditorTab(self.notebook, self.api_client, self)
         self.notebook.add(self.editor_tab.container, text="🍌 Nano Banana Editor")
         
         # SeedEdit Tab

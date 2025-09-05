@@ -238,6 +238,7 @@ class OptimizedImageLayout:
         result_buttons_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=10, pady=(0, 10))
         result_buttons_frame.columnconfigure(0, weight=1)
         result_buttons_frame.columnconfigure(1, weight=1)
+        result_buttons_frame.columnconfigure(2, weight=1)
         
         self.save_result_button = ttk.Button(
             result_buttons_frame,
@@ -251,7 +252,10 @@ class OptimizedImageLayout:
             text="🔄 Use as Input",
             state="disabled"
         )
-        self.use_result_button.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
+        self.use_result_button.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(2, 2))
+        
+        # Cross-tab sharing button (will be created by parent tab)
+        self.send_to_button = None
     
     def set_main_action(self, text, command):
         """Set the main action button"""
@@ -346,6 +350,9 @@ class OptimizedImageLayout:
             self.save_result_button.config(state="normal")
             self.use_result_button.config(state="normal")
             
+            # Update cross-tab button
+            self.update_cross_tab_button()
+            
             # Switch to result tab
             self.image_notebook.select(self.result_frame)
             
@@ -367,6 +374,60 @@ class OptimizedImageLayout:
     def set_parent_tab(self, parent_tab):
         """Set reference to parent tab for event handling"""
         self.parent_tab = parent_tab
+    
+    def create_cross_tab_button(self, main_app, current_tab_name):
+        """Create cross-tab sharing button"""
+        from ui.components.cross_tab_navigator import CrossTabButton
+        
+        if not main_app:
+            return
+            
+        # Get the result buttons frame
+        result_buttons_frame = self.result_image_label.master.master.winfo_children()[-1]
+        
+        # Create the send button (initially disabled)
+        self.send_to_button = ttk.Menubutton(
+            result_buttons_frame,
+            text="📤 Send To...",
+            state="disabled"
+        )
+        self.send_to_button.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(2, 0))
+        
+        # Store references for later updates
+        self.main_app = main_app
+        self.current_tab_name = current_tab_name
+    
+    def update_cross_tab_button(self):
+        """Update cross-tab button with current result image"""
+        if not self.send_to_button or not hasattr(self, 'main_app') or not self.result_image:
+            return
+            
+        from ui.components.cross_tab_navigator import CrossTabNavigator
+        
+        # Enable the button
+        self.send_to_button.config(state="normal")
+        
+        # Create navigator and get targets
+        navigator = CrossTabNavigator(self.main_app)
+        target_tabs = navigator.get_available_targets(self.current_tab_name)
+        
+        if not target_tabs:
+            self.send_to_button.config(state="disabled")
+            return
+            
+        # Create menu
+        send_menu = tk.Menu(self.send_to_button, tearoff=0)
+        self.send_to_button.config(menu=send_menu)
+        
+        # Add menu items
+        for tab_info in target_tabs:
+            tab_id, tab_name, tab_icon = tab_info
+            send_menu.add_command(
+                label=f"{tab_icon} {tab_name}",
+                command=lambda tid=tab_id, tname=tab_name: navigator.send_to_tab(
+                    self.result_image, tid, tname, self.current_tab_name
+                )
+            )
     
     def on_drop(self, event):
         """Handle drag and drop"""

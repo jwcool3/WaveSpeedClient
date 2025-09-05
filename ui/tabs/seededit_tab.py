@@ -68,6 +68,9 @@ class SeedEditTab(BaseTab):
         # Connect drag and drop handling
         self.optimized_layout.set_parent_tab(self)
         
+        # Setup cross-tab sharing
+        self.optimized_layout.create_cross_tab_button(self.main_app, "SeedEdit")
+        
         # Setup progress section in the left panel
         self.setup_compact_progress_section()
     

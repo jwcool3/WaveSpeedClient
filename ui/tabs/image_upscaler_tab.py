@@ -10,6 +10,7 @@ import threading
 import os
 from ui.components.ui_components import BaseTab, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
+from ui.components.optimized_image_layout import OptimizedImageLayout
 from utils.utils import *
 from core.auto_save import auto_save_manager
 from core.logger import get_logger
@@ -27,45 +28,122 @@ class ImageUpscalerTab(BaseTab):
         super().__init__(parent_frame, api_client)
     
     def setup_ui(self):
-        """Setup the image upscaler UI"""
-        self.frame.columnconfigure(1, weight=1)
+        """Setup the optimized image upscaler UI"""
+        # Hide the scrollable canvas components since we're using direct container layout
+        self.canvas.pack_forget()
+        self.scrollbar.pack_forget()
         
-        # Enhanced image selector (smaller preview)
-        self.image_selector = EnhancedImageSelector(
-            self.frame, 0, self.on_image_selected, "Select Image to Upscale:", show_preview=True
+        # For optimized layout, bypass the scrollable canvas and use the main container directly
+        # This ensures full window expansion without canvas constraints
+        self.optimized_layout = OptimizedImageLayout(self.container, "Image Upscaler")
+        
+        # Setup the layout with upscaler specific settings
+        self.setup_upscaler_settings()
+        
+        # Setup prompt section in the left panel (upscaler doesn't need prompts, so skip)
+        
+        # Configure main action button
+        self.optimized_layout.set_main_action("🔍 Upscale Image", self.process_task)
+        
+        # Connect image selector
+        self.optimized_layout.set_image_selector_command(self.browse_image)
+        
+        # Connect result buttons
+        self.optimized_layout.set_result_button_commands(
+            self.save_result_image, 
+            self.use_result_as_editor_input
         )
         
-        # Enhanced image preview (larger result display)
-        self.image_preview = EnhancedImagePreview(self.frame, 2, "Image Upscaler", result_size=(700, 500))
-        self.image_preview.result_frame.config(text="Upscaled Result")
+        # Connect sample and clear buttons (minimal functionality for upscaler)
+        self.optimized_layout.sample_button.config(command=self.load_sample_image)
+        self.optimized_layout.clear_button.config(command=self.clear_selection)
         
-        # Setup drag and drop
-        self.image_preview.setup_drag_and_drop(self.on_drop)
+        # Connect drag and drop handling
+        self.optimized_layout.set_parent_tab(self)
         
-        # Result buttons
-        button_frame = ttk.Frame(self.image_preview.result_frame)
-        button_frame.pack(pady=(10, 0))
+        # Setup cross-tab sharing
+        self.optimized_layout.create_cross_tab_button(self.main_app, "Image Upscaler")
         
-        self.save_button = ttk.Button(button_frame, text="Save Result Image", 
-                                     command=self.save_result_image, state="disabled")
-        self.save_button.pack(side=tk.LEFT, padx=(0, 5))
+        # Setup progress section in the left panel
+        self.setup_compact_progress_section()
+    
+    def browse_image(self):
+        """Browse for image file"""
+        from tkinter import filedialog
         
-        self.use_result_button = ttk.Button(button_frame, text="Use as Editor Input", 
-                                           command=self.use_result_as_editor_input, state="disabled")
-        self.use_result_button.pack(side=tk.LEFT)
+        file_path = filedialog.askopenfilename(
+            title="Select Image to Upscale",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            self.on_image_selected(file_path)
+    
+    def setup_upscaler_settings(self):
+        """Setup upscaler specific settings"""
+        # Upscale factor setting
+        factor_frame = ttk.Frame(self.optimized_layout.settings_container)
+        factor_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        factor_frame.columnconfigure(1, weight=1)
         
-        # Settings panel
-        self.setup_settings_panel()
+        ttk.Label(factor_frame, text="Upscale Factor:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.upscale_factor_var = tk.StringVar(value="2K")
+        factor_combo = ttk.Combobox(factor_frame, textvariable=self.upscale_factor_var, 
+                                   values=["2K", "4K"], state="readonly", width=8)
+        factor_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+    
+    def setup_compact_progress_section(self):
+        """Setup compact progress section"""
+        # Add progress bar at the very bottom of left panel
+        progress_frame = ttk.Frame(self.optimized_layout.settings_frame.master)
+        progress_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        progress_frame.columnconfigure(0, weight=1)
         
-        # Progress and results (moved up since button is now sticky)
-        self.setup_progress_section(4)
-        self.setup_results_section(5)
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(progress_frame, mode='indeterminate')
+        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         
-        # Setup sticky buttons at the bottom
-        buttons_config = [
-            ("Upscale Image", self.process_task, "primary"),
-        ]
-        self.setup_sticky_buttons(buttons_config)
+        # Status label
+        self.status_label = ttk.Label(progress_frame, text="Ready to upscale images", font=('Arial', 9))
+        self.status_label.grid(row=1, column=0, sticky=tk.W)
+    
+    def load_sample_image(self):
+        """Load a sample image (placeholder)"""
+        from tkinter import messagebox
+        messagebox.showinfo("Sample Image", "Sample image loading not implemented yet.\nPlease select your own image to upscale.")
+    
+    def clear_selection(self):
+        """Clear the current selection"""
+        # Reset the layout
+        self.optimized_layout.selected_image_path = None
+        self.optimized_layout.result_image = None
+        
+        # Update status
+        self.update_status("Ready to upscale images")
+    
+    def show_progress(self, message):
+        """Show progress"""
+        self.progress_bar.start()
+        self.update_status(message)
+    
+    def hide_progress(self):
+        """Hide progress"""
+        self.progress_bar.stop()
+    
+    def update_status(self, message):
+        """Update status label"""
+        self.status_label.config(text=message)
+    
+    def validate_inputs(self):
+        """Validate inputs before processing"""
+        if not hasattr(self, 'selected_image_path') or not self.selected_image_path:
+            show_error("Error", "Please select an image first.")
+            return False
+        return True
     
     def setup_settings_panel(self):
         """Setup settings panel"""
@@ -94,18 +172,21 @@ class ImageUpscalerTab(BaseTab):
         # Check if replacing existing image
         replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
-        self.selected_image_path = image_path
-        self.original_image = self.image_preview.update_original_image(image_path)
+        # Update the optimized layout with the new image
+        success = self.optimized_layout.update_input_image(image_path)
         
-        # Reset result buttons and clear previous results
-        self.save_button.config(state="disabled")
-        self.use_result_button.config(state="disabled")
-        
-        # Provide feedback about image replacement
-        if replacing_image:
-            self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready to upscale")
-        else:
-            self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready to upscale")
+        if success:
+            self.selected_image_path = image_path
+            
+            # Reset result buttons and clear previous results
+            self.optimized_layout.save_result_button.config(state="disabled")
+            self.optimized_layout.use_result_button.config(state="disabled")
+            
+            # Provide feedback about image replacement
+            if replacing_image:
+                self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready to upscale")
+            else:
+                self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready to upscale")
     
     def on_drop(self, event):
         """Handle drag and drop with robust file path parsing"""
@@ -235,13 +316,14 @@ class ImageUpscalerTab(BaseTab):
     
     def handle_success(self, output_url, duration):
         """Handle successful completion"""
-        # Download and display result
-        self.result_image = self.image_preview.update_result_image(output_url)
+        # Hide progress
+        self.hide_progress()
         
-        if self.result_image:
-            # Enable buttons
-            self.save_button.config(state="normal")
-            self.use_result_button.config(state="normal")
+        # Download and display result in optimized layout
+        success = self.optimized_layout.update_result_image(output_url)
+        
+        if success:
+            self.result_image = self.optimized_layout.result_image
             
             # Auto-save the result
             resolution = self.resolution_var.get().upper()
