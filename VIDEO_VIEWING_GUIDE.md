@@ -1,16 +1,25 @@
-# 🎬 Video Viewing Guide
+# 🎬 Enhanced Video Viewing Guide
 
 ## Overview
 
-WaveSpeed AI now supports embedded video playback directly in the GUI! You can view generated videos without leaving the application and easily browse your saved video results.
+WaveSpeed AI now features a **YouTube-like enhanced video player** with professional controls, fullscreen support, and interactive features! Experience cinema-quality video playback directly in the application.
 
-## Features
+## ✨ Enhanced Features
 
-### ✅ Embedded Video Player
-- **In-app playback**: Watch videos directly in the GUI
-- **Full controls**: Play, pause, stop, and scrub through videos
-- **Auto-scaling**: Videos automatically fit the display area
-- **High quality**: Support for multiple video formats
+### 🎯 **YouTube-Style Video Player**
+- **Large, responsive display**: 720p default size with 16:9 aspect ratio
+- **Professional controls**: Dark theme with modern button design
+- **Auto-hide controls**: Controls fade away during playback (like YouTube)
+- **Interactive progress bar**: Click to seek to any position
+- **Volume control**: Adjustable volume slider
+- **Fullscreen mode**: Expand to full screen for immersive viewing
+
+### 🎮 **Advanced Controls**
+- **Smart play/pause**: Large, prominent play button that changes color
+- **Progress tracking**: Real-time progress bar with time display
+- **Mouse interaction**: Controls appear on mouse movement
+- **Keyboard shortcuts**: ESC to exit fullscreen
+- **Auto-pause detection**: Controls stay visible when paused
 
 ### 📁 Local File Management
 - **Browse videos**: Select any video file from your computer
@@ -25,34 +34,55 @@ WaveSpeed AI now supports embedded video playback directly in the GUI! You can v
 - **Results folder**: Open the results directory in file explorer
 - **Download**: Save videos from URLs to your local storage
 
-## How to Use
+## 🚀 How to Use the Enhanced Player
 
-### 1. Setup (One-time)
-If you haven't already, install the video player library:
+### 1. **Setup (One-time)**
+Install the video player library if you haven't already:
 ```bash
 python scripts/install_video_player.py
 ```
 
-### 2. Viewing Generated Videos
-When you generate a video using Image-to-Video or SeedDance:
-1. The video will automatically appear in the video player area
-2. Use the play controls to watch your video
-3. Videos are automatically saved to the `WaveSpeed_Results` folder
+### 2. **Automatic Video Loading**
+When you generate videos:
+- Videos automatically load in the enhanced player
+- Large, cinema-style display with professional controls
+- Instant playback capability
 
-### 3. Browsing Local Videos
-- Click **"📁 Browse Local Videos"** to select any video file
-- The browser will start in your `WaveSpeed_Results` folder
-- Supports: MP4, AVI, MOV, MKV, WMV, FLV, WebM formats
+### 3. **Enhanced Video Controls**
 
-### 4. Quick Access to Recent Videos
-- Click **"🕒 Recent Videos"** for a list of your latest videos
-- Double-click any video to load it instantly
-- Shows creation time for easy identification
+#### **Playback Controls**
+- **▶/⏸ Play/Pause**: Large red button (changes color when playing)
+- **⏹ Stop**: Reset video to beginning
+- **Progress Bar**: Click anywhere to jump to that position
+- **Time Display**: Shows current time and total duration
 
-### 5. Managing Video Files
-- Click **"📂 Results Folder"** to open the results directory
-- Organize your videos in the file explorer
-- Videos are automatically organized by AI model type
+#### **Audio & Display**
+- **🔊 Volume Slider**: Adjust playback volume (0-100%)
+- **⛶ Fullscreen**: Expand to full screen mode
+- **Auto-hide**: Controls fade during playback, appear on mouse movement
+
+#### **File Management**
+- **📁 Browse**: Built-in file browser starting in results folder
+- **🕒 Recent**: Quick access dialog for recent videos
+- **Drag & Drop**: Drop video files directly onto the player
+
+### 4. **Interactive Features**
+
+#### **Mouse Controls**
+- **Hover**: Controls appear when you move the mouse
+- **Auto-hide**: Controls disappear after 3 seconds during playback
+- **Click to seek**: Click progress bar to jump to any position
+- **Double-click**: Quick play/pause toggle
+
+#### **Keyboard Shortcuts**
+- **ESC**: Exit fullscreen mode
+- **Space**: Play/pause (when player is focused)
+
+#### **Fullscreen Experience**
+- Click **⛶** to enter fullscreen mode
+- Video scales to full screen while maintaining aspect ratio
+- Press **ESC** to exit fullscreen
+- Controls work the same in fullscreen mode
 
 ## Video Formats Supported
 

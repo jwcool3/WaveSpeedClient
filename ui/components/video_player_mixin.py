@@ -24,6 +24,13 @@ except ImportError:
     VIDEO_PLAYER_AVAILABLE = False
     print("tkVideoPlayer not available. Video will open in browser only.")
 
+# Import enhanced video player
+try:
+    from ui.components.enhanced_video_player import EnhancedVideoPlayer
+    ENHANCED_PLAYER_AVAILABLE = True
+except ImportError:
+    ENHANCED_PLAYER_AVAILABLE = False
+
 
 class VideoPlayerMixin:
     """Mixin class that provides video player functionality"""
@@ -35,26 +42,48 @@ class VideoPlayerMixin:
         self.result_video_url = None
     
     def setup_video_result_section_with_player(self, result_frame):
-        """Setup video result display section with embedded player"""
+        """Setup video result display section with enhanced embedded player"""
         # Clear the default result image label and add video-specific controls
         for widget in result_frame.winfo_children():
             if isinstance(widget, ttk.Label):
                 widget.destroy()
         
-        # Create video display area
+        # Create video display area with better sizing
         self.video_display_frame = ttk.Frame(result_frame)
         self.video_display_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         
-        # Video player or placeholder
-        if VIDEO_PLAYER_AVAILABLE:
-            # Create embedded video player placeholder
+        # Use enhanced video player if available
+        if VIDEO_PLAYER_AVAILABLE and ENHANCED_PLAYER_AVAILABLE:
+            try:
+                # Create enhanced video player (YouTube-like)
+                self.enhanced_video_player = EnhancedVideoPlayer(
+                    self.video_display_frame, 
+                    width=720, 
+                    height=405  # 16:9 aspect ratio
+                )
+                
+                # Store reference to the enhanced player's methods
+                self.video_player_widget = self.enhanced_video_player
+                logger.info("Enhanced video player initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize enhanced video player: {e}")
+                logger.info("Falling back to basic video player")
+                # Fall back to basic player
+                self._setup_basic_video_player()
+            
+        elif VIDEO_PLAYER_AVAILABLE:
+            # Fallback to basic video player with better sizing
             self.video_placeholder = tk.Label(
                 self.video_display_frame,
                 text="🎬 No video generated yet\n\nVideo will be displayed here when generated",
                 font=('Arial', 12), fg='#666666',
-                bg='#f0f0f0', relief='sunken', bd=1
+                bg='#f0f0f0', relief='sunken', bd=1,
+                width=80, height=20  # Larger placeholder
             )
             self.video_placeholder.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Setup basic video controls
+            self.setup_video_controls(result_frame)
         else:
             # Fallback to text display
             self.video_label = tk.Label(
@@ -63,9 +92,23 @@ class VideoPlayerMixin:
                 font=('Arial', 12), fg='#666666'
             )
             self.video_label.pack(expand=True, pady=20)
+            
+            # Setup basic video controls
+            self.setup_video_controls(result_frame)
+    
+    def _setup_basic_video_player(self):
+        """Setup basic video player as fallback"""
+        self.video_placeholder = tk.Label(
+            self.video_display_frame,
+            text="🎬 No video generated yet\n\nVideo will be displayed here when generated",
+            font=('Arial', 12), fg='#666666',
+            bg='#f0f0f0', relief='sunken', bd=1,
+            width=80, height=20  # Larger placeholder
+        )
+        self.video_placeholder.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Video control buttons
-        self.setup_video_controls(result_frame)
+        # Setup basic video controls
+        self.setup_video_controls(self.video_display_frame.master)
     
     def setup_video_controls(self, result_frame):
         """Setup video control buttons"""
@@ -353,7 +396,16 @@ class VideoPlayerMixin:
             if hasattr(self, 'update_status'):
                 self.update_status(f"Loading local video: {os.path.basename(video_path)}")
             
-            # Create video player directly with local file
+            # Use enhanced video player if available
+            if hasattr(self, 'enhanced_video_player'):
+                success = self.enhanced_video_player.load_video(video_path)
+                if success:
+                    # Set the result URL to the local file path for consistency
+                    self.result_video_url = f"file://{video_path}"
+                    logger.info(f"Loaded local video in enhanced player: {video_path}")
+                return
+            
+            # Fallback to basic video player
             self._create_video_player(video_path, is_local=True)
             
             # Set the result URL to the local file path for consistency
@@ -501,7 +553,12 @@ class VideoPlayerMixin:
         
         # Load video in embedded player if available
         if VIDEO_PLAYER_AVAILABLE:
-            self.load_video_in_player(output_url)
+            # Try enhanced player first, then fallback to basic player
+            if hasattr(self, 'enhanced_video_player'):
+                # For enhanced player, we'll download the video first then load it
+                self.load_video_in_player(output_url)
+            else:
+                self.load_video_in_player(output_url)
         else:
             # Update fallback display
             if hasattr(self, 'video_label'):
@@ -510,5 +567,6 @@ class VideoPlayerMixin:
                     fg='green'
                 )
         
-        # Enable buttons
-        self.enable_video_controls()
+        # Enable buttons (only for basic player, enhanced player has its own controls)
+        if not hasattr(self, 'enhanced_video_player'):
+            self.enable_video_controls()
