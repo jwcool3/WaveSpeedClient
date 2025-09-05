@@ -24,7 +24,8 @@ class Config:
         'image_upscale': f"{BASE_URL}/wavespeed-ai/image-upscaler",
         'image_to_video': f"{BASE_URL}/wavespeed-ai/wan-2.2/i2v-480p",
         'seeddance': f"{BASE_URL}/bytedance/seedance-v1-pro-i2v-480p",
-        'result_poll': f"{BASE_URL}/predictions/{{request_id}}/result"
+        'result_poll': f"{BASE_URL}/predictions/{{request_id}}/result",
+        'balance': f"{BASE_URL}/balance"
     }
     
     # UI Configuration

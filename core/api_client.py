@@ -52,6 +52,45 @@ class WaveSpeedAPIClient:
             print(f"Error converting image to base64: {e}")
             return None
     
+    def get_balance(self):
+        """Get account balance from WaveSpeed AI API"""
+        try:
+            url = Config.ENDPOINTS['balance']
+            headers = {
+                "Authorization": f"Bearer {self.api_key}"
+            }
+            
+            logger.info(f"Fetching account balance from: {url}")
+            response = self.session.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('code') == 200 and 'data' in result:
+                    balance = result['data'].get('balance', 0.0)
+                    logger.info(f"Account balance retrieved: ${balance}")
+                    return balance, None
+                else:
+                    error_msg = result.get('message', 'Unknown error')
+                    logger.error(f"Balance API error: {error_msg}")
+                    return None, error_msg
+            else:
+                error_msg = f"HTTP {response.status_code}: {response.text}"
+                logger.error(f"Balance API request failed: {error_msg}")
+                return None, error_msg
+                
+        except requests.exceptions.Timeout:
+            error_msg = "Balance request timed out"
+            logger.error(error_msg)
+            return None, error_msg
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Balance request failed: {str(e)}"
+            logger.error(error_msg)
+            return None, error_msg
+        except Exception as e:
+            error_msg = f"Unexpected error getting balance: {str(e)}"
+            logger.error(error_msg)
+            return None, error_msg
+    
     def submit_image_edit_task(self, image_path, prompt, output_format="png"):
         """Submit image editing task to WaveSpeed AI"""
         try:

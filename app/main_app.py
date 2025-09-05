@@ -27,6 +27,7 @@ from ui.tabs.image_upscaler_tab import ImageUpscalerTab
 from ui.tabs.image_to_video_tab import ImageToVideoTab
 from ui.tabs.seededit_tab import SeedEditTab
 from ui.tabs.seeddance_tab import SeedDanceTab
+from ui.components.balance_indicator import BalanceIndicator
 from utils.utils import show_error, show_warning, show_success
 import utils.utils as utils
 from core.auto_save import auto_save_manager
@@ -125,13 +126,23 @@ class WaveSpeedAIApp:
         main_frame.columnconfigure(0, weight=1)
         main_frame.rowconfigure(2, weight=1)
         
+        # Create header frame to hold title and balance indicator
+        header_frame = ttk.Frame(main_frame)
+        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
+        header_frame.columnconfigure(0, weight=1)  # Title takes most space
+        
         # Title
         title_label = ttk.Label(
-            main_frame, 
+            header_frame, 
             text="WaveSpeed AI - Image Editor, Upscaler & Video Generator", 
             font=('Arial', 16, 'bold')
         )
-        title_label.grid(row=0, column=0, pady=(0, 20))
+        title_label.grid(row=0, column=0, sticky=tk.W)
+        
+        # Balance indicator in top-right corner
+        if self.api_client.api_key:  # Only show if API key is available
+            self.balance_indicator = BalanceIndicator(header_frame, self.api_client)
+            self.balance_indicator.get_frame().grid(row=0, column=1, sticky=tk.E, padx=(10, 0))
         
         # API Key status
         api_status = "✓ API Key loaded" if self.api_client.api_key else "✗ API Key not found"
@@ -382,6 +393,11 @@ Created with Python and tkinter"""
         """Handle application closing"""
         try:
             logger.info("Application closing - cleaning up resources")
+            
+            # Stop balance indicator updates
+            if hasattr(self, 'balance_indicator'):
+                self.balance_indicator.destroy()
+            
             resource_manager.cleanup_all()
             self.root.quit()
             self.root.destroy()
