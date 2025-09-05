@@ -34,8 +34,13 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
     
     def setup_ui(self):
         """Setup the optimized image-to-video UI"""
-        # Create optimized layout
-        self.optimized_layout = OptimizedVideoLayout(self.frame, "Image to Video")
+        # Hide the scrollable canvas components since we're using direct container layout
+        self.canvas.pack_forget()
+        self.scrollbar.pack_forget()
+        
+        # For optimized layout, bypass the scrollable canvas and use the main container directly
+        # This ensures full window expansion without canvas constraints
+        self.optimized_layout = OptimizedVideoLayout(self.container, "Image to Video")
         
         # Setup the layout with video-specific settings
         self.setup_video_settings()
@@ -97,9 +102,9 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
     
     def setup_compact_prompt_section(self):
         """Setup compact prompt section"""
-        # Add prompt section below settings
+        # Add prompt section below settings (in the spacer area)
         prompt_frame = ttk.LabelFrame(self.optimized_layout.settings_frame.master, text="📝 Prompts", padding="8")
-        prompt_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        prompt_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N), pady=(10, 0))
         prompt_frame.columnconfigure(0, weight=1)
         
         # Video prompt
@@ -114,9 +119,9 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
     
     def setup_compact_progress_section(self):
         """Setup compact progress section"""
-        # Add progress bar at the bottom of left panel
+        # Add progress bar at the very bottom of left panel
         progress_frame = ttk.Frame(self.optimized_layout.settings_frame.master)
-        progress_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        progress_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
         progress_frame.columnconfigure(0, weight=1)
         
         # Progress bar

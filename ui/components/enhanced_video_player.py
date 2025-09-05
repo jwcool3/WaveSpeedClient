@@ -54,11 +54,15 @@ class EnhancedVideoPlayer:
     
     def setup_player_ui(self):
         """Setup the enhanced video player UI"""
-        # Main container with dark background
+        # Configure parent frame for full expansion
+        self.parent_frame.columnconfigure(0, weight=1)
+        self.parent_frame.rowconfigure(0, weight=1)
+        
+        # Main container with dark background - fully responsive
         self.main_container = tk.Frame(self.parent_frame, bg='#000000', relief='solid', bd=1)
         self.main_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Video display area
+        # Video display area - expands to fill available space
         self.video_frame = tk.Frame(self.main_container, bg='#000000')
         self.video_frame.pack(fill=tk.BOTH, expand=True)
         

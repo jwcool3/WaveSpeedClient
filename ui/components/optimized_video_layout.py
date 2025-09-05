@@ -31,9 +31,7 @@ class OptimizedVideoLayout:
         self.selected_image_path = None
         self.enhanced_video_player = None
         
-        # Configure parent frame
-        self.parent_frame.columnconfigure(0, weight=1)
-        self.parent_frame.rowconfigure(0, weight=1)
+        # Parent frame will be managed by pack, so no grid configuration needed
         
         # Create main layout
         self.setup_optimized_layout()
@@ -41,9 +39,9 @@ class OptimizedVideoLayout:
     def setup_optimized_layout(self):
         """Setup the optimized layout with better space utilization"""
         
-        # Main container with horizontal layout
+        # Main container with horizontal layout - use pack to be compatible with BaseTab
         main_container = ttk.Frame(self.parent_frame)
-        main_container.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=10)
+        main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         main_container.columnconfigure(1, weight=3)  # Video gets 3x more space
         main_container.columnconfigure(0, weight=1)  # Controls get 1x space
         main_container.rowconfigure(0, weight=1)
@@ -60,13 +58,20 @@ class OptimizedVideoLayout:
         left_panel.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
         left_panel.columnconfigure(0, weight=1)
         
+        # Configure rows for proper vertical distribution
+        left_panel.rowconfigure(0, weight=0)  # Image selector - fixed size
+        left_panel.rowconfigure(1, weight=0)  # Settings - fixed size
+        left_panel.rowconfigure(2, weight=1)  # Action buttons - expandable spacer
+        left_panel.rowconfigure(3, weight=0)  # Additional content - fixed size
+        left_panel.rowconfigure(4, weight=0)  # Progress - fixed size
+        
         # Compact image selection
         self.setup_compact_image_selector(left_panel)
         
         # Compact settings
         self.setup_compact_settings(left_panel)
         
-        # Action buttons
+        # Action buttons with spacer
         self.setup_action_buttons(left_panel)
     
     def setup_compact_image_selector(self, parent):
@@ -140,9 +145,14 @@ class OptimizedVideoLayout:
         self.settings_container.columnconfigure(0, weight=1)
     
     def setup_action_buttons(self, parent):
-        """Setup action buttons"""
+        """Setup action buttons with vertical spacer"""
+        # Create a spacer that expands to push buttons to bottom
+        spacer_frame = ttk.Frame(parent)
+        spacer_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Action buttons at the bottom of left panel
         button_frame = ttk.Frame(parent)
-        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         button_frame.columnconfigure(0, weight=1)
         
         # Main action button (will be set by specific tab)
@@ -186,15 +196,16 @@ class OptimizedVideoLayout:
         video_section.columnconfigure(0, weight=1)
         video_section.rowconfigure(0, weight=1)
         
-        # Enhanced video player (much larger)
+        # Enhanced video player (responsive to window size)
         if VIDEO_PLAYER_AVAILABLE:
             try:
+                # Create responsive video player that adapts to container size
                 self.enhanced_video_player = EnhancedVideoPlayer(
                     video_section,
-                    width=960,  # Much larger - 960x540 (16:9)
-                    height=540
+                    width=960,  # Base size - will expand with container
+                    height=540  # Maintains 16:9 ratio but expands vertically
                 )
-                logger.info("Large enhanced video player created successfully")
+                logger.info("Large responsive enhanced video player created successfully")
             except Exception as e:
                 logger.error(f"Failed to create enhanced video player: {e}")
                 self.setup_fallback_video_display(video_section)
