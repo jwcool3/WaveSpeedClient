@@ -10,9 +10,27 @@ import time
 import base64
 import io
 from PIL import Image
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, Dict, Any, Union
+from pathlib import Path
+
 from app.config import Config
+from app.constants import (
+    ApiKey, RequestId, ImagePath, Prompt, Balance, Duration, Seed, 
+    GuidanceScale, Creativity, Resolution, OutputFormat, HTTPStatusCodes
+)
 from core.logger import get_logger
+from core.exceptions import (
+    APIError, AuthenticationError, RateLimitError, InsufficientBalanceError,
+    ValidationError, FileError, ImageProcessingError, NetworkError, 
+    TimeoutError, TaskError, TaskFailedError, TaskTimeoutError,
+    handle_api_error, handle_validation_error, handle_file_error,
+    handle_network_error, handle_timeout_error
+)
+from core.validation import (
+    validate_api_key, validate_image_file, validate_prompt, validate_seed,
+    validate_guidance_scale, validate_creativity, validate_duration,
+    validate_resolution, validate_output_format, validate_http_status_code
+)
 
 logger = get_logger()
 
@@ -20,24 +38,34 @@ logger = get_logger()
 class WaveSpeedAPIClient:
     """Client for interacting with WaveSpeed AI APIs"""
     
-    def __init__(self):
-        self.api_key = Config.API_KEY
-        self.base_url = Config.BASE_URL
-        self.session = requests.Session()  # Reuse connections
+    def __init__(self) -> None:
+        # Validate API key on initialization
+        is_valid, error = validate_api_key(Config.API_KEY)
+        if not is_valid:
+            raise AuthenticationError(f"Invalid API key: {error}")
+        
+        self.api_key: ApiKey = Config.API_KEY
+        self.base_url: str = Config.BASE_URL
+        self.session: requests.Session = requests.Session()  # Reuse connections
         self.session.headers.update({
             'User-Agent': 'WaveSpeedAI-GUI/2.0'
         })
         
-    def get_headers(self, content_type="application/json"):
+    def get_headers(self, content_type: str = "application/json") -> Dict[str, str]:
         """Get standard headers for API requests"""
         return {
             "Content-Type": content_type,
             "Authorization": f"Bearer {self.api_key}",
         }
     
-    def convert_image_to_base64(self, image_path):
+    def convert_image_to_base64(self, image_path: Union[str, Path]) -> Optional[str]:
         """Convert image file to base64 string"""
         try:
+            # Validate image file first
+            is_valid, error = validate_image_file(image_path)
+            if not is_valid:
+                raise ImageProcessingError(f"Invalid image file: {error}", str(image_path))
+            
             with Image.open(image_path) as img:
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
@@ -48,11 +76,12 @@ class WaveSpeedAPIClient:
                 image_base64 = base64.b64encode(buffer.getvalue()).decode()
                 return image_base64
                 
+        except ImageProcessingError:
+            raise
         except Exception as e:
-            print(f"Error converting image to base64: {e}")
-            return None
+            raise ImageProcessingError(f"Error converting image to base64: {str(e)}", str(image_path))
     
-    def get_balance(self):
+    def get_balance(self) -> Tuple[Optional[Balance], Optional[str]]:
         """Get account balance from WaveSpeed AI API"""
         try:
             url = Config.ENDPOINTS['balance']
@@ -63,7 +92,7 @@ class WaveSpeedAPIClient:
             logger.info(f"Fetching account balance from: {url}")
             response = self.session.get(url, headers=headers, timeout=10)
             
-            if response.status_code == 200:
+            if response.status_code == HTTPStatusCodes.OK:
                 result = response.json()
                 if result.get('code') == 200 and 'data' in result:
                     balance = result['data'].get('balance', 0.0)
@@ -74,34 +103,37 @@ class WaveSpeedAPIClient:
                     logger.error(f"Balance API error: {error_msg}")
                     return None, error_msg
             else:
-                error_msg = f"HTTP {response.status_code}: {response.text}"
-                logger.error(f"Balance API request failed: {error_msg}")
-                return None, error_msg
+                # Use enhanced error handling
+                is_valid, error_msg = validate_http_status_code(response.status_code)
+                if not is_valid:
+                    logger.error(f"Balance API request failed: {error_msg}")
+                    return None, error_msg
                 
         except requests.exceptions.Timeout:
-            error_msg = "Balance request timed out"
-            logger.error(error_msg)
-            return None, error_msg
+            raise handle_timeout_error(10.0, "Balance request timed out")
         except requests.exceptions.RequestException as e:
-            error_msg = f"Balance request failed: {str(e)}"
-            logger.error(error_msg)
-            return None, error_msg
+            raise handle_network_error(url, f"Balance request failed: {str(e)}")
         except Exception as e:
-            error_msg = f"Unexpected error getting balance: {str(e)}"
-            logger.error(error_msg)
-            return None, error_msg
+            raise APIError(f"Unexpected error getting balance: {str(e)}")
     
-    def submit_image_edit_task(self, image_path, prompt, output_format="png"):
+    def submit_image_edit_task(self, image_path: Union[str, Path], prompt: str, output_format: str = "png") -> Tuple[Optional[RequestId], Optional[str]]:
         """Submit image editing task to WaveSpeed AI"""
         try:
+            # Validate inputs
+            is_valid, error = validate_prompt(prompt)
+            if not is_valid:
+                raise handle_validation_error("prompt", prompt, error)
+            
+            is_valid, error = validate_output_format(output_format, "image")
+            if not is_valid:
+                raise handle_validation_error("output_format", output_format, error)
+            
             logger.info(f"Submitting image edit task for: {image_path}")
             
             # Convert image to base64
             image_base64 = self.convert_image_to_base64(image_path)
             if not image_base64:
-                error_msg = "Failed to convert image to base64"
-                logger.error(error_msg)
-                return None, error_msg
+                raise ImageProcessingError("Failed to convert image to base64", str(image_path))
             
             url = Config.ENDPOINTS['image_edit']
             headers = self.get_headers()
@@ -117,20 +149,18 @@ class WaveSpeedAPIClient:
                                        data=json.dumps(payload), 
                                        timeout=Config.TIMEOUT)
             
-            if response.status_code == 200:
+            if response.status_code == HTTPStatusCodes.OK:
                 result = response.json()["data"]
                 request_id = result["id"]
                 logger.log_api_request("image_edit", request_id, "submitted")
                 return request_id, None
             else:
-                error_msg = f"API Error: {response.status_code}, {response.text}"
-                logger.error(error_msg)
-                return None, error_msg
+                raise handle_api_error(response, url)
                 
+        except (ValidationError, ImageProcessingError, APIError):
+            raise
         except Exception as e:
-            error_msg = f"Error submitting image edit task: {str(e)}"
-            logger.error(error_msg)
-            return None, error_msg
+            raise APIError(f"Error submitting image edit task: {str(e)}")
     
     def submit_seededit_task(self, image_url, prompt, guidance_scale=0.5, seed=-1):
         """Submit SeedEdit image editing task to WaveSpeed AI"""
