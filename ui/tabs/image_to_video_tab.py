@@ -60,7 +60,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.optimized_layout.clear_button.config(command=self.clear_prompts)
         
         # Get references to important components
-        self.enhanced_video_player = self.optimized_layout.get_video_player()
+        self.modern_video_player = self.optimized_layout.get_video_player()
         
         # Setup progress and results (compact)
         self.setup_compact_progress_section()
@@ -503,17 +503,16 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         # Hide progress
         self.hide_progress()
         
-        # Load video in enhanced player if available
-        if self.enhanced_video_player:
-            # Download and load the video in the enhanced player
+        # Load video in modern player if available
+        if self.modern_video_player:
+            # Load the video in the modern player
             try:
-                # For now, we'll use the existing video handling
-                # In the future, we could enhance this to download and load locally
+                self.modern_video_player.load_video(output_url)
                 self.result_video_url = output_url
-                self.update_status("Video generated successfully! Click 'Recent Videos' to load it.")
+                self.update_status("Video generated! Use the player controls to watch it.")
             except Exception as e:
-                logger.error(f"Failed to load video in enhanced player: {e}")
-                self.update_status("Video generated successfully! Available in browser.")
+                logger.error(f"Failed to load video in modern player: {e}")
+                self.update_status("Video generated! Available in browser.")
         
         # Auto-save the result
         prompt = self.prompt_text.get("1.0", tk.END).strip()
