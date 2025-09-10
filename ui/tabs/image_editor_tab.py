@@ -466,7 +466,7 @@ class ImageEditorTab(BaseTab):
             return
         
         if current_prompt in self.saved_prompts:
-            show_success("Info", "This prompt is already saved.")
+            # Prompt already saved (no popup needed)
             return
         
         self.saved_prompts.append(current_prompt)
@@ -474,7 +474,7 @@ class ImageEditorTab(BaseTab):
         
         if success:
             self.refresh_prompts_list()
-            show_success("Success", "Prompt saved successfully!")
+            # Prompt saved successfully (no popup needed)
         else:
             show_error("Error", error)
     
@@ -504,7 +504,7 @@ class ImageEditorTab(BaseTab):
             
             if success:
                 self.refresh_prompts_list()
-                show_success("Success", "Prompt deleted successfully!")
+                # Prompt deleted successfully (no popup needed)
             else:
                 show_error("Error", error)
     
