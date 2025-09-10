@@ -71,7 +71,7 @@ class RecentResultsPanel:
         filter_combo = ttk.Combobox(
             filter_frame,
             textvariable=self.filter_var,
-            values=["All", "Nano Banana", "SeedEdit", "Upscaler", "Wan 2.2", "SeedDance"],
+            values=["All", "Nano Banana", "SeedEdit", "Seedream V4", "Upscaler", "Wan 2.2", "SeedDance"],
             state="readonly",
             width=10,
             font=('Arial', 7)
@@ -138,7 +138,8 @@ class RecentResultsPanel:
                 # Define subdirectories and their corresponding tab names
                 tab_mapping = {
                     "Nano_Banana_Editor": "Nano Banana",
-                    "SeedEdit": "SeedEdit", 
+                    "SeedEdit": "SeedEdit",
+                    "Seedream_V4": "Seedream V4",  # NEW
                     "Image_Upscaler": "Upscaler",
                     "Wan_2.2": "Wan 2.2",
                     "SeedDance": "SeedDance"
@@ -268,7 +269,8 @@ class RecentResultsPanel:
             # Tab label with icon
             tab_icons = {
                 "Nano Banana": "🍌",
-                "SeedEdit": "✨", 
+                "SeedEdit": "✨",
+                "Seedream V4": "🌟",  # NEW
                 "Upscaler": "🔍",
                 "Wan 2.2": "🎬",
                 "SeedDance": "🕺"
@@ -398,7 +400,7 @@ class RecentResultsPanel:
         try:
             if hasattr(self.main_app, 'notebook'):
                 current_index = self.main_app.notebook.index(self.main_app.notebook.select())
-                tab_names = ["Nano Banana Editor", "SeedEdit", "Image Upscaler", "Wan 2.2", "SeedDance"]
+                tab_names = ["Nano Banana Editor", "SeedEdit", "Seedream V4", "Image Upscaler", "Wan 2.2", "SeedDance"]
                 if 0 <= current_index < len(tab_names):
                     return tab_names[current_index]
         except:

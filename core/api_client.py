@@ -166,6 +166,41 @@ class WaveSpeedAPIClient:
             logger.error(error_msg)
             return None, error_msg
     
+    def submit_seedream_v4_task(self, image_url, prompt, size="2048*2048", seed=-1):
+        """Submit Seedream V4 image editing task to WaveSpeed AI"""
+        try:
+            logger.info(f"Submitting Seedream V4 task with prompt: {prompt[:50]}...")
+            
+            url = Config.ENDPOINTS['seedream_v4']
+            headers = self.get_headers()
+            payload = {
+                "prompt": prompt,
+                "images": [image_url],  # Note: images is an array for Seedream V4
+                "size": size,
+                "seed": seed,
+                "enable_sync_mode": False,
+                "enable_base64_output": False
+            }
+            
+            response = self.session.post(url, headers=headers, 
+                                       data=json.dumps(payload), 
+                                       timeout=Config.TIMEOUT)
+            
+            if response.status_code == 200:
+                result = response.json()["data"]
+                request_id = result["id"]
+                logger.log_api_request("seedream_v4", request_id, "submitted")
+                return request_id, None
+            else:
+                error_msg = f"API Error: {response.status_code}, {response.text}"
+                logger.error(error_msg)
+                return None, error_msg
+                
+        except Exception as e:
+            error_msg = f"Error submitting Seedream V4 task: {str(e)}"
+            logger.error(error_msg)
+            return None, error_msg
+    
     def submit_image_upscale_task(self, image_url, target_resolution="4k", creativity=0, output_format="png"):
         """Submit image upscaling task to WaveSpeed AI"""
         try:
