@@ -214,9 +214,14 @@ class WaveSpeedAIApp:
         self.editor_tab = ImageEditorTab(self.notebook, self.api_client, self)
         self.notebook.add(self.editor_tab.container, text="🍌 Nano Banana Editor")
         
-        # SeedEdit Tab
+        # SeedEdit Tab (V3)
         self.seededit_tab = SeedEditTab(self.notebook, self.api_client, self)
         self.notebook.add(self.seededit_tab.container, text="✨ SeedEdit")
+        
+        # NEW: Seedream V4 Tab
+        from ui.tabs.seedream_v4_tab import SeedreamV4Tab
+        self.seedream_v4_tab = SeedreamV4Tab(self.notebook, self.api_client, self)
+        self.notebook.add(self.seedream_v4_tab.container, text="🌟 Seedream V4")
         
         # Image Upscaler Tab
         self.upscaler_tab = ImageUpscalerTab(self.notebook, self.api_client, self)
@@ -250,9 +255,10 @@ class WaveSpeedAIApp:
         menubar.add_cascade(label="Tools", menu=tools_menu)
         tools_menu.add_command(label="Switch to Editor", command=lambda: self.switch_to_tab(0))
         tools_menu.add_command(label="Switch to SeedEdit", command=lambda: self.switch_to_tab(1))
-        tools_menu.add_command(label="Switch to Upscaler", command=lambda: self.switch_to_tab(2))
-        tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(3))
-        tools_menu.add_command(label="Switch to SeedDance", command=lambda: self.switch_to_tab(4))
+        tools_menu.add_command(label="Switch to Seedream V4", command=lambda: self.switch_to_tab(2))  # NEW
+        tools_menu.add_command(label="Switch to Upscaler", command=lambda: self.switch_to_tab(3))      # Updated index
+        tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(4))  # Updated index
+        tools_menu.add_command(label="Switch to SeedDance", command=lambda: self.switch_to_tab(5))     # Updated index
         
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -371,10 +377,11 @@ class WaveSpeedAIApp:
         """Show about dialog"""
         about_text = """WaveSpeed AI Complete Creative Suite
         
-Version: 2.5
+Version: 2.6
 Created by: Jackson Weed
         
 🆕 Latest Features:
+• NEW: Seedream V4 - State-of-the-art image editing surpassing nano banana
 • Enhanced User Experience (No popup interruptions)
 • Improved Stability & Performance 
 • Enhanced Prompt Management for all tabs
@@ -383,10 +390,18 @@ Created by: Jackson Weed
 
 🤖 AI Models:
 • 🍌 Nano Banana Editor - Advanced image editing
-• ✨ SeedEdit - Precise image modifications  
+• ✨ SeedEdit - Precise image modifications (V3)
+• 🌟 Seedream V4 - State-of-the-art multi-modal image generation (NEW!)
 • 🔍 Image Upscaler - 2k/4k/8k resolution enhancement
 • 🎬 Wan 2.2 - Image to video generation
 • 🕺 SeedDance - Professional video generation
+
+🌟 Seedream V4 Highlights:
+• Multi-modal image generation support
+• Precise instruction editing with high feature retention
+• Deep understanding ability with ultra-fast inference (1.8s for 2K)
+• Ultra-high-resolution output up to 4096x4096
+• Complex editing operations: object addition/deletion, style changes, etc.
 
 🎯 Professional Features:
 • Real-time Balance Indicator
@@ -401,7 +416,7 @@ Built with Python, tkinter, and modern UI/UX principles"""
         
         about_window = tk.Toplevel(self.root)
         about_window.title("About WaveSpeed AI")
-        about_window.geometry("400x300")
+        about_window.geometry("450x350")  # Slightly larger for new content
         about_window.resizable(False, False)
         
         # Center the window
