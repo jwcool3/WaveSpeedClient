@@ -72,6 +72,17 @@ class OptimizedImageLayout:
         # Compact settings
         self.setup_compact_settings(left_panel)
         
+        # Prompt container (expandable)
+        self.prompt_container = ttk.LabelFrame(left_panel, text="📝 Prompts", padding="8")
+        self.prompt_container.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        self.prompt_container.columnconfigure(0, weight=1)
+        self.prompt_container.rowconfigure(1, weight=1)  # Make the text area expandable
+        
+        # Status container (fixed size)
+        self.status_container = ttk.LabelFrame(left_panel, text="📊 Status", padding="8")
+        self.status_container.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.status_container.columnconfigure(0, weight=1)
+        
         # Action buttons with spacer
         self.setup_action_buttons(left_panel)
     
@@ -346,6 +357,14 @@ class OptimizedImageLayout:
         """Set result button commands"""
         self.save_result_button.config(command=save_command)
         self.use_result_button.config(command=use_command)
+    
+    def on_image_selected(self, image_path):
+        """Handle image selection - compatibility method for tabs"""
+        return self.update_input_image(image_path)
+    
+    def display_result(self, result_url):
+        """Display result from URL - compatibility method for tabs"""
+        return self.update_result_image(result_url)
     
     def update_input_image(self, image_path):
         """Update the input image display"""
