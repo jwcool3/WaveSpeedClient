@@ -37,12 +37,14 @@ def run_tests():
     if result.failures:
         print("\nFAILURES:")
         for test, traceback in result.failures:
-            print(f"- {test}: {traceback.split('AssertionError: ')[-1].split('\\n')[0]}")
+            error_msg = traceback.split('AssertionError: ')[-1].split('\n')[0]
+            print(f"- {test}: {error_msg}")
     
     if result.errors:
         print("\nERRORS:")
         for test, traceback in result.errors:
-            print(f"- {test}: {traceback.split('\\n')[-2]}")
+            error_msg = traceback.split('\n')[-2]
+            print(f"- {test}: {error_msg}")
     
     # Return exit code
     return 0 if result.wasSuccessful() else 1

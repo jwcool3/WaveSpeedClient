@@ -43,6 +43,8 @@ class OptimizedImageLayout:
         # Main container with horizontal layout - use pack to be compatible with BaseTab
         main_container = ttk.Frame(self.parent_frame)
         main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Configure grid weights for the main container
         main_container.columnconfigure(1, weight=3)  # Images get 3x more space
         main_container.columnconfigure(0, weight=1)  # Controls get 1x space
         main_container.rowconfigure(0, weight=1)
