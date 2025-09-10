@@ -34,21 +34,28 @@ The Filter Training Mode is a specialized feature in the WaveSpeed AI Prompt Adv
 ### API Usage
 
 ```python
-from core.ai_prompt_advisor import get_ai_advisor
+from core.ai_prompt_advisor import get_ai_advisor, SystemPrompts
 
 advisor = get_ai_advisor()
 
-# Generate filter training data
+# Method 1: Generate filter training data for specific model
 suggestions = await advisor.generate_filter_training_data(
     current_prompt="make the person look more professional",
     tab_name="Nano Banana Editor"
 )
 
-# Or use the improved_prompt method with filter_training=True
+# Method 2: Use improved_prompt with filter_training=True
 suggestions = await advisor.improve_prompt(
     current_prompt="make the person look more professional",
     tab_name="Nano Banana Editor",
     filter_training=True
+)
+
+# Method 3: Use Filter Training as standalone tab (no base model)
+suggestions = await advisor.improve_prompt(
+    current_prompt="make the person look more professional",
+    tab_name="Filter Training",
+    filter_training=False
 )
 ```
 
@@ -189,6 +196,21 @@ AI_ADVISOR_PROVIDER=claude  # or "openai"
 - Verify API key configuration in `.env` file
 - Test with simple prompts first
 - Contact development team for advanced issues
+
+## Recent Improvements
+
+### Enhanced Features (v2.0)
+- **Standalone Filter Training Tab**: Use "Filter Training" as a dedicated tab for pure filter training data generation
+- **Enhanced Micro-Examples**: Added 5 comprehensive examples covering body modification and euphemism patterns
+- **Confidence Parsing**: JSON responses now properly parse and store confidence values
+- **Robust JSON Parsing**: Handles JSON wrapped in prose using regex extraction
+- **Universal Compatibility**: Works with all AI models through smart prompt composition
+
+### Technical Improvements
+- **Regex-based JSON extraction**: `re.search(r'(\{.*\}|\[.*\])', content, re.S)` for sturdier parsing
+- **Confidence field integration**: All suggestions now include confidence scores
+- **Enhanced pattern coverage**: Body modification and euphemism examples for better training data
+- **Flexible API usage**: Three different methods for accessing filter training functionality
 
 ## Future Enhancements
 

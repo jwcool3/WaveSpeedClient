@@ -6,14 +6,17 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 
 ## 🆕 Latest Features (2025)
 
-### 🤖 **AI Prompt Advisor** (NEW!)
+### 🤖 **AI Prompt Advisor** (Enhanced!)
 - **✨ Smart Prompt Improvement**: AI-powered suggestions using Claude or OpenAI APIs
-- **🎯 Model-Specific Guidance**: Tailored suggestions for each AI model's strengths
+- **🎯 Model-Specific Guidance**: Research-backed system prompts for each AI model's strengths
+- **🛡️ Filter Training Mode**: Advanced safety research capabilities for filter development
 - **🎨 Enhanced UI**: Rich dialog with color-coded categories and visual feedback
 - **⚙️ Settings Panel**: Configure API keys and preferences via main menu
 - **🔄 Multiple Enhancement Types**: Clarity, Creativity, and Technical optimization
 - **📋 Copy & Preview**: Easy sharing and preview of AI suggestions
 - **🎪 Right-Click Integration**: Quick access from any prompt text field
+- **🔧 Robust JSON Parsing**: Handles wrapped JSON responses with regex extraction
+- **📊 Confidence Scoring**: All suggestions include confidence values for quality assessment
 
 ### 🌟 **Seedream V4 Integration** (NEW!)
 - **🚀 State-of-the-Art Editing**: Multi-modal image generation surpassing Nano Banana
@@ -35,12 +38,34 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **API Compatibility**: Fixed upscaler resolution format to match API requirements (2k/4k/8k)
 - **Error Recovery**: Better error handling with graceful fallbacks
 
-### 📝 **Enhanced Prompt Management**
-- **Video Tab Prompts**: Added prompt saving/loading for Wan 2.2 and SeedDance tabs
-- **Organized Storage**: Separate prompt files for each AI model type
-- **Quick Access**: Save, load, and delete prompts directly from the interface
-- **Workflow Efficiency**: Reuse successful prompts across sessions
-- **🤖 AI Enhancement**: Improve prompts with AI suggestions in all tabs
+### 🏗️ **Code Quality & Architecture** (NEW!)
+- **📝 Type Hints**: Comprehensive type annotations throughout the codebase
+- **🛡️ Custom Exception Handling**: Hierarchical exception system with specific error types
+- **✅ Input Validation**: Centralized validation with comprehensive error messages
+- **⚙️ Configuration Management**: Modern dataclass-based configuration system
+- **🧪 Unit Testing**: Comprehensive test suite with validation, config, and exception tests
+- **🔄 Async API Client**: Asynchronous API client for improved performance
+- **📚 Developer Documentation**: Complete developer guide and improvement summaries
+- **🎯 Constants Management**: Centralized constants and enums for better maintainability
+
+### 📚 **Enhanced Prompt Management System** (NEW!)
+- **🗄️ SQLite Database**: Advanced prompt storage with categories, tags, and metadata
+- **🏷️ Smart Categorization**: AI-powered category suggestions and hierarchical organization
+- **🔍 Advanced Search**: Search prompts by content, category, tags, or model type
+- **📊 Usage Analytics**: Track prompt usage, ratings, and performance metrics
+- **🔄 Migration Tools**: Seamless migration from old JSON prompt files
+- **🎨 Modern UI**: Enhanced prompt browser with filtering and preview capabilities
+- **📈 Prompt Evolution**: Track original vs AI-enhanced prompt versions
+- **⚙️ Flexible Settings**: Customizable prompt parameters and model-specific configurations
+
+### 🛡️ **Filter Training Mode** (NEW!)
+- **🔬 Safety Research**: Generate harmful prompt examples for safety filter development
+- **🎯 Universal Compatibility**: Works with all AI models through smart prompt composition
+- **📊 Comprehensive Patterns**: Clarity, evasion, and technical misuse examples
+- **⚠️ Safety-First Design**: Warning dialogs and clear labeling prevent misuse
+- **🔧 Research-Grade Quality**: Detailed patterns for effective filter training
+- **📚 Complete Documentation**: Comprehensive guide for ethical research usage
+- **🎨 UI Integration**: Dedicated filter training button with safety warnings
 
 ### 🎨 **Drag & Drop Enhancements**
 - **Universal Drop Zones**: Drop images on browse buttons, preview areas, or main displays
@@ -285,6 +310,13 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 5. **Apply suggestion** with "✅ Use This Prompt" or copy to clipboard
 6. **Preview suggestions** before applying with the preview feature
 
+#### **🛡️ Filter Training Mode** (Research Only)
+1. **Enter a prompt** in any tab's prompt field
+2. **Click "🛡️ Filter Training"** button (next to "✨ Improve with AI")
+3. **Confirm warning dialog** about safety research purposes
+4. **Review generated examples** for filter training patterns
+5. **Use responsibly** - only for building safety filters, never for generation
+
 #### **⚙️ AI Assistant Configuration**
 1. **Access Settings**: Go to "🤖 AI Assistant" menu → "⚙️ Settings"
 2. **Configure API Keys**: Add Claude or OpenAI API keys
@@ -298,6 +330,28 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **🌟 Seedream V4**: Complex multi-step transformations with structured prompts
 - **🎬 Wan 2.2**: Natural motion and realistic animations
 - **🕺 SeedDance Pro**: Cinematic movement and camera work
+- **🛡️ Filter Training**: Safety research patterns for filter development
+
+### Enhanced Prompt Management Usage
+
+#### **📚 Enhanced Prompt Library**
+1. **Click "📚 Enhanced Library"** button in any tab
+2. **Browse prompts** by category, tags, or model type
+3. **Search prompts** using the search bar
+4. **Preview prompts** before applying
+5. **Apply selected prompt** directly to your current tab
+
+#### **🔄 Prompt Migration**
+1. **Run migration script**: `python scripts/migrate_prompts.py`
+2. **Backup old files** automatically created
+3. **Migrate prompts** to new SQLite database
+4. **Access enhanced features** through the new system
+
+#### **📊 Prompt Analytics**
+- **Usage tracking**: See which prompts are used most frequently
+- **Rating system**: Rate prompts for quality assessment
+- **Category management**: Organize prompts by type and purpose
+- **Tag system**: Add custom tags for better organization
 
 ## Requirements
 
@@ -310,6 +364,10 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - av==10.0.0 (for video playback)
 - tkvideoplayer==2.3 (for enhanced video player)
 - aiohttp==3.9.1 (for AI Prompt Advisor)
+- sqlite3 (for Enhanced Prompt Management - included with Python)
+- dataclasses (for configuration management - included with Python 3.7+)
+- typing (for type hints - included with Python 3.5+)
+- unittest (for testing - included with Python)
 
 ## API Integration
 
@@ -379,10 +437,21 @@ The application creates these files in your working directory:
 - `ui_layout.conf` - Stores your preferred UI layout and splitter positions
 - `data/saved_prompts.json` - Stores your saved Nano Banana Editor prompts
 - `data/seededit_prompts.json` - Stores your saved SeedEdit prompts
-- `data/seedream_v4_prompts.json` - Stores your saved Seedream V4 prompts (NEW!)
+- `data/seedream_v4_prompts.json` - Stores your saved Seedream V4 prompts
 - `data/video_prompts.json` - Stores your saved Wan 2.2 video prompts
 - `data/seeddance_prompts.json` - Stores your saved SeedDance Pro prompts
+- `prompts.db` - Enhanced prompt management SQLite database (NEW!)
 - `WaveSpeed_Results/` - Auto-save directory for all generated content
+
+### New Configuration Files (2025)
+- `app/constants.py` - Centralized constants and enums
+- `core/validation.py` - Input validation functions
+- `core/exceptions.py` - Custom exception hierarchy
+- `app/config_enhanced.py` - Modern dataclass-based configuration
+- `core/async_api_client.py` - Asynchronous API client
+- `tests/` - Comprehensive unit test suite
+- `docs/DEVELOPER_GUIDE.md` - Complete developer documentation
+- `docs/FILTER_TRAINING_GUIDE.md` - Filter training mode documentation
 
 ## Advanced Features
 
@@ -394,6 +463,8 @@ The application creates these files in your working directory:
 - **Quality Pipeline**: Upscale → Edit → Refine → Animate workflows
 - **🤖 AI Prompt Enhancement**: Improve prompts with AI suggestions across all tabs
 - **🎨 Advanced Editing**: Seedream V4 for complex multi-modal transformations
+- **📚 Enhanced Prompt Library**: Advanced prompt management with categories and analytics
+- **🛡️ Safety Research Tools**: Filter training mode for safety filter development
 
 ### 🔧 **Developer-Friendly**
 - **Modular Architecture**: Clean separation of concerns across files
@@ -401,6 +472,10 @@ The application creates these files in your working directory:
 - **Error Handling**: Comprehensive error handling with user feedback
 - **Logging**: Detailed logging for debugging and monitoring
 - **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Type Safety**: Comprehensive type hints throughout the codebase
+- **Testing Suite**: Unit tests for validation, configuration, and exceptions
+- **Documentation**: Complete developer guide and API documentation
+- **Code Quality**: Modern Python practices with dataclasses and async support
 
 ### 🎨 **UI/UX Excellence**
 - **Modern Design**: Professional interface with intuitive controls
@@ -438,6 +513,32 @@ If AI suggestions are not working:
 - Check the "🤖 AI Assistant" menu for settings and status
 - The application will continue to work without AI suggestions
 
+### Enhanced Prompt Management Issues
+If the enhanced prompt library is not working:
+- Run the migration script: `python scripts/migrate_prompts.py`
+- Check that `prompts.db` file exists in the root directory
+- Verify SQLite3 is available (included with Python)
+- The application will fall back to JSON prompt files if needed
+
+### Filter Training Mode Issues
+If filter training mode is not working:
+- Ensure you have valid Claude or OpenAI API keys configured
+- Check that you're using the latest version with filter training support
+- Verify the warning dialog appears before generating examples
+- Remember: This mode is for safety research only, never for content generation
+
+### Code Quality & Testing
+To run the test suite:
+```bash
+# Run all tests
+python tests/run_tests.py
+
+# Run specific test modules
+python -m unittest tests.test_validation
+python -m unittest tests.test_config
+python -m unittest tests.test_exceptions
+```
+
 ## Contributing
 
 This application is built with a modular architecture that makes it easy to:
@@ -463,9 +564,13 @@ This application represents a comprehensive approach to AI-powered creative work
 - **Seamless Integration**: Multiple AI model integration with unified workflow
 - **Performance Optimization**: Enhanced file handling, error recovery, and stability improvements
 - **User Experience**: Eliminated popup interruptions, added drag & drop enhancements, and streamlined operations
-- **🤖 AI Prompt Advisor**: Revolutionary AI-powered prompt enhancement system
+- **🤖 AI Prompt Advisor**: Revolutionary AI-powered prompt enhancement system with research-backed guidance
 - **🌟 Seedream V4 Integration**: State-of-the-art multi-modal image editing capabilities
 - **🎨 Enhanced Workflows**: Professional creative pipeline with advanced AI models
+- **📚 Enhanced Prompt Management**: Advanced SQLite-based prompt library with analytics and categorization
+- **🛡️ Filter Training Mode**: Safety research tools for filter development with comprehensive documentation
+- **🏗️ Code Quality**: Type hints, custom exceptions, validation, testing suite, and modern architecture
+- **📖 Developer Documentation**: Comprehensive guides and improvement summaries for maintainability
 
 ---
 
