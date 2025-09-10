@@ -393,7 +393,26 @@ def add_ai_features_to_prompt_section(prompt_frame, prompt_text_widget, tab_name
             tab_name,
             on_suggestion_selected
         )
-        ai_button.button.pack(side=tk.LEFT, padx=(5, 0))
+        
+        # Check which geometry manager is being used in the prompt_actions frame
+        # by looking at existing children
+        uses_grid = False
+        for child in prompt_actions.winfo_children():
+            try:
+                # Try to get grid info - if it exists, the frame uses grid
+                grid_info = child.grid_info()
+                if grid_info:
+                    uses_grid = True
+                    break
+            except:
+                pass
+        
+        if uses_grid:
+            # Use grid for consistency
+            ai_button.button.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(5, 0))
+        else:
+            # Use pack for consistency
+            ai_button.button.pack(side=tk.LEFT, padx=(5, 0))
     
     # Add context menu to prompt text widget
     PromptContextMenu(prompt_text_widget, tab_name, on_suggestion_selected)
