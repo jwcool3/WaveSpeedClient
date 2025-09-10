@@ -17,6 +17,11 @@ class Config:
     API_KEY = os.getenv("WAVESPEED_API_KEY")
     BASE_URL = "https://api.wavespeed.ai/api/v3"
     
+    # AI Prompt Advisor Configuration
+    CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY")
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    AI_ADVISOR_PROVIDER = os.getenv("AI_ADVISOR_PROVIDER", "claude")  # "claude" or "openai"
+    
     # API Endpoints
     ENDPOINTS = {
         'image_edit': f"{BASE_URL}/google/nano-banana/edit",

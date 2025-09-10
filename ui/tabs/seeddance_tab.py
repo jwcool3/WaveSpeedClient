@@ -15,6 +15,7 @@ import time
 from ui.components.ui_components import BaseTab, ImagePreview, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector
 from ui.components.optimized_video_layout import OptimizedVideoLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from app.config import Config
 from utils.utils import *
 from core.auto_save import auto_save_manager
@@ -33,6 +34,11 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         self.main_app = main_app  # Reference to main app for cross-tab operations
         BaseTab.__init__(self, parent_frame, api_client)
         VideoPlayerMixin.__init__(self)
+    
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
         """Setup the optimized SeedDance UI"""
@@ -140,6 +146,14 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         
         # Prompt management section
         self.setup_prompt_management(prompt_frame)
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_frame, 
+            self.prompt_text, 
+            "SeedDance Pro",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
     
     def setup_compact_progress_section(self):
         """Setup compact progress section"""
