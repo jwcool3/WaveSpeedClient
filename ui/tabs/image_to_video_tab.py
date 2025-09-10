@@ -208,10 +208,11 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.last_image_var = tk.StringVar(value="")
         self.settings_panel.add_text_field("Last Image URL (optional)", self.last_image_var, 30)
     
-    def on_image_selected(self, image_path):
+    def on_image_selected(self, image_path, replacing_image=False):
         """Handle image selection"""
-        # Check if replacing existing image
-        replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
+        # Check if replacing existing image (use parameter or detect automatically)
+        if not replacing_image:
+            replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
         # Use the optimized layout's image selection handler
         original_image = self.optimized_layout.on_image_selected(image_path)

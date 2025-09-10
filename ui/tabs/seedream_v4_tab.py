@@ -334,6 +334,11 @@ class SeedreamV4Tab(BaseTab):
     def process_thread(self, prompt):
         """Process in background thread"""
         try:
+            # Notify tab manager of processing start
+            if hasattr(self.main_app, 'tab_manager'):
+                tab_index = self.main_app.get_current_tab_index()
+                self.main_app.tab_manager.set_tab_processing(tab_index, True)
+            
             # Update status
             self.frame.after(0, lambda: self.update_status("Preparing image..."))
             
@@ -385,6 +390,11 @@ class SeedreamV4Tab(BaseTab):
         except Exception as e:
             error_msg = f"Error: {str(e)}"
             self.frame.after(0, lambda: self.handle_error(error_msg))
+        finally:
+            # Clear processing indicator
+            if hasattr(self.main_app, 'tab_manager'):
+                tab_index = self.main_app.get_current_tab_index()
+                self.main_app.tab_manager.set_tab_processing(tab_index, False)
     
     def upload_image_for_seedream_v4(self, image_path):
         """Upload image securely for Seedream V4"""
@@ -426,6 +436,11 @@ class SeedreamV4Tab(BaseTab):
         self.hide_progress()
         self.update_status(f"✅ Seedream V4 completed in {duration:.1f}s")
         
+        # Notify tab manager of success
+        if hasattr(self.main_app, 'tab_manager'):
+            tab_index = self.main_app.get_current_tab_index()
+            self.main_app.tab_manager.set_tab_success(tab_index)
+        
         # Display result
         self.optimized_layout.display_result(output_url)
         self.result_image = output_url
@@ -450,6 +465,11 @@ class SeedreamV4Tab(BaseTab):
         self.hide_progress()
         self.update_status(f"❌ Error: {error_message}")
         show_error("Seedream V4 Error", error_message)
+        
+        # Notify tab manager of error
+        if hasattr(self.main_app, 'tab_manager'):
+            tab_index = self.main_app.get_current_tab_index()
+            self.main_app.tab_manager.set_tab_error(tab_index)
     
     def save_result_image(self):
         """Save the result image"""
