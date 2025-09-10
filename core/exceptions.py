@@ -51,7 +51,7 @@ class InsufficientBalanceError(APIError):
     """Exception raised for insufficient account balance"""
     
     def __init__(self, message: str = "Insufficient account balance", current_balance: Optional[float] = None, **kwargs):
-        super().__init__(message, **kwargs)
+        super().__init__(message, status_code=402, **kwargs)
         self.current_balance = current_balance
 
 

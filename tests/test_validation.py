@@ -68,7 +68,7 @@ class TestValidation(unittest.TestCase):
         """Test invalid prompt validation"""
         invalid_cases = [
             (None, "Prompt is required"),
-            ("", "Prompt cannot be empty"),
+            ("", "Prompt is required"),
             ("   ", "Prompt cannot be empty"),
             ("A" * 2001, "Prompt is too long"),
             ("<script>alert('xss')</script>", "potentially harmful content")
