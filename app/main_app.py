@@ -233,7 +233,7 @@ class WaveSpeedAIApp:
         
         # SeedDance Tab
         self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance")
+        self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance Pro")
     
     def setup_menu(self):
         """Setup application menu"""
@@ -258,7 +258,7 @@ class WaveSpeedAIApp:
         tools_menu.add_command(label="Switch to Seedream V4", command=lambda: self.switch_to_tab(2))  # NEW
         tools_menu.add_command(label="Switch to Upscaler", command=lambda: self.switch_to_tab(3))      # Updated index
         tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(4))  # Updated index
-        tools_menu.add_command(label="Switch to SeedDance", command=lambda: self.switch_to_tab(5))     # Updated index
+        tools_menu.add_command(label="Switch to SeedDance Pro", command=lambda: self.switch_to_tab(5))     # Updated index
         
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
@@ -377,11 +377,12 @@ class WaveSpeedAIApp:
         """Show about dialog"""
         about_text = """WaveSpeed AI Complete Creative Suite
         
-Version: 2.6
+Version: 2.7
 Created by: Jackson Weed
         
 🆕 Latest Features:
 • NEW: Seedream V4 - State-of-the-art image editing surpassing nano banana
+• UPGRADED: SeedDance Pro - Now supports both 480p and 720p video generation
 • Enhanced User Experience (No popup interruptions)
 • Improved Stability & Performance 
 • Enhanced Prompt Management for all tabs
@@ -394,7 +395,7 @@ Created by: Jackson Weed
 • 🌟 Seedream V4 - State-of-the-art multi-modal image generation (NEW!)
 • 🔍 Image Upscaler - 2k/4k/8k resolution enhancement
 • 🎬 Wan 2.2 - Image to video generation
-• 🕺 SeedDance - Professional video generation
+• 🕺 SeedDance Pro - Professional video generation (480p/720p)
 
 🌟 Seedream V4 Highlights:
 • Multi-modal image generation support
@@ -402,6 +403,13 @@ Created by: Jackson Weed
 • Deep understanding ability with ultra-fast inference (1.8s for 2K)
 • Ultra-high-resolution output up to 4096x4096
 • Complex editing operations: object addition/deletion, style changes, etc.
+
+🕺 SeedDance Pro Highlights:
+• Dual resolution support: 480p and 720p video generation
+• Extended duration options: 5-10 seconds for both versions
+• Professional-grade video quality with cinematic effects
+• Dynamic camera movement and fixed camera options
+• Advanced prompt understanding for complex video scenarios
 
 🎯 Professional Features:
 • Real-time Balance Indicator

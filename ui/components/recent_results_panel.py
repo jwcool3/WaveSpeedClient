@@ -71,7 +71,7 @@ class RecentResultsPanel:
         filter_combo = ttk.Combobox(
             filter_frame,
             textvariable=self.filter_var,
-            values=["All", "Nano Banana", "SeedEdit", "Seedream V4", "Upscaler", "Wan 2.2", "SeedDance"],
+            values=["All", "Nano Banana", "SeedEdit", "Seedream V4", "Upscaler", "Wan 2.2", "SeedDance Pro"],
             state="readonly",
             width=10,
             font=('Arial', 7)
@@ -142,7 +142,7 @@ class RecentResultsPanel:
                     "Seedream_V4": "Seedream V4",  # NEW
                     "Image_Upscaler": "Upscaler",
                     "Wan_2.2": "Wan 2.2",
-                    "SeedDance": "SeedDance"
+                    "SeedDance_Pro": "SeedDance Pro"
                 }
                 
                 for subdir, tab_name in tab_mapping.items():
@@ -273,7 +273,7 @@ class RecentResultsPanel:
                 "Seedream V4": "🌟",  # NEW
                 "Upscaler": "🔍",
                 "Wan 2.2": "🎬",
-                "SeedDance": "🕺"
+                "SeedDance Pro": "🕺"
             }
             
             icon = tab_icons.get(result['tab_name'], "🎨")
@@ -400,7 +400,7 @@ class RecentResultsPanel:
         try:
             if hasattr(self.main_app, 'notebook'):
                 current_index = self.main_app.notebook.index(self.main_app.notebook.select())
-                tab_names = ["Nano Banana Editor", "SeedEdit", "Seedream V4", "Image Upscaler", "Wan 2.2", "SeedDance"]
+                tab_names = ["Nano Banana Editor", "SeedEdit", "Seedream V4", "Image Upscaler", "Wan 2.2", "SeedDance Pro"]
                 if 0 <= current_index < len(tab_names):
                     return tab_names[current_index]
         except:

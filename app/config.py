@@ -24,7 +24,9 @@ class Config:
         'seedream_v4': f"{BASE_URL}/bytedance/seedream-v4/edit",
         'image_upscale': f"{BASE_URL}/wavespeed-ai/image-upscaler",
         'image_to_video': f"{BASE_URL}/wavespeed-ai/wan-2.2/i2v-480p",
-        'seeddance': f"{BASE_URL}/bytedance/seedance-v1-pro-i2v-480p",
+        'seeddance': f"{BASE_URL}/bytedance/seedance-v1-pro-i2v-480p",  # Default to 480p
+        'seeddance_480p': f"{BASE_URL}/bytedance/seedance-v1-pro-i2v-480p",   # SeedDance V1 Pro 480p
+        'seeddance_720p': f"{BASE_URL}/bytedance/seedance-v1-pro-i2v-720p",   # SeedDance V1 Pro 720p
         'result_poll': f"{BASE_URL}/predictions/{{request_id}}/result",
         'balance': f"{BASE_URL}/balance"
     }
@@ -51,7 +53,7 @@ class Config:
         'seedream_v4': 'Seedream_V4',
         'upscaler': 'Image_Upscaler',
         'video': 'Wan_2.2',
-        'seeddance': 'SeedDance'
+        'seeddance': 'SeedDance_Pro'  # Updated folder name
     }
     
     # Privacy & Upload Configuration
@@ -74,7 +76,9 @@ class Config:
         'video': "https://d1q70pf5vjeyhc.cloudfront.net/media/6af332dfb8b245f4bd44fc6389f5a86a/images/1756971220323861267_eULQTVWW.png",
         'seededit': "https://d1q70pf5vjeyhc.cloudfront.net/media/6af332dfb8b245f4bd44fc6389f5a86a/images/1756972920861221095_bqH0XVRO.png",
         'seedream_v4': "https://d1q70pf5vjeyhc.cloudfront.net/media/6af332dfb8b245f4bd44fc6389f5a86a/images/1756972920861221095_bqH0XVRO.png",
-        'seeddance': "https://d1q70pf5vjeyhc.cloudfront.net/media/6af332dfb8b245f4bd44fc6389f5a86a/images/1756972742227172839_EZxtqmie.png"
+        'seeddance': "https://d1q70pf5vjeyhc.cloudfront.net/media/6af332dfb8b245f4bd44fc6389f5a86a/images/1756972742227172839_EZxtqmie.png",
+        'seeddance_480p': "https://d1q70pf5vjeyhc.cloudfront.net/media/6af332dfb8b245f4bd44fc6389f5a86a/images/1756972742227172839_EZxtqmie.png",
+        'seeddance_720p': "https://d3gnftk2yhz9lr.wavespeed.ai/media/images/1750742499545258689_aeXmGbsM.jpg"  # NEW
     }
     
     # UI Colors
@@ -91,7 +95,7 @@ class Config:
     
     # Validation Rules
     VIDEO_DURATIONS = [5, 8]
-    SEEDDANCE_DURATIONS = [5, 6, 7, 8, 9, 10]
+    SEEDDANCE_DURATIONS = [5, 6, 7, 8, 9, 10]  # Extended duration options for both versions
     SEED_RANGE = (-1, 2147483647)
     CREATIVITY_RANGE = (-2, 2)
     GUIDANCE_SCALE_RANGE = (0.0, 1.0)
@@ -110,6 +114,12 @@ class Config:
         "2048*4096",
         "4096*2048"
     ]
+    
+    # SeedDance V1 Pro versions and settings
+    SEEDDANCE_VERSIONS = {
+        "480p": "bytedance/seedance-v1-pro-i2v-480p",
+        "720p": "bytedance/seedance-v1-pro-i2v-720p"
+    }
     
     @classmethod
     def validate(cls):

@@ -252,18 +252,21 @@ class WaveSpeedAPIClient:
         except Exception as e:
             return None, f"Error: {str(e)}"
     
-    def submit_seeddance_task(self, image_url, duration=5, prompt="", camera_fixed=True, seed=-1):
-        """Submit SeedDance image-to-video task to WaveSpeed AI"""
+    def submit_seeddance_task(self, image_url, duration=5, prompt="", camera_fixed=False, seed=-1, version="480p"):
+        """Submit SeedDance V1 Pro task (480p or 720p) to WaveSpeed AI"""
         try:
-            logger.info(f"Submitting SeedDance task with duration: {duration}s")
+            logger.info(f"Submitting SeedDance V1 Pro {version} task with duration: {duration}s")
             
-            url = Config.ENDPOINTS['seeddance']
+            # Select the appropriate endpoint based on version
+            endpoint_key = f'seeddance_{version}' if version in ['480p', '720p'] else 'seeddance'
+            url = Config.ENDPOINTS[endpoint_key]
+            
             headers = self.get_headers()
             payload = {
-                "camera_fixed": camera_fixed,
-                "duration": duration,
-                "image": image_url,
                 "prompt": prompt,
+                "image": image_url,
+                "duration": duration,
+                "camera_fixed": camera_fixed,
                 "seed": seed
             }
             
@@ -274,7 +277,7 @@ class WaveSpeedAPIClient:
             if response.status_code == 200:
                 result = response.json()["data"]
                 request_id = result["id"]
-                logger.log_api_request("seeddance", request_id, "submitted")
+                logger.log_api_request(f"seeddance_{version}", request_id, "submitted")
                 return request_id, None
             else:
                 error_msg = f"API Error: {response.status_code}, {response.text}"
@@ -282,7 +285,7 @@ class WaveSpeedAPIClient:
                 return None, error_msg
                 
         except Exception as e:
-            error_msg = f"Error submitting SeedDance task: {str(e)}"
+            error_msg = f"Error submitting SeedDance V1 Pro task: {str(e)}"
             logger.error(error_msg)
             return None, error_msg
     
