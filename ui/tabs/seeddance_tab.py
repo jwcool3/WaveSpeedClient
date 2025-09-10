@@ -51,7 +51,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         self.setup_compact_prompt_section()
         
         # Configure main action button
-        self.optimized_layout.set_main_action("🎭 Generate SeedDance Video", self.process_task)
+        self.optimized_layout.set_main_action("🕺 Generate SeedDance Video", self.process_task)
         
         # Connect sample button to load sample prompt
         self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
@@ -79,22 +79,41 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         ttk.Label(duration_frame, text="Duration:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
         self.duration_var = tk.StringVar(value="5")
         duration_combo = ttk.Combobox(duration_frame, textvariable=self.duration_var, 
-                                     values=["5"], state="readonly", width=8)
+                                     values=[str(d) for d in Config.SEEDDANCE_DURATIONS], state="readonly", width=8)
         duration_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Version/Resolution setting
+        version_frame = ttk.Frame(settings_container)
+        version_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=2)
+        version_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(version_frame, text="Resolution:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.version_var = tk.StringVar(value="720p")
+        version_combo = ttk.Combobox(version_frame, textvariable=self.version_var, 
+                                    values=["480p", "720p"], state="readonly", width=8)
+        version_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Add version change callback to update button text
+        def on_version_change(event=None):
+            version = self.version_var.get()
+            button_text = f"🕺 Generate SeedDance {version}"
+            self.optimized_layout.main_action_button.config(text=button_text)
+        
+        version_combo.bind('<<ComboboxSelected>>', on_version_change)
         
         # Camera fixed setting
         camera_frame = ttk.Frame(settings_container)
-        camera_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=2)
+        camera_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=2)
         camera_frame.columnconfigure(1, weight=1)
         
         ttk.Label(camera_frame, text="Camera Fixed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
-        self.camera_fixed_var = tk.BooleanVar(value=True)
+        self.camera_fixed_var = tk.BooleanVar(value=False)
         camera_check = ttk.Checkbutton(camera_frame, variable=self.camera_fixed_var)
         camera_check.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
         
         # Seed setting
         seed_frame = ttk.Frame(settings_container)
-        seed_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=2)
+        seed_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=2)
         seed_frame.columnconfigure(1, weight=1)
         
         ttk.Label(seed_frame, text="Seed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
@@ -204,12 +223,12 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
     def load_sample_prompt(self):
         """Load a sample prompt for demonstration"""
         sample_prompts = [
-            "smooth camera movement, cinematic lighting",
-            "gentle zoom in, natural motion",
-            "dynamic movement, flowing hair",
-            "subtle animation, realistic motion",
-            "cinematic pan, professional quality",
-            "smooth transition, elegant movement"
+            "Girl playing piano, multiple camera switches, cinematic quality",
+            "A girl turns toward the camera, her earrings swaying gently with the motion. The camera rotates, bathed in dreamy sunlight",  # From 480p example
+            "Person walking through a magical forest, leaves falling, golden hour lighting, smooth camera movement",
+            "Dancer performing contemporary moves, flowing fabric, dramatic lighting, multiple angles",
+            "Portrait shot with gentle breeze moving hair, soft focus background, cinematic mood",
+            "Close-up of hands creating art, paint flowing, time-lapse style, artistic lighting"
         ]
         
         import random
@@ -418,7 +437,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             
             # Submit task
             request_id, error = self.api_client.submit_seeddance_task(
-                image_url, duration, prompt, camera_fixed, seed
+                image_url, duration, prompt, camera_fixed, seed, self.version_var.get()  # Add version parameter
             )
             
             if error:
@@ -460,7 +479,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
                 return image_url
             else:
                 # Fallback to sample URL if upload fails
-                sample_url = Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit'))
+                version = self.version_var.get()
+                sample_url = Config.SAMPLE_URLS.get(f'seeddance_{version}', Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit')))
                 
                 self.frame.after(0, lambda: show_warning(
                     "Using Sample Image", 
@@ -473,7 +493,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
                 
         except Exception as e:
             logger.error(f"Upload failed: {e}")
-            sample_url = Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit'))
+            version = self.version_var.get()
+            sample_url = Config.SAMPLE_URLS.get(f'seeddance_{version}', Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit')))
             
             self.frame.after(0, lambda: show_warning(
                 "Upload Error", 
@@ -504,7 +525,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         duration = self.duration_var.get()
         camera_fixed = self.camera_fixed_var.get()
         seed = self.seed_var.get()
-        extra_info = f"{duration}s_cam{camera_fixed}_seed{seed}"
+        version = self.version_var.get()
+        extra_info = f"duration_{duration}s_camera_{'fixed' if camera_fixed else 'dynamic'}_{version}_seed_{seed}"
         
         success, saved_path, error = auto_save_manager.save_result(
             'seeddance', 
@@ -524,7 +546,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         dialog_msg = f"SeedDance video generated successfully in {format_duration(duration_time)}!"
         if saved_path:
             dialog_msg += f"\n\nAuto-saved to:\n{os.path.basename(saved_path)}"
-        dialog_msg += f"\n\nCamera Fixed: {camera_fixed}"
+        dialog_msg += f"\n\nResolution: {version}"
+        dialog_msg += f"\nCamera Fixed: {camera_fixed}"
         dialog_msg += f"\nSeed: {seed}"
         dialog_msg += f"\n\nVideo URL: {output_url}"
         
