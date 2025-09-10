@@ -6,6 +6,23 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 
 ## 🆕 Latest Features (2025)
 
+### 🤖 **AI Prompt Advisor** (NEW!)
+- **✨ Smart Prompt Improvement**: AI-powered suggestions using Claude or OpenAI APIs
+- **🎯 Model-Specific Guidance**: Tailored suggestions for each AI model's strengths
+- **🎨 Enhanced UI**: Rich dialog with color-coded categories and visual feedback
+- **⚙️ Settings Panel**: Configure API keys and preferences via main menu
+- **🔄 Multiple Enhancement Types**: Clarity, Creativity, and Technical optimization
+- **📋 Copy & Preview**: Easy sharing and preview of AI suggestions
+- **🎪 Right-Click Integration**: Quick access from any prompt text field
+
+### 🌟 **Seedream V4 Integration** (NEW!)
+- **🚀 State-of-the-Art Editing**: Multi-modal image generation surpassing Nano Banana
+- **🎯 Complex Transformations**: Object addition, removal, and detailed modifications
+- **⚡ Ultra-Fast Inference**: 1.8 seconds for 2K image generation
+- **📐 Ultra-High Resolution**: Support up to 4096×4096 pixels
+- **🔧 Structured Prompts**: "Change action + Object + Target feature" format
+- **🎨 Advanced Capabilities**: Style transfers, scene changes, structural adjustments
+
 ### 🎯 **Enhanced User Experience**
 - **No Popup Interruptions**: Removed all success dialog boxes for streamlined workflow
 - **Silent Operations**: Privacy uploads, cross-tab transfers, and file saves happen seamlessly
@@ -23,6 +40,7 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **Organized Storage**: Separate prompt files for each AI model type
 - **Quick Access**: Save, load, and delete prompts directly from the interface
 - **Workflow Efficiency**: Reuse successful prompts across sessions
+- **🤖 AI Enhancement**: Improve prompts with AI suggestions in all tabs
 
 ### 🎨 **Drag & Drop Enhancements**
 - **Universal Drop Zones**: Drop images on browse buttons, preview areas, or main displays
@@ -113,6 +131,7 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **Chain Editing**: Use result images as input for the next edit
 - **Format Selection**: Choose output format (PNG, JPG, WebP)
 - **Auto-Save**: Results automatically saved with prompt and timestamp info
+- **🤖 AI Enhancement**: Improve prompts with AI suggestions
 
 ### ✨ **SeedEdit**
 - **ByteDance SeedEdit-v3**: Precise image modifications with fine control
@@ -122,6 +141,18 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **Cross-Tab Integration**: Send results to other tabs for complex workflows
 - **Sample Prompts**: Built-in examples for common editing tasks
 - **Auto-Save**: Results automatically saved with prompt and settings info
+- **🤖 AI Enhancement**: Improve prompts with AI suggestions
+
+### 🌟 **Seedream V4** (NEW!)
+- **ByteDance Seedream V4**: Multi-modal image generation surpassing Nano Banana
+- **Complex Transformations**: Object addition, removal, and detailed modifications
+- **Ultra-Fast Inference**: 1.8 seconds for 2K image generation
+- **Ultra-High Resolution**: Support up to 4096×4096 pixels
+- **Structured Prompts**: "Change action + Object + Target feature" format
+- **Advanced Capabilities**: Style transfers, scene changes, structural adjustments
+- **Cross-Tab Integration**: Send results to other tabs for complex workflows
+- **Auto-Save**: Results automatically saved with prompt and settings info
+- **🤖 AI Enhancement**: Improve prompts with AI suggestions
 
 ### 🔍 **Image Upscaler**
 - **WaveSpeed AI Upscaler**: Enhance image resolution using advanced AI
@@ -142,16 +173,19 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - **Negative Prompts**: Specify what to avoid in video generation
 - **Seed Control**: Reproducible results with custom seeds
 - **Auto-Save**: Videos automatically saved with duration and seed info
+- **🤖 AI Enhancement**: Improve prompts with AI suggestions
 
-### 🕺 **SeedDance**
+### 🕺 **SeedDance Pro**
 - **ByteDance SeedDance-v1-Pro**: Professional-grade video generation
 - **Enhanced Video Player**: Full-featured playback with interactive controls
 - **Optimized Layout**: Efficient space usage with large video display
 - **Extended Duration**: Generate videos from 5 to 10 seconds
+- **Dual Resolution**: Support for both 480p and 720p video generation
 - **Camera Control**: Fixed or dynamic camera positioning
 - **Optional Prompts**: Text prompts for enhanced video generation
 - **High Quality**: Professional-grade video output
 - **Auto-Save**: Videos automatically saved with duration, camera, and seed settings
+- **🤖 AI Enhancement**: Improve prompts with AI suggestions
 
 ## Setup
 
@@ -170,11 +204,17 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
    pip install tkvideoplayer==2.3
    ```
 
-3. **Set up API Key**:
+3. **Set up API Keys**:
    - Copy `docs/env_example.txt` to `.env` in the root directory
    - Add your WaveSpeed API key to the `.env` file:
      ```
      WAVESPEED_API_KEY=your_actual_api_key_here
+     ```
+   - **Optional**: Add AI Prompt Advisor API keys for enhanced prompt suggestions:
+     ```
+     CLAUDE_API_KEY=your_claude_api_key_here
+     OPENAI_API_KEY=your_openai_api_key_here
+     AI_ADVISOR_PROVIDER=claude
      ```
 
 4. **Run the Application**:
@@ -189,11 +229,12 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 
 #### **🔄 Cross-Tab Creative Pipeline**
 1. **Nano Banana Editor**: Apply creative edits to your image
-2. **📤 Send To Upscaler**: Click "Send To..." → "🔍 Image Upscaler" (seamless transfer)
-3. **Upscale**: Enhance to 4k resolution with no popup interruptions
-4. **📤 Send To SeedEdit**: Fine-tune specific details with automatic tab switching
-5. **📤 Send To Wan 2.2**: Create stunning video from final image
-6. **Save & Reuse**: All results automatically saved and available in Recent Results panel
+2. **🤖 AI Enhancement**: Use "✨ Improve with AI" to enhance your prompt
+3. **📤 Send To Upscaler**: Click "Send To..." → "🔍 Image Upscaler" (seamless transfer)
+4. **Upscale**: Enhance to 4k resolution with no popup interruptions
+5. **📤 Send To Seedream V4**: Advanced multi-modal editing with AI-enhanced prompts
+6. **📤 Send To Wan 2.2**: Create stunning video from final image
+7. **Save & Reuse**: All results automatically saved and available in Recent Results panel
 
 #### **🎨 Advanced Editing Workflow**
 1. **Recent Results Panel**: Browse your previous generations
@@ -206,10 +247,11 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 #### **Nano Banana Editor Tab**
 1. **Select Image**: Drag & drop or click "Browse Image"
 2. **Enter Prompt**: Describe your desired edits
-3. **Choose Settings**: Select output format and other options
-4. **Generate**: Click "🍌 Edit with Nano Banana"
-5. **View Results**: See before/after in tabbed display
-6. **Share Results**: Use "📤 Send To..." to continue in other tabs
+3. **🤖 AI Enhancement**: Click "✨ Improve with AI" for better prompts
+4. **Choose Settings**: Select output format and other options
+5. **Generate**: Click "🍌 Edit with Nano Banana"
+6. **View Results**: See before/after in tabbed display
+7. **Share Results**: Use "📤 Send To..." to continue in other tabs
 
 #### **Recent Results Panel**
 1. **Browse Results**: See thumbnails of your last 50 generations
@@ -233,6 +275,30 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 4. **Fullscreen Mode**: Click fullscreen button for immersive viewing
 5. **File Management**: Access recent videos and results folder directly
 
+### AI Prompt Advisor Usage
+
+#### **🤖 Smart Prompt Enhancement**
+1. **Enter your prompt** in any tab's prompt field
+2. **Click "✨ Improve with AI"** button or right-click for context menu
+3. **Review suggestions** in the enhanced dialog with color-coded categories
+4. **Choose enhancement type**: Clarity, Creativity, or Technical optimization
+5. **Apply suggestion** with "✅ Use This Prompt" or copy to clipboard
+6. **Preview suggestions** before applying with the preview feature
+
+#### **⚙️ AI Assistant Configuration**
+1. **Access Settings**: Go to "🤖 AI Assistant" menu → "⚙️ Settings"
+2. **Configure API Keys**: Add Claude or OpenAI API keys
+3. **Choose Provider**: Select preferred AI provider (Claude recommended)
+4. **Customize Features**: Enable/disable auto-suggestions and explanations
+5. **Test Connection**: Verify API connectivity and settings
+
+#### **🎯 Model-Specific Guidance**
+- **🍌 Nano Banana**: Artistic transformations with vivid, descriptive language
+- **✨ SeedEdit**: Precise, controlled edits with technical precision
+- **🌟 Seedream V4**: Complex multi-step transformations with structured prompts
+- **🎬 Wan 2.2**: Natural motion and realistic animations
+- **🕺 SeedDance Pro**: Cinematic movement and camera work
+
 ## Requirements
 
 - Python 3.7+
@@ -243,6 +309,7 @@ A comprehensive GUI application for AI-powered image editing, upscaling, and vid
 - tkinterdnd2 (for drag & drop functionality)
 - av==10.0.0 (for video playback)
 - tkvideoplayer==2.3 (for enhanced video player)
+- aiohttp==3.9.1 (for AI Prompt Advisor)
 
 ## API Integration
 
@@ -250,10 +317,15 @@ This application integrates with the WaveSpeed AI API endpoints:
 - **Balance**: `https://api.wavespeed.ai/api/v3/balance`
 - **Nano Banana editing**: `https://api.wavespeed.ai/api/v3/google/nano-banana/edit`
 - **SeedEdit**: `https://api.wavespeed.ai/api/v3/bytedance/seededit-v3`
+- **Seedream V4**: `https://api.wavespeed.ai/api/v3/bytedance/seedream-v4/edit`
 - **Image upscaling**: `https://api.wavespeed.ai/api/v3/wavespeed-ai/image-upscaler`
 - **Wan 2.2 video**: `https://api.wavespeed.ai/api/v3/wavespeed-ai/wan-2.2/i2v-480p`
 - **SeedDance video**: `https://api.wavespeed.ai/api/v3/bytedance/seedance-v1-pro-i2v-480p`
 - **Result polling**: `https://api.wavespeed.ai/api/v3/predictions/{request_id}/result`
+
+**AI Prompt Advisor APIs** (Optional):
+- **Claude API**: `https://api.anthropic.com/v1/messages`
+- **OpenAI API**: `https://api.openai.com/v1/chat/completions`
 
 ## Auto-Save File Organization
 
@@ -264,9 +336,10 @@ All AI results are automatically saved to organized folders:
 WaveSpeed_Results/
 ├── Nano_Banana_Editor/    # Nano Banana Editor results
 ├── SeedEdit/              # SeedEdit results  
+├── Seedream_V4/           # Seedream V4 results (NEW!)
 ├── Image_Upscaler/        # Upscaler results
 ├── Wan_2.2/               # Wan 2.2 video results
-└── SeedDance/             # SeedDance video results
+└── SeedDance_Pro/         # SeedDance Pro video results
 ```
 
 ### 📝 **File Naming Convention**
@@ -306,6 +379,9 @@ The application creates these files in your working directory:
 - `ui_layout.conf` - Stores your preferred UI layout and splitter positions
 - `data/saved_prompts.json` - Stores your saved Nano Banana Editor prompts
 - `data/seededit_prompts.json` - Stores your saved SeedEdit prompts
+- `data/seedream_v4_prompts.json` - Stores your saved Seedream V4 prompts (NEW!)
+- `data/video_prompts.json` - Stores your saved Wan 2.2 video prompts
+- `data/seeddance_prompts.json` - Stores your saved SeedDance Pro prompts
 - `WaveSpeed_Results/` - Auto-save directory for all generated content
 
 ## Advanced Features
@@ -316,6 +392,8 @@ The application creates these files in your working directory:
 - **Layout Customization**: Resize panels to match your workflow
 - **Batch Processing**: Process multiple images through different models
 - **Quality Pipeline**: Upscale → Edit → Refine → Animate workflows
+- **🤖 AI Prompt Enhancement**: Improve prompts with AI suggestions across all tabs
+- **🎨 Advanced Editing**: Seedream V4 for complex multi-modal transformations
 
 ### 🔧 **Developer-Friendly**
 - **Modular Architecture**: Clean separation of concerns across files
@@ -353,6 +431,13 @@ If the UI layout appears broken:
 - Restart the application
 - Use keyboard shortcuts to reset splitter positions
 
+### AI Prompt Advisor Issues
+If AI suggestions are not working:
+- Check your API keys in the `.env` file (CLAUDE_API_KEY or OPENAI_API_KEY)
+- Verify internet connection
+- Check the "🤖 AI Assistant" menu for settings and status
+- The application will continue to work without AI suggestions
+
 ## Contributing
 
 This application is built with a modular architecture that makes it easy to:
@@ -378,6 +463,9 @@ This application represents a comprehensive approach to AI-powered creative work
 - **Seamless Integration**: Multiple AI model integration with unified workflow
 - **Performance Optimization**: Enhanced file handling, error recovery, and stability improvements
 - **User Experience**: Eliminated popup interruptions, added drag & drop enhancements, and streamlined operations
+- **🤖 AI Prompt Advisor**: Revolutionary AI-powered prompt enhancement system
+- **🌟 Seedream V4 Integration**: State-of-the-art multi-modal image editing capabilities
+- **🎨 Enhanced Workflows**: Professional creative pipeline with advanced AI models
 
 ---
 
