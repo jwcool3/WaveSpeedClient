@@ -520,14 +520,13 @@ class RecentResultsPanel:
                             # Fallback to without the parameter
                             current_tab.on_image_selected(result['image_path'])
                     
-                    # Show success message
-                    show_success("Preview Loaded", f"Image loaded in {self.get_current_tab_name()}")
+                    # Image loaded successfully (no popup needed)
                 else:
                     show_error("Preview Error", "Failed to load image in current tab")
             elif hasattr(current_tab, 'image_selector') and hasattr(current_tab.image_selector, 'update_image'):
                 # Use the image selector's display
                 current_tab.image_selector.update_image(result['image_path'])
-                show_success("Preview Loaded", f"Image loaded in {self.get_current_tab_name()}")
+                # Image loaded successfully (no popup needed)
             else:
                 # Fallback: try to send to the current tab
                 self.send_result_to_current_tab(result)
@@ -576,10 +575,10 @@ class RecentResultsPanel:
                 except TypeError:
                     # Fallback to without the parameter
                     current_tab.on_image_selected(result['image_path'])
-                show_success("Image Loaded", f"Image loaded in {self.get_current_tab_name()}")
+                # Image loaded successfully (no popup needed)
             elif hasattr(current_tab, 'load_image'):
                 current_tab.load_image(result['image_path'])
-                show_success("Image Loaded", f"Image loaded in {self.get_current_tab_name()}")
+                # Image loaded successfully (no popup needed)
             else:
                 show_error("Error", f"Cannot load image in {self.get_current_tab_name()}")
                 
@@ -728,7 +727,7 @@ class RecentResultsPanel:
                 
                 # Refresh display
                 self.refresh_results()
-                show_success("Deleted", "Result deleted successfully.")
+                # Result deleted successfully (no popup needed)
                 
         except Exception as e:
             logger.error(f"Error deleting result: {e}")

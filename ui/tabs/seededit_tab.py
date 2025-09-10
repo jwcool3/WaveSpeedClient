@@ -635,7 +635,7 @@ class SeedEditTab(BaseTab):
             return
         
         if current_prompt in self.saved_seededit_prompts:
-            show_success("Info", "This SeedEdit prompt is already saved.")
+            # Prompt already saved (no popup needed)
             return
         
         self.saved_seededit_prompts.append(current_prompt)
@@ -643,7 +643,7 @@ class SeedEditTab(BaseTab):
         
         if success:
             self.refresh_seededit_prompts_list()
-            show_success("Success", "SeedEdit prompt saved successfully!")
+            # Prompt saved successfully (no popup needed)
         else:
             show_error("Error", error)
     
@@ -673,7 +673,7 @@ class SeedEditTab(BaseTab):
             
             if success:
                 self.refresh_seededit_prompts_list()
-                show_success("Success", "SeedEdit prompt deleted successfully!")
+                # Prompt deleted successfully (no popup needed)
             else:
                 show_error("Error", error)
     

@@ -316,7 +316,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             self.saved_prompts.append(prompt_data)
             save_json_file(self.prompts_file, self.saved_prompts)
             self.refresh_prompts_list()
-            show_success("Saved", f"Prompt '{prompt_name}' saved successfully!")
+            # Prompt saved successfully (no popup needed)
 
     def load_selected_prompt(self):
         """Load the selected prompt from the saved prompts list"""
@@ -334,7 +334,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.negative_prompt_text.delete("1.0", tk.END)
         self.negative_prompt_text.insert("1.0", prompt_data.get('negative_prompt', ''))
         
-        show_success("Loaded", f"Prompt '{prompt_data['name']}' loaded successfully!")
+        # Prompt loaded successfully (no popup needed)
 
     def delete_selected_prompt(self):
         """Delete the selected prompt from the saved prompts list"""
@@ -350,7 +350,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             del self.saved_prompts[selection[0]]
             save_json_file(self.prompts_file, self.saved_prompts)
             self.refresh_prompts_list()
-            show_success("Deleted", f"Prompt '{prompt_data['name']}' deleted successfully!")
+            # Prompt deleted successfully (no popup needed)
 
     def clear_prompts(self):
         """Clear all prompts"""
@@ -541,7 +541,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             dialog_msg += f"\n\nAuto-saved to:\n{os.path.basename(saved_path)}"
         dialog_msg += f"\n\nVideo URL: {output_url}"
         
-        show_success("Video Generated!", dialog_msg)
+        # Video generated successfully (no popup needed)
     
     def handle_error(self, error_message):
         """Handle error"""
@@ -576,7 +576,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             self.frame.clipboard_clear()
             self.frame.clipboard_append(self.result_video_url)
             self.frame.update()  # Required for clipboard to work
-            show_success("Success", "Video URL copied to clipboard!")
+            # Video URL copied to clipboard (no popup needed)
         except Exception as e:
             show_error("Error", f"Failed to copy URL: {str(e)}")
     
