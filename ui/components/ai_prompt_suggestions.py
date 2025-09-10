@@ -13,6 +13,13 @@ from core.ai_prompt_advisor import get_ai_advisor, PromptSuggestion
 from core.logger import get_logger
 from utils.utils import show_error, show_success
 
+# Try to import enhanced components
+try:
+    from ui.components.enhanced_ai_suggestions import show_enhanced_suggestions, show_ai_settings
+    ENHANCED_AVAILABLE = True
+except ImportError:
+    ENHANCED_AVAILABLE = False
+
 logger = get_logger()
 
 
@@ -114,7 +121,24 @@ class PromptSuggestionPanel:
             self.show_error("No suggestions available. Check your API configuration.")
             return
         
-        # Display each suggestion
+        # Use enhanced dialog if available
+        if ENHANCED_AVAILABLE:
+            def apply_suggestion(improved_prompt: str):
+                if self.on_suggestion_selected:
+                    self.on_suggestion_selected(improved_prompt)
+                self.hide_panel()
+            
+            show_enhanced_suggestions(
+                self.parent, 
+                self.current_prompt, 
+                suggestions, 
+                apply_suggestion, 
+                self.current_tab_name
+            )
+            self.hide_panel()  # Hide the simple panel
+            return
+        
+        # Fallback to simple display
         for i, suggestion in enumerate(suggestions):
             self.create_suggestion_widget(suggestion, i)
     

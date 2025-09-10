@@ -264,6 +264,13 @@ class WaveSpeedAIApp:
         tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(4))  # Updated index
         tools_menu.add_command(label="Switch to SeedDance Pro", command=lambda: self.switch_to_tab(5))     # Updated index
         
+        # AI Assistant menu
+        ai_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="🤖 AI Assistant", menu=ai_menu)
+        ai_menu.add_command(label="⚙️ Settings", command=self.show_ai_settings)
+        ai_menu.add_separator()
+        ai_menu.add_command(label="ℹ️ About AI Assistant", command=self.show_ai_about)
+        
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
@@ -481,6 +488,44 @@ Built with Python, tkinter, and modern UI/UX principles"""
             show_error("Application Error", f"Failed to run application: {str(e)}")
         finally:
             logger.info("Application shutdown")
+    
+    def show_ai_settings(self):
+        """Show AI assistant settings dialog"""
+        try:
+            from ui.components.enhanced_ai_suggestions import show_ai_settings
+            show_ai_settings(self.root)
+        except ImportError:
+            from tkinter import messagebox
+            messagebox.showinfo("AI Assistant", 
+                              "AI Assistant settings are not available.\n\n"
+                              "Please ensure the enhanced AI components are properly installed.")
+    
+    def show_ai_about(self):
+        """Show AI assistant information"""
+        from tkinter import messagebox
+        about_text = """🤖 AI Prompt Assistant
+
+Powered by Claude (Anthropic) and OpenAI GPT-4
+
+Features:
+• ✨ Improve existing prompts for better results
+• 💡 Generate creative prompt ideas  
+• 🎯 Tab-specific optimization for each AI model
+• 🧠 Context-aware suggestions
+• ⚙️ Configurable settings and preferences
+
+Setup:
+1. Add API keys to your .env file:
+   - CLAUDE_API_KEY=your_claude_key
+   - OPENAI_API_KEY=your_openai_key
+
+2. Restart the application
+
+3. Use "✨ Improve with AI" buttons in any tab
+
+The AI Assistant helps you create more effective prompts that lead to better AI generations!"""
+        
+        messagebox.showinfo("AI Assistant", about_text)
     
     def on_closing(self):
         """Handle application closing"""

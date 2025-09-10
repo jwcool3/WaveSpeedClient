@@ -10,17 +10,26 @@ The AI Prompt Advisor is a powerful new feature that provides intelligent prompt
 - **3 Enhancement Types**: Clarity, Creativity, and Technical optimization
 - **Model-Specific Guidance**: Tailored suggestions for each AI model's strengths
 - **Context-Aware**: Understands the current prompt and suggests improvements
+- **Rich Visual Interface**: Enhanced dialog with better organization and styling
 
 ### 🎨 **Seamless Integration**
 - **✨ Improve with AI Button**: Added to all prompt sections
 - **Right-Click Context Menu**: Quick access from any prompt text field
-- **Visual Suggestion Panel**: Clean, organized display of AI suggestions
+- **Enhanced Suggestion Dialog**: Rich UI with better visual design
 - **One-Click Application**: Apply suggestions directly to your prompt
+- **Preview Functionality**: Preview suggestions before applying
 
 ### 🔧 **Multiple AI Providers**
 - **Claude API**: Anthropic's Claude-3-Sonnet for advanced reasoning
 - **OpenAI API**: GPT-4 for comprehensive prompt optimization
 - **Automatic Fallback**: Uses available API if primary provider fails
+- **Settings Panel**: Configure providers and preferences
+
+### ⚙️ **Advanced Features**
+- **AI Settings Dialog**: Configure API keys and preferences
+- **Generate More Options**: Request additional suggestions
+- **Copy to Clipboard**: Easy sharing of suggestions
+- **Status Indicators**: Visual feedback during AI processing
 
 ## 🚀 Setup Instructions
 
@@ -57,18 +66,24 @@ AI_ADVISOR_PROVIDER=claude
 ### **Method 1: AI Improve Button**
 1. **Enter your prompt** in any tab's prompt field
 2. **Click "✨ Improve with AI"** button
-3. **Review suggestions** in the popup panel
-4. **Click "Use This Prompt"** to apply your favorite suggestion
+3. **Review suggestions** in the enhanced dialog
+4. **Click "✅ Use This Prompt"** to apply your favorite suggestion
 
 ### **Method 2: Right-Click Context Menu**
 1. **Right-click** in any prompt text field
 2. **Select "✨ Improve with AI"** from the context menu
 3. **Choose from suggestions** and apply as needed
 
-### **Method 3: Copy to Clipboard**
-1. **Generate suggestions** using either method above
-2. **Click "Copy"** on any suggestion
-3. **Paste** into your prompt field manually
+### **Method 3: Enhanced Dialog Features**
+1. **Preview suggestions** using the "👁️ Preview" button
+2. **Copy to clipboard** with the "📋 Copy" button
+3. **Generate more suggestions** with "🔄 Generate More"
+4. **Generate fresh ideas** with "💡 Generate Ideas"
+
+### **Method 4: AI Settings Configuration**
+1. **Go to "🤖 AI Assistant" menu** in the main application
+2. **Click "⚙️ Settings"** to configure API keys and preferences
+3. **Test connections** and customize behavior
 
 ## 🎨 Model-Specific Guidance
 
