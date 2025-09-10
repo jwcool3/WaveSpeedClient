@@ -206,3 +206,8 @@ desktop.ini
 # Backup files
 *.bak
 *.backup
+
+*/WaveSpeed_Results/
+
+
+data/saved_prompts.json
