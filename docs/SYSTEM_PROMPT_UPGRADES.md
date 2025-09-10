@@ -42,6 +42,60 @@ The AI Prompt Advisor system has been upgraded with research-backed, model-speci
 - Optimized for physically plausible motion
 - Emphasizes natural, believable animations
 
+### 3. **Nano Banana (Google)** - Enhanced System Prompt
+
+**Previous Version**: Basic artistic transformation guidance
+**New Version**: Google-specific artistic prompt formula
+
+#### Key Improvements:
+- **Artistic Formula**: 5-element structure (Transformation → Subject → Style/Medium → Atmosphere → Color/Texture)
+- **Word Count Optimization**: 25-70 words for optimal artistic interpretation
+- **Rich Artistic Vocabulary**: "ethereal", "dreamy", "watercolor", "cinematic"
+- **Medium Cues**: Specific artistic medium instructions (oil painting, watercolor, 3D render)
+- **Atmosphere Focus**: Emphasis on lighting, mood, and emotional tone
+
+#### Research Foundation:
+- Based on Google's Nano Banana positioning for artistic transformations
+- Optimized for creative and visual style changes
+- Emphasizes artistic medium and atmosphere over technical details
+- Focuses on style and vibe rather than precise edits
+
+### 4. **SeedEdit V4 (ByteDance)** - Enhanced System Prompt
+
+**Previous Version**: Basic precision editing guidance
+**New Version**: ByteDance-specific precision editing formula
+
+#### Key Improvements:
+- **Precision Formula**: 5-element structure (Action → Target Object → Target Feature → Context → Style/Quality)
+- **Word Count Optimization**: 25-70 words for optimal precision
+- **Surgical Precision**: Specific, targeted edit instructions
+- **High Retention Focus**: Leverages SeedEdit's composition preservation
+- **Action Verb Guidance**: Clear action verbs for clean edits
+
+#### Research Foundation:
+- Based on ByteDance's SeedEdit V4 official documentation
+- Optimized for high-fidelity editing and object manipulation
+- Emphasizes precise, controlled edits over scene changes
+- Focuses on maintaining composition while making targeted changes
+
+### 5. **SeedDance Pro (ByteDance)** - Enhanced System Prompt
+
+**Previous Version**: Basic video generation guidance
+**New Version**: ByteDance-specific cinematic motion formula
+
+#### Key Improvements:
+- **Cinematic Formula**: 6-element structure (Subject + Action → Motion Quality → Camera → Environment → Shot Grammar → Duration)
+- **Word Count Optimization**: 30-80 words for optimal motion description
+- **Dance/Gesture Verbs**: "twirls", "leans", "extends arms"
+- **Camera Separation**: Clear distinction between subject motion and camera movement
+- **Cinematic Style Cues**: Film noir, music video, documentary aesthetics
+
+#### Research Foundation:
+- Based on ByteDance's SeedDance Pro documentation and user tests
+- Optimized for movement and cinematic camera grammar
+- Emphasizes framing, camera path, and duration as key prompt levers
+- Focuses on dynamic 5-10 second clips with cinematic quality
+
 ## 🎯 Technical Improvements
 
 ### Structured Output Format
@@ -63,6 +117,9 @@ Both upgraded prompts now use a consistent JSON output format:
 ### Model-Specific Optimization
 - **Seedream V4**: Optimized for object manipulation, style transfer, and 4K output
 - **Wan 2.2**: Optimized for natural motion, camera work, and duration constraints
+- **Nano Banana**: Optimized for artistic transformations, style changes, and creative interpretation
+- **SeedEdit V4**: Optimized for precision editing, object manipulation, and high retention
+- **SeedDance Pro**: Optimized for cinematic motion, camera work, and dynamic video generation
 
 ### Enhanced Parsing
 The structured format ensures:
@@ -87,14 +144,17 @@ The structured format ensures:
 ### ✅ Completed:
 - [x] Updated `SystemPrompts.SEEDREAM_V4` with research-backed formula
 - [x] Updated `SystemPrompts.WAN_22` with cinematic motion guidance
+- [x] Updated `SystemPrompts.NANO_BANANA` with Google artistic transformation guidance
+- [x] Updated `SystemPrompts.SEEDEDIT` with ByteDance precision editing guidance
+- [x] Updated `SystemPrompts.SEEDDANCE` with ByteDance cinematic motion guidance
 - [x] Maintained backward compatibility with existing code
-- [x] Tested system prompt loading and parsing
+- [x] Tested all system prompt loading and parsing
 
 ### 🚀 Ready for Next Phase:
-- [ ] Upgrade remaining models (Nano Banana, SeedEdit, SeedDance)
 - [ ] Add model-specific validation
 - [ ] Implement confidence-based filtering
 - [ ] Add user feedback collection
+- [ ] Performance optimization and caching
 
 ## 📝 Usage Examples
 
@@ -135,10 +195,10 @@ Output:
 ## 🔮 Future Enhancements
 
 ### Planned Upgrades:
-1. **Nano Banana**: Google-specific artistic transformation guidance
-2. **SeedEdit**: Precise modification and guidance scale optimization
-3. **SeedDance**: Dynamic movement and camera work specialization
-4. **Image Upscaler**: Pre/post-processing optimization guidance
+1. **Image Upscaler**: Pre/post-processing optimization guidance
+2. **Model-Specific Validation**: Ensure prompts match model capabilities
+3. **Advanced Categorization**: AI-powered category suggestions
+4. **Performance Optimization**: Caching and response time improvements
 
 ### Advanced Features:
 - **Model-Specific Validation**: Ensure prompts match model capabilities

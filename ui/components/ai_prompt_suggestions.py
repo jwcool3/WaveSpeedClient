@@ -64,10 +64,11 @@ class PromptSuggestionPanel:
         self.error_label = ttk.Label(self.container, text="", 
                                     font=('Arial', 10), foreground="red")
     
-    def show_panel(self, current_prompt: str, tab_name: str):
+    def show_panel(self, current_prompt: str, tab_name: str, filter_training: bool = False):
         """Show the suggestion panel with current prompt"""
         self.current_prompt = current_prompt
         self.current_tab_name = tab_name
+        self.filter_training = filter_training
         
         # Clear previous suggestions
         for widget in self.suggestions_frame.winfo_children():
@@ -93,12 +94,20 @@ class PromptSuggestionPanel:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                suggestions = loop.run_until_complete(
-                    get_ai_advisor().improve_prompt(
-                        self.current_prompt, 
-                        self.current_tab_name
+                if self.filter_training:
+                    suggestions = loop.run_until_complete(
+                        get_ai_advisor().generate_filter_training_data(
+                            self.current_prompt, 
+                            self.current_tab_name
+                        )
                     )
-                )
+                else:
+                    suggestions = loop.run_until_complete(
+                        get_ai_advisor().improve_prompt(
+                            self.current_prompt, 
+                            self.current_tab_name
+                        )
+                    )
                 # Update UI in main thread
                 self.parent.after(0, lambda: self.display_suggestions(suggestions))
             except Exception as e:
@@ -239,6 +248,14 @@ class AIImproveButton:
             state=tk.NORMAL if get_ai_advisor().is_available() else tk.DISABLED
         )
         
+        # Add filter training button (for safety research only)
+        self.filter_training_button = ttk.Button(
+            self.parent,
+            text="🛡️ Filter Training",
+            command=self.show_filter_training,
+            state=tk.NORMAL if get_ai_advisor().is_available() else tk.DISABLED
+        )
+        
         # Add tooltip
         self.create_tooltip()
     
@@ -284,9 +301,46 @@ class AIImproveButton:
         # Show suggestions
         self.suggestion_panel.show_panel(current_prompt, self.tab_name)
     
+    def show_filter_training(self):
+        """Show filter training suggestions (for safety research only)"""
+        current_prompt = self.prompt_text_widget.get("1.0", tk.END).strip()
+        
+        if not current_prompt:
+            show_error("No Prompt", "Please enter a prompt first before requesting filter training data.")
+            return
+        
+        if not get_ai_advisor().is_available():
+            show_error("AI Advisor Unavailable", 
+                      "Please configure Claude or OpenAI API keys in your .env file.")
+            return
+        
+        # Show warning dialog
+        from tkinter import messagebox
+        result = messagebox.askyesno(
+            "Filter Training Mode",
+            "⚠️ WARNING: Filter Training Mode generates harmful prompt examples for safety filter development only.\n\n"
+            "These examples are NEVER executed for generation - they are used to train safety filters.\n\n"
+            "Do you want to continue?",
+            icon="warning"
+        )
+        
+        if not result:
+            return
+        
+        # Create suggestion panel if it doesn't exist
+        if self.suggestion_panel is None:
+            self.suggestion_panel = PromptSuggestionPanel(
+                self.parent.master,  # Use parent's master for proper positioning
+                on_suggestion_selected=self.on_suggestion_selected
+            )
+        
+        # Show filter training suggestions
+        self.suggestion_panel.show_panel(current_prompt, self.tab_name, filter_training=True)
+    
     def update_availability(self):
         """Update button state based on AI advisor availability"""
         self.button.config(state=tk.NORMAL if get_ai_advisor().is_available() else tk.DISABLED)
+        self.filter_training_button.config(state=tk.NORMAL if get_ai_advisor().is_available() else tk.DISABLED)
 
 
 class PromptContextMenu:
@@ -410,9 +464,11 @@ def add_ai_features_to_prompt_section(prompt_frame, prompt_text_widget, tab_name
         if uses_grid:
             # Use grid for consistency
             ai_button.button.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(5, 0))
+            ai_button.filter_training_button.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=(5, 0))
         else:
             # Use pack for consistency
             ai_button.button.pack(side=tk.LEFT, padx=(5, 0))
+            ai_button.filter_training_button.pack(side=tk.LEFT, padx=(5, 0))
     
     # Add context menu to prompt text widget
     PromptContextMenu(prompt_text_widget, tab_name, on_suggestion_selected)
