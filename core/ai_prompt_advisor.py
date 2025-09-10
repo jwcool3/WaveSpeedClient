@@ -603,6 +603,10 @@ class AIPromptAdvisor:
             self.claude_api = ClaudeAPI(claude_key)
         if openai_key:
             self.openai_api = OpenAIAPI(openai_key)
+        
+        # Set availability flags
+        self.claude_available = self.claude_api is not None
+        self.openai_available = self.openai_api is not None
     
     async def improve_prompt(self, current_prompt: str, tab_name: str, context: Optional[str] = None, filter_training: bool = False) -> List[PromptSuggestion]:
         """Get AI suggestions for prompt improvement with optional filter training mode"""
