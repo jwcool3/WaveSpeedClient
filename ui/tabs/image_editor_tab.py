@@ -11,6 +11,7 @@ from ui.components.ui_components import BaseTab, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
 from ui.components.optimized_image_layout import OptimizedImageLayout
 from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
+from ui.components.enhanced_prompt_browser import show_enhanced_prompt_browser
 from utils.utils import *
 from core.auto_save import auto_save_manager
 
@@ -224,6 +225,10 @@ class ImageEditorTab(BaseTab):
         
         ttk.Button(prompt_actions, text="Save Prompt", 
                   command=self.save_current_prompt).pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Enhanced Prompt Library button
+        ttk.Button(prompt_actions, text="📚 Enhanced Library", 
+                  command=self.show_enhanced_prompt_browser).pack(side=tk.LEFT, padx=(0, 5))
         
         ttk.Button(prompt_actions, text="Clear", 
                   command=lambda: self.prompt_text.delete("1.0", tk.END)).pack(side=tk.LEFT, padx=(0, 5))
@@ -528,3 +533,22 @@ class ImageEditorTab(BaseTab):
         for prompt in self.saved_prompts:
             display_text = prompt[:50] + "..." if len(prompt) > 50 else prompt
             self.prompts_listbox.insert(tk.END, display_text)
+    
+    def show_enhanced_prompt_browser(self):
+        """Show the enhanced prompt browser"""
+        try:
+            show_enhanced_prompt_browser(
+                parent=self.root,
+                model_type="nano_banana",
+                on_select=self.apply_enhanced_prompt
+            )
+        except Exception as e:
+            show_error("Error", f"Failed to open enhanced prompt browser: {e}")
+    
+    def apply_enhanced_prompt(self, prompt_content: str):
+        """Apply a prompt from the enhanced browser"""
+        try:
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", prompt_content)
+        except Exception as e:
+            show_error("Error", f"Failed to apply prompt: {e}")
