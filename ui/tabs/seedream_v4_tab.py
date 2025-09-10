@@ -12,6 +12,7 @@ import os
 from ui.components.ui_components import BaseTab, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
 from ui.components.optimized_image_layout import OptimizedImageLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from app.config import Config
 from utils.utils import *
 from core.auto_save import auto_save_manager
@@ -33,6 +34,11 @@ class SeedreamV4Tab(BaseTab):
         self.saved_seedream_v4_prompts = load_json_file(self.seedream_v4_prompts_file, [])
         
         super().__init__(parent_frame, api_client)
+    
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
         """Setup the optimized Seedream V4 UI"""
@@ -143,6 +149,14 @@ class SeedreamV4Tab(BaseTab):
         
         # Setup prompt management UI
         self.setup_prompt_management(prompt_container)
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_container, 
+            self.prompt_text, 
+            "Seedream V4",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
     
     def setup_prompt_management(self, parent):
         """Setup prompt management UI for Seedream V4"""

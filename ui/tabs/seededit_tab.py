@@ -11,6 +11,7 @@ import os
 from ui.components.ui_components import BaseTab, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
 from ui.components.optimized_image_layout import OptimizedImageLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from app.config import Config
 from utils.utils import *
 from core.auto_save import auto_save_manager
@@ -32,6 +33,11 @@ class SeedEditTab(BaseTab):
         self.saved_seededit_prompts = load_json_file(self.seededit_prompts_file, [])
         
         super().__init__(parent_frame, api_client)
+    
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
         """Setup the optimized SeedEdit UI"""
@@ -229,7 +235,15 @@ class SeedEditTab(BaseTab):
                   command=lambda: self.prompt_text.delete("1.0", tk.END)).pack(side=tk.LEFT, padx=(0, 5))
         
         ttk.Button(prompt_actions, text="Sample Prompt", 
-                  command=self.load_sample_prompt).pack(side=tk.LEFT)
+                  command=self.load_sample_prompt).pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_section, 
+            self.prompt_text, 
+            "SeedEdit",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
         
         # Saved prompts section
         saved_prompts_frame = ttk.Frame(prompt_section)

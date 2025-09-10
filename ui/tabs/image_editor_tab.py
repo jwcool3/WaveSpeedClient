@@ -10,6 +10,7 @@ import threading
 from ui.components.ui_components import BaseTab, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
 from ui.components.optimized_image_layout import OptimizedImageLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from utils.utils import *
 from core.auto_save import auto_save_manager
 
@@ -24,6 +25,11 @@ class ImageEditorTab(BaseTab):
         self.main_app = main_app  # Reference to main app for cross-tab operations
         
         super().__init__(parent_frame, api_client)
+    
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
         """Setup the optimized image editor UI"""
@@ -220,7 +226,15 @@ class ImageEditorTab(BaseTab):
                   command=self.save_current_prompt).pack(side=tk.LEFT, padx=(0, 5))
         
         ttk.Button(prompt_actions, text="Clear", 
-                  command=lambda: self.prompt_text.delete("1.0", tk.END)).pack(side=tk.LEFT)
+                  command=lambda: self.prompt_text.delete("1.0", tk.END)).pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_section, 
+            self.prompt_text, 
+            "Nano Banana Editor",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
         
         # Saved prompts section
         saved_prompts_frame = ttk.Frame(prompt_section)
