@@ -234,6 +234,10 @@ class WaveSpeedAIApp:
         # SeedDance Tab
         self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)
         self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance Pro")
+        
+        # Setup enhanced tab management
+        from ui.components.enhanced_tab_manager import EnhancedTabManager
+        self.tab_manager = EnhancedTabManager(self.notebook, self)
     
     def setup_menu(self):
         """Setup application menu"""
@@ -271,6 +275,14 @@ class WaveSpeedAIApp:
             self.notebook.select(tab_index)
         except tk.TclError:
             pass  # Tab doesn't exist or invalid index
+    
+    def get_current_tab_index(self):
+        """Get the current active tab index"""
+        try:
+            return self.notebook.index(self.notebook.select())
+        except Exception as e:
+            logger.debug(f"Error getting current tab index: {e}")
+            return 0
     
     def open_results_folder(self):
         """Open the auto-save results folder"""

@@ -265,10 +265,11 @@ class ImageEditorTab(BaseTab):
             "Output Format", self.format_var, ["png", "jpg", "webp"]
         )
     
-    def on_image_selected(self, image_path):
+    def on_image_selected(self, image_path, replacing_image=False):
         """Handle image selection"""
-        # Check if replacing existing image
-        replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
+        # Check if replacing existing image (use parameter or detect automatically)
+        if not replacing_image:
+            replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
         # Update the optimized layout with the new image
         success = self.optimized_layout.update_input_image(image_path)
