@@ -13,7 +13,7 @@ from PIL import Image
 
 from app.constants import (
     FileFormats, ValidationRanges, SeedreamV4Sizes, 
-    SeedDanceVersions, ErrorMessages, HTTPStatusCodes
+    SeedDanceVersions, ErrorMessages, HTTPStatusCodes, OutputFormats
 )
 
 
@@ -364,9 +364,9 @@ def validate_output_format(format_type: Optional[str], content_type: str = "imag
     format_type = format_type.lower().strip()
     
     if content_type == "image":
-        valid_formats = FileFormats.IMAGE_FORMATS
+        valid_formats = OutputFormats.IMAGE_FORMATS
     elif content_type == "video":
-        valid_formats = FileFormats.VIDEO_FORMATS
+        valid_formats = OutputFormats.VIDEO_FORMATS
     else:
         return False, f"Invalid content type: {content_type}"
     
