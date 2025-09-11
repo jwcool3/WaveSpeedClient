@@ -6,12 +6,15 @@ Improved Seedream V4 Tab Layout - Fixing All Issues
 4. Collapsible advanced sections
 5. Large dynamic preview with minimal margins
 6. No wasted horizontal space
+7. ENHANCED: Unified status console and keyboard shortcuts
 """
 
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import os
+from ui.components.unified_status_console import UnifiedStatusConsole
+from ui.components.keyboard_manager import KeyboardManager
 
 
 class ImprovedSeedreamLayout:
@@ -39,7 +42,12 @@ class ImprovedSeedreamLayout:
             ("Landscape", 1024, 768)
         ]
         
+        # Enhanced components
+        self.status_console = None
+        self.keyboard_manager = None
+        
         self.setup_layout()
+        self.setup_enhanced_features()
     
     def setup_layout(self):
         """Setup the improved 2-column layout"""
@@ -71,8 +79,9 @@ class ImprovedSeedreamLayout:
         left_frame.rowconfigure(2, weight=0)  # Prompt section - compact  
         left_frame.rowconfigure(3, weight=0)  # Primary action - prominent
         left_frame.rowconfigure(4, weight=0)  # Advanced sections - collapsible
-        left_frame.rowconfigure(5, weight=1)  # Spacer
-        left_frame.rowconfigure(6, weight=0)  # Secondary actions - bottom
+        left_frame.rowconfigure(5, weight=0)  # Status console - professional feedback
+        left_frame.rowconfigure(6, weight=1)  # Spacer
+        left_frame.rowconfigure(7, weight=0)  # Secondary actions - bottom
         
         # 1. COMPACT IMAGE INPUT
         self.setup_compact_image_input(left_frame)
@@ -89,11 +98,14 @@ class ImprovedSeedreamLayout:
         # 5. COLLAPSIBLE ADVANCED SECTIONS
         self.setup_advanced_sections(left_frame)
         
-        # 6. SPACER
-        spacer = ttk.Frame(left_frame)
-        spacer.grid(row=5, column=0, sticky="nsew")
+        # 6. STATUS CONSOLE (professional feedback)
+        self.setup_status_console(left_frame)
         
-        # 7. SECONDARY ACTIONS (at bottom)
+        # 7. SPACER
+        spacer = ttk.Frame(left_frame)
+        spacer.grid(row=6, column=0, sticky="nsew")
+        
+        # 8. SECONDARY ACTIONS (at bottom)
         self.setup_secondary_actions(left_frame)
     
     def setup_compact_image_input(self, parent):
@@ -465,7 +477,7 @@ class ImprovedSeedreamLayout:
     def setup_secondary_actions(self, parent):
         """Compact secondary actions at bottom"""
         secondary_frame = ttk.LabelFrame(parent, text="🔧 Tools", padding="4")
-        secondary_frame.grid(row=6, column=0, sticky="ew")
+        secondary_frame.grid(row=7, column=0, sticky="ew")
         secondary_frame.columnconfigure(0, weight=1)
         secondary_frame.columnconfigure(1, weight=1)
         
@@ -498,6 +510,38 @@ class ImprovedSeedreamLayout:
             command=self.load_result,
             width=10
         ).grid(row=1, column=1, sticky="ew", padx=(1, 0), pady=1)
+    
+    def setup_status_console(self, parent):
+        """Setup unified status console for professional feedback"""
+        self.status_console = UnifiedStatusConsole(
+            parent, 
+            title="📊 Status", 
+            height=3  # Compact height for Seedream V4
+        )
+        self.status_console.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+        self.status_console.log_ready("Seedream V4")
+    
+    def setup_enhanced_features(self):
+        """Setup keyboard manager and enhanced functionality"""
+        # Setup keyboard manager
+        self.keyboard_manager = KeyboardManager(self.parent_frame, "Seedream V4")
+        
+        # Register primary action (will be connected by tab)
+        # self.keyboard_manager.register_primary_action(self.process_seedream, self.apply_btn)
+        
+        # Register file operations (will be connected by tab)
+        # self.keyboard_manager.register_file_actions(
+        #     open_file=self.browse_image,
+        #     save_result=self.save_result,
+        #     clear_all=self.clear_all
+        # )
+        
+        # Register AI actions (will be connected by tab)
+        # self.keyboard_manager.register_ai_actions(
+        #     improve_callback=self.improve_with_ai,
+        #     filter_callback=self.filter_training,
+        #     chat_callback=self.ai_chat
+        # )
     
     def setup_right_column(self, parent):
         """Setup right column with large dynamic image display"""
@@ -896,4 +940,72 @@ exactly where users expect it after typing their prompt!
 
 The collapsible sections keep advanced features available but
 out of the way for typical usage.
+
+ENHANCED FEATURES:
+✅ 9. UNIFIED STATUS CONSOLE - Professional feedback with timestamps
+✅ 10. KEYBOARD SHORTCUTS - Ctrl+Enter to generate, F1 for help, etc.
 """
+    
+    # Helper methods for tab integration
+    
+    def log_status(self, message: str, status_type: str = "info"):
+        """Log status message to console"""
+        if self.status_console:
+            self.status_console.log_status(message, status_type)
+    
+    def log_processing_start(self, operation: str, details: str = ""):
+        """Log start of processing with timing"""
+        if self.status_console:
+            self.status_console.log_processing_start(operation, details)
+    
+    def log_processing_complete(self, operation: str, success: bool = True, details: str = ""):
+        """Log completion of processing with timing"""
+        if self.status_console:
+            self.status_console.log_processing_complete(operation, success, details)
+    
+    def log_file_operation(self, operation: str, filename: str, success: bool = True):
+        """Log file operations"""
+        if self.status_console:
+            self.status_console.log_file_operation(operation, filename, success)
+    
+    def log_error(self, error_message: str, context: str = ""):
+        """Log error message"""
+        if self.status_console:
+            self.status_console.log_error(error_message, context)
+    
+    def show_progress(self):
+        """Show progress bar"""
+        if self.status_console:
+            self.status_console.show_progress()
+    
+    def hide_progress(self):
+        """Hide progress bar"""
+        if self.status_console:
+            self.status_console.hide_progress()
+    
+    def setup_keyboard_callbacks(self, primary_action=None, primary_widget=None, 
+                                browse_image=None, save_result=None, clear_all=None,
+                                improve_ai=None, filter_training=None, ai_chat=None):
+        """Setup keyboard callbacks from the parent tab"""
+        if self.keyboard_manager:
+            if primary_action and primary_widget:
+                self.keyboard_manager.register_primary_action(primary_action, primary_widget)
+            
+            if browse_image or save_result or clear_all:
+                self.keyboard_manager.register_file_actions(
+                    open_file=browse_image,
+                    save_result=save_result,
+                    new_operation=clear_all
+                )
+            
+            if improve_ai or filter_training or ai_chat:
+                self.keyboard_manager.register_ai_actions(
+                    improve_callback=improve_ai,
+                    filter_callback=filter_training,
+                    chat_callback=ai_chat
+                )
+    
+    def set_operation_in_progress(self, in_progress: bool):
+        """Update operation status for keyboard manager"""
+        if self.keyboard_manager:
+            self.keyboard_manager.set_operation_in_progress(in_progress)
