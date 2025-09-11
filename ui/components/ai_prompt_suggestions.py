@@ -382,7 +382,7 @@ class PromptContextMenu:
             self.context_menu.grab_release()
     
     def show_ai_suggestions(self):
-        """Show AI suggestions"""
+        """Show AI suggestions - now uses conversational chat interface"""
         current_prompt = self.prompt_text_widget.get("1.0", tk.END).strip()
         
         if not current_prompt:
@@ -394,12 +394,22 @@ class PromptContextMenu:
                       "Please configure API keys in your .env file.")
             return
         
-        # Create and show suggestion panel
-        suggestion_panel = PromptSuggestionPanel(
-            self.prompt_text_widget.master,
-            on_suggestion_selected=self.on_suggestion_selected
-        )
-        suggestion_panel.show_panel(current_prompt, self.tab_name)
+        # Use the new conversational chat interface
+        try:
+            from ui.components.ai_prompt_chat import show_ai_prompt_chat
+            show_ai_prompt_chat(
+                self.prompt_text_widget.master,
+                current_prompt,
+                self.tab_name,
+                on_prompt_updated=self.on_suggestion_selected
+            )
+        except ImportError:
+            # Fallback to old interface
+            suggestion_panel = PromptSuggestionPanel(
+                self.prompt_text_widget.master,
+                on_suggestion_selected=self.on_suggestion_selected
+            )
+            suggestion_panel.show_panel(current_prompt, self.tab_name)
     
     def cut_text(self):
         """Cut selected text"""

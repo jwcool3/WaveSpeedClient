@@ -444,6 +444,36 @@ class ClaudeAPI:
             logger.error(f"Claude API request failed: {e}")
             return []
     
+    async def generate_response(self, user_message: str) -> str:
+        """Generate a conversational response from Claude"""
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 1000,
+            "messages": [{
+                "role": "user",
+                "content": user_message
+            }]
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.base_url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["content"][0]["text"]
+                    else:
+                        logger.error(f"Claude API error: {response.status}")
+                        return "I'm sorry, I'm having trouble connecting right now. Please try again."
+        except Exception as e:
+            logger.error(f"Claude API request failed: {e}")
+            return f"I encountered an error: {str(e)}. Please try again."
+    
     def _parse_suggestions(self, content: str) -> List[PromptSuggestion]:
         """Parse Claude's response into structured suggestions"""
         suggestions = []
@@ -530,6 +560,35 @@ class OpenAIAPI:
         except Exception as e:
             logger.error(f"OpenAI API request failed: {e}")
             return []
+    
+    async def generate_response(self, user_message: str) -> str:
+        """Generate a conversational response from OpenAI"""
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        payload = {
+            "model": "gpt-4",
+            "max_tokens": 1000,
+            "messages": [{
+                "role": "user",
+                "content": user_message
+            }]
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.base_url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["choices"][0]["message"]["content"]
+                    else:
+                        logger.error(f"OpenAI API error: {response.status}")
+                        return "I'm sorry, I'm having trouble connecting right now. Please try again."
+        except Exception as e:
+            logger.error(f"OpenAI API request failed: {e}")
+            return f"I encountered an error: {str(e)}. Please try again."
     
     def _parse_suggestions(self, content: str) -> List[PromptSuggestion]:
         """Parse OpenAI response into structured suggestions"""
@@ -710,6 +769,38 @@ class AIPromptAdvisor:
         if self.openai_api:
             providers.append("openai")
         return providers
+    
+    async def get_conversational_response(self, user_message: str, context: str) -> str:
+        """Get a conversational response from the AI"""
+        try:
+            # Create a conversational prompt
+            conversational_prompt = f"""
+You are a helpful AI assistant specializing in prompt improvement. The user is asking: "{user_message}"
+
+Context: {context}
+
+Please provide a helpful, conversational response that:
+1. Directly addresses their question
+2. Explains your reasoning
+3. Provides actionable suggestions
+4. Asks follow-up questions if appropriate
+
+Be friendly, professional, and helpful.
+"""
+            
+            # Use the available API to get a response
+            if self.claude_api:
+                response = await self.claude_api.generate_response(conversational_prompt)
+                return response
+            elif self.openai_api:
+                response = await self.openai_api.generate_response(conversational_prompt)
+                return response
+            else:
+                return "I'm having trouble connecting to the AI service. Please check your API configuration."
+                
+        except Exception as e:
+            logger.error(f"Error in conversational response: {e}")
+            return f"I'm sorry, I encountered an error: {str(e)}. Please try again."
 
 
 # Global instance
