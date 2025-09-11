@@ -80,6 +80,11 @@ class OptimizedImageLayout:
         self.prompt_container.columnconfigure(0, weight=1)
         self.prompt_container.rowconfigure(1, weight=1)  # Make the text area expandable
         
+        # Progress container (for progress bars and status)
+        self.progress_container = ttk.LabelFrame(left_panel, text="⚡ Progress", padding="8")
+        self.progress_container.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.progress_container.columnconfigure(0, weight=1)
+        
         # Status container (fixed size)
         self.status_container = ttk.LabelFrame(left_panel, text="📊 Status", padding="8")
         self.status_container.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
@@ -135,11 +140,11 @@ class OptimizedImageLayout:
         """Setup action buttons with vertical spacer"""
         # Create a spacer that expands to push buttons to bottom
         spacer_frame = ttk.Frame(parent)
-        spacer_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        spacer_frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Action buttons at the bottom of left panel
         button_frame = ttk.Frame(parent)
-        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         button_frame.columnconfigure(0, weight=1)
         
         # Main action button (will be set by specific tab)
@@ -377,8 +382,12 @@ class OptimizedImageLayout:
             filename = os.path.basename(image_path)
             self.image_path_label.config(text=filename, foreground="black")
             
-            # Load and display image with proper file handling
+            # Load and display image with proper file handling and rotation fix
             with Image.open(image_path) as image:
+                # Apply EXIF orientation correction for display
+                from PIL import ImageOps
+                image = ImageOps.exif_transpose(image)
+                
                 # Calculate size to fit display area while maintaining aspect ratio
                 display_width = 800  # Max width for display
                 display_height = 600  # Max height for display
@@ -394,7 +403,7 @@ class OptimizedImageLayout:
             self.input_image_label.config(image=photo, text="")
             self.input_image_label.image = photo  # Keep a reference
             
-            # Update small preview
+            # Update small preview (already rotated from main image)
             preview_image = image_copy.copy()
             preview_image.thumbnail((80, 80), Image.Resampling.LANCZOS)
             preview_photo = ImageTk.PhotoImage(preview_image)

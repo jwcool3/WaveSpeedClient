@@ -294,9 +294,6 @@ class SeedreamV4Tab(BaseTab):
                 # Update status
                 filename = os.path.basename(file_path)
                 self.update_status(f"📁 Image loaded: {filename}")
-                
-                if not replacing_image:
-                    show_success("Image Loaded", f"Successfully loaded: {filename}")
             else:
                 show_error("Load Error", "Failed to load the selected image.")
                 
@@ -676,7 +673,7 @@ class SeedreamV4Tab(BaseTab):
             success, saved_path, error = auto_save_manager.save_result(
                 'seedream_v4', 
                 output_url, 
-                prompt=prompt,
+                prompt=prompt, 
                 extra_info=extra_info
             )
             
@@ -740,7 +737,7 @@ class SeedreamV4Tab(BaseTab):
             
             # Clean up temp file after a delay
             self.frame.after(5000, lambda: self.cleanup_temp_file(temp_path))
-            
+                
         except Exception as e:
             logger.error(f"Error using result as input: {e}")
             show_error("Error", f"Failed to use result as input: {str(e)}")
