@@ -28,44 +28,58 @@ class ImageUpscalerTab(BaseTab):
         super().__init__(parent_frame, api_client)
     
     def setup_ui(self):
-        """Setup the optimized image upscaler UI"""
+        """Setup the optimized image upscaler UI with new streamlined layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedImageLayout(self.container, "Image Upscaler")
+        # Use the new optimized upscaler layout instead of the generic optimized layout
+        from ui.components.optimized_upscaler_layout import OptimizedUpscalerLayout
+        self.optimized_layout = OptimizedUpscalerLayout(self.container)
         
-        # Setup the layout with upscaler specific settings
-        self.setup_upscaler_settings()
+        # Connect the optimized layout methods to our existing functionality
+        self.connect_optimized_layout()
         
-        # Setup prompt section in the left panel (upscaler doesn't need prompts, so skip)
+        # Setup upscaler specific settings in the optimized layout
+        self.setup_upscaler_settings_optimized()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🔍 Upscale Image", self.process_task)
+        # Setup progress section in the optimized layout
+        self.setup_compact_progress_section_optimized()
+    
+    def connect_optimized_layout(self):
+        """Connect the optimized layout methods to our existing functionality"""
+        # Connect image browsing
+        self.optimized_layout.browse_image = self.browse_image
         
-        # Connect image selector
-        self.optimized_layout.set_image_selector_command(self.browse_image)
+        # Connect processing
+        self.optimized_layout.process_upscale = self.process_task
         
-        # Connect result buttons
-        self.optimized_layout.set_result_button_commands(
-            self.save_result_image, 
-            self.use_result_as_editor_input
-        )
+        # Connect result actions
+        self.optimized_layout.save_result = self.save_result_image
+        self.optimized_layout.load_image_dialog = self.browse_image
         
-        # Connect sample and clear buttons (minimal functionality for upscaler)
-        self.optimized_layout.sample_button.config(command=self.load_sample_image)
-        self.optimized_layout.clear_button.config(command=self.clear_selection)
+        # Connect utility methods
+        self.optimized_layout.clear_all = self.clear_selection
         
-        # Connect drag and drop handling
-        self.optimized_layout.set_parent_tab(self)
-        
-        # Setup cross-tab sharing
-        self.optimized_layout.create_cross_tab_button(self.main_app, "Image Upscaler")
-        
-        # Setup progress section in the left panel
-        self.setup_compact_progress_section()
+        # Store references to layout components for easy access
+        self.upscale_factor_var = self.optimized_layout.upscale_factor_var
+        self.creativity_var = self.optimized_layout.creativity_var
+        self.format_var = self.optimized_layout.format_var
+        self.status_text = self.optimized_layout.status_text
+        self.progress_bar = self.optimized_layout.progress_bar
+        self.upscale_btn = self.optimized_layout.upscale_btn
+    
+    def setup_upscaler_settings_optimized(self):
+        """Setup upscaler specific settings in the optimized layout"""
+        # The optimized layout already has upscaler settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_optimized(self):
+        """Setup compact progress section in the optimized layout"""
+        # The optimized layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def browse_image(self):
         """Browse for image file"""
@@ -141,24 +155,40 @@ class ImageUpscalerTab(BaseTab):
     def clear_selection(self):
         """Clear the current selection"""
         # Reset the layout
-        self.optimized_layout.selected_image_path = None
-        self.optimized_layout.result_image = None
+        if hasattr(self.optimized_layout, 'clear_all'):
+            # Use the optimized layout's clear_all method
+            self.optimized_layout.clear_all()
+        else:
+            # Fallback to old layout
+            self.optimized_layout.selected_image_path = None
+            self.optimized_layout.result_image = None
         
         # Update status
         self.update_status("Ready to upscale images")
     
     def show_progress(self, message):
         """Show progress"""
-        self.progress_bar.start()
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            self.optimized_layout.progress_bar.start()
+        else:
+            self.progress_bar.start()
         self.update_status(message)
     
     def hide_progress(self):
         """Hide progress"""
-        self.progress_bar.stop()
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            self.optimized_layout.progress_bar.stop()
+        else:
+            self.progress_bar.stop()
     
     def update_status(self, message):
         """Update status label"""
-        self.status_label.config(text=message)
+        if hasattr(self.optimized_layout, 'log_status'):
+            # Use the optimized layout's log_status method for console-style output
+            self.optimized_layout.log_status(message)
+        elif hasattr(self, 'status_label'):
+            # Fallback to old status label
+            self.status_label.config(text=message)
     
     def validate_inputs(self):
         """Validate inputs before processing"""
@@ -196,20 +226,23 @@ class ImageUpscalerTab(BaseTab):
             replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
         # Update the optimized layout with the new image
-        success = self.optimized_layout.update_input_image(image_path)
+        if hasattr(self.optimized_layout, 'load_image'):
+            # Use the new optimized layout's load_image method
+            self.optimized_layout.load_image(image_path)
+        else:
+            # Fallback to old layout if optimized layout not available
+            success = self.optimized_layout.update_input_image(image_path)
+            if not success:
+                show_error("Load Error", "Failed to load the selected image.")
+                return
         
-        if success:
-            self.selected_image_path = image_path
-            
-            # Reset result buttons and clear previous results
-            self.optimized_layout.save_result_button.config(state="disabled")
-            self.optimized_layout.use_result_button.config(state="disabled")
-            
-            # Provide feedback about image replacement
-            if replacing_image:
-                self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready to upscale")
-            else:
-                self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready to upscale")
+        self.selected_image_path = image_path
+        
+        # Provide feedback about image replacement
+        if replacing_image:
+            self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready to upscale")
+        else:
+            self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready to upscale")
     
     def on_drop(self, event):
         """Handle drag and drop with robust file path parsing"""
@@ -338,10 +371,32 @@ class ImageUpscalerTab(BaseTab):
         self.hide_progress()
         
         # Download and display result in optimized layout
-        success = self.optimized_layout.update_result_image(output_url)
+        if hasattr(self.optimized_layout, 'result_canvas'):
+            # For the optimized layout, we need to download the image and set it as result
+            try:
+                import requests
+                from PIL import Image
+                import io
+                
+                response = requests.get(output_url)
+                if response.status_code == 200:
+                    img = Image.open(io.BytesIO(response.content))
+                    self.result_image = img
+                    self.optimized_layout.result_image_path = output_url
+                    self.optimized_layout.display_image(output_url)
+                    success = True
+                else:
+                    success = False
+            except Exception as e:
+                logger.error(f"Error downloading result image: {e}")
+                success = False
+        else:
+            # Fallback to old layout
+            success = self.optimized_layout.update_result_image(output_url)
+            if success:
+                self.result_image = self.optimized_layout.result_image
         
         if success:
-            self.result_image = self.optimized_layout.result_image
             
             # Auto-save the result
             resolution = self.upscale_factor_var.get()
