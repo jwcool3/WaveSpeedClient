@@ -8,6 +8,7 @@ with large image displays and compact, well-organized controls.
 import tkinter as tk
 from tkinter import ttk
 import os
+from typing import Optional
 from PIL import Image, ImageTk
 from utils.utils import load_image_preview, validate_image_file, show_error, parse_drag_drop_data
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
@@ -372,8 +373,14 @@ class OptimizedImageLayout:
         self.use_result_button.config(command=use_command)
     
     def on_image_selected(self, image_path):
-        """Handle image selection - compatibility method for tabs"""
-        return self.update_input_image(image_path)
+        """Handle image selection and update AI chat"""
+        # Update the image display
+        result = self.update_input_image(image_path)
+        
+        # NEW: Update AI chat with new image
+        self.update_ai_chat_image()
+        
+        return result
     
     def display_result(self, result_url):
         """Display result from URL - compatibility method for tabs"""
@@ -418,6 +425,9 @@ class OptimizedImageLayout:
             
             # Switch to input tab
             self.image_notebook.select(self.input_frame)
+            
+            # NEW: Notify AI chat of image change
+            self.update_ai_chat_image()
             
             return True
             
@@ -601,10 +611,17 @@ class OptimizedImageLayout:
             # Set filter training mode for the second chat
             self.filter_training_chat.filter_training = True
             
+            # NEW: Set up image reference for both chat instances
+            self.ai_model_chat.set_image_reference(self)
+            self.filter_training_chat.set_image_reference(self)
+            
             # Store references for later use
             self.prompt_widget = prompt_widget
             self.model_type = model_type
             self.tab_instance = tab_instance
+            
+            # Initial sync of current image
+            self.update_ai_chat_image()
             
             # Create button frame for the two different AI chat types
             button_frame = ttk.Frame(self.ai_chat_container)
@@ -674,3 +691,21 @@ class OptimizedImageLayout:
                 current_prompt = self.prompt_widget.get("1.0", tk.END).strip()
                 self.filter_training_chat.show_chat(current_prompt, f"{self.model_type} - Filter Training")
                 self.filter_training_chat_visible = True
+    
+    def get_current_image_path(self) -> Optional[str]:
+        """Get the current input image path"""
+        return self.selected_image_path
+    
+    def update_ai_chat_image(self):
+        """Update AI chat with current image"""
+        image_path = self.get_current_image_path()
+        
+        if hasattr(self, 'ai_model_chat') and self.ai_model_chat:
+            self.ai_model_chat.set_current_image(image_path)
+            
+        if hasattr(self, 'filter_training_chat') and self.filter_training_chat:
+            self.filter_training_chat.set_current_image(image_path)
+    
+    def sync_image_with_ai_chat(self):
+        """Sync current image with AI chat across all instances"""
+        self.update_ai_chat_image()
