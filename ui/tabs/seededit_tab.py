@@ -41,45 +41,78 @@ class SeedEditTab(BaseTab):
         self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
-        """Setup the optimized SeedEdit UI"""
+        """Setup the improved SeedEdit UI with new optimized layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedImageLayout(self.container, "SeedEdit")
+        # Use the new improved SeedEdit layout instead of the generic optimized layout
+        from ui.components.improved_seededit_layout import ImprovedSeedEditLayout
+        self.optimized_layout = ImprovedSeedEditLayout(self.container)
         
-        # Setup the layout with SeedEdit specific settings
-        self.setup_seededit_settings()
+        # Connect the improved layout methods to our existing functionality
+        self.connect_improved_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup SeedEdit specific settings in the improved layout
+        self.setup_seededit_settings_improved()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🌱 Apply SeedEdit", self.process_task)
+        # Setup prompt section in the improved layout
+        self.setup_compact_prompt_section_improved()
         
-        # Connect image selector
-        self.optimized_layout.set_image_selector_command(self.browse_image)
+        # Setup progress section in the improved layout
+        self.setup_compact_progress_section_improved()
+    
+    def connect_improved_layout(self):
+        """Connect the improved layout methods to our existing functionality"""
+        # Connect image browsing
+        self.optimized_layout.browse_image = self.browse_image
         
-        # Connect result buttons
-        self.optimized_layout.set_result_button_commands(
-            self.save_result_image, 
-            self.use_result_as_editor_input
-        )
+        # Connect processing
+        self.optimized_layout.process_seededit = self.process_task
         
-        # Connect sample and clear buttons
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
-        self.optimized_layout.clear_button.config(command=self.clear_prompts)
+        # Connect result actions
+        self.optimized_layout.save_result = self.save_result_image
+        self.optimized_layout.export_result = self.use_result_as_editor_input
         
-        # Connect drag and drop handling
-        self.optimized_layout.set_parent_tab(self)
+        # Connect utility methods
+        self.optimized_layout.clear_all = self.clear_prompts
+        self.optimized_layout.load_sample = self.load_sample_prompt
+        self.optimized_layout.improve_with_ai = self.improve_with_ai_placeholder
         
-        # Setup cross-tab sharing
-        self.optimized_layout.create_cross_tab_button(self.main_app, "SeedEdit")
+        # Connect prompt management
+        self.optimized_layout.save_preset = self.save_current_seededit_prompt
+        self.optimized_layout.load_preset = self.show_saved_seededit_prompts
         
-        # Setup progress section in the left panel
-        self.setup_compact_progress_section()
+        # Store references to layout components for easy access
+        self.prompt_text = self.optimized_layout.prompt_text
+        self.seed_var = self.optimized_layout.seed_var
+        self.format_var = self.optimized_layout.format_var
+        self.status_label = self.optimized_layout.status_label
+        self.progress_bar = self.optimized_layout.progress_bar
+        self.primary_btn = self.optimized_layout.primary_btn
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        # This would connect to your existing AI improvement system
+        pass
+    
+    def setup_seededit_settings_improved(self):
+        """Setup SeedEdit specific settings in the improved layout"""
+        # The improved layout already has SeedEdit settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_prompt_section_improved(self):
+        """Setup compact prompt section in the improved layout"""
+        # The improved layout already has the prompt section built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_improved(self):
+        """Setup compact progress section in the improved layout"""
+        # The improved layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def browse_image(self):
         """Browse for image file"""
@@ -171,7 +204,12 @@ class SeedEditTab(BaseTab):
     
     def clear_prompts(self):
         """Clear the prompt text"""
-        self.prompt_text.delete("1.0", tk.END)
+        if hasattr(self.optimized_layout, 'clear_all'):
+            # Use the improved layout's clear_all method
+            self.optimized_layout.clear_all()
+        else:
+            # Fallback to old layout
+            self.prompt_text.delete("1.0", tk.END)
     
     def show_saved_seededit_prompts(self):
         """Show saved SeedEdit prompts in a dialog"""
@@ -324,21 +362,24 @@ class SeedEditTab(BaseTab):
         if not replacing_image:
             replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
-        # Update the optimized layout with the new image
-        success = self.optimized_layout.update_input_image(image_path)
+        # Update the improved layout with the new image
+        if hasattr(self.optimized_layout, 'load_image'):
+            # Use the new improved layout's load_image method
+            self.optimized_layout.load_image(image_path)
+        else:
+            # Fallback to old layout if improved layout not available
+            success = self.optimized_layout.update_input_image(image_path)
+            if not success:
+                show_error("Load Error", "Failed to load the selected image.")
+                return
         
-        if success:
-            self.selected_image_path = image_path
-            
-            # Reset result buttons and clear previous results
-            self.optimized_layout.save_result_button.config(state="disabled")
-            self.optimized_layout.use_result_button.config(state="disabled")
-            
-            # Provide feedback about image replacement
-            if replacing_image:
-                self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready for SeedEdit")
-            else:
-                self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready for SeedEdit")
+        self.selected_image_path = image_path
+        
+        # Provide feedback about image replacement
+        if replacing_image:
+            self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready for SeedEdit")
+        else:
+            self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready for SeedEdit")
     
     def on_drop(self, event):
         """Handle drag and drop with robust file path parsing"""
@@ -579,16 +620,31 @@ class SeedEditTab(BaseTab):
     
     def show_progress(self, message):
         """Show progress"""
-        self.progress_bar.start()
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            # Use the improved layout's progress bar
+            self.optimized_layout.progress_bar.start()
+        elif hasattr(self, 'progress_bar'):
+            # Fallback to old progress bar
+            self.progress_bar.start()
         self.update_status(message)
     
     def hide_progress(self):
         """Hide progress"""
-        self.progress_bar.stop()
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            # Use the improved layout's progress bar
+            self.optimized_layout.progress_bar.stop()
+        elif hasattr(self, 'progress_bar'):
+            # Fallback to old progress bar
+            self.progress_bar.stop()
     
     def update_status(self, message):
         """Update status label"""
-        self.status_label.config(text=message)
+        if hasattr(self.optimized_layout, 'status_label'):
+            # Use the improved layout's status label
+            self.optimized_layout.status_label.config(text=message)
+        elif hasattr(self, 'status_label'):
+            # Fallback to old status label
+            self.status_label.config(text=message)
     
     def validate_inputs(self):
         """Validate inputs before processing"""
