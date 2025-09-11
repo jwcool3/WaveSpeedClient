@@ -143,20 +143,20 @@ class OptimizedImageLayout:
         spacer_frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Action buttons at the bottom of left panel
-        button_frame = ttk.Frame(parent)
-        button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        button_frame.columnconfigure(0, weight=1)
+        self.button_frame = ttk.Frame(parent)
+        self.button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.button_frame.columnconfigure(0, weight=1)
         
         # Main action button (will be set by specific tab)
         self.main_action_button = ttk.Button(
-            button_frame,
+            self.button_frame,
             text="Process Image",
             style="Accent.TButton"
         )
         self.main_action_button.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         
         # Secondary buttons
-        secondary_frame = ttk.Frame(button_frame)
+        secondary_frame = ttk.Frame(self.button_frame)
         secondary_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         secondary_frame.columnconfigure(0, weight=1)
         secondary_frame.columnconfigure(1, weight=1)

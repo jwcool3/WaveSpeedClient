@@ -102,6 +102,10 @@ class UniversalAIIntegrator:
         if hasattr(tab_instance, 'winfo_children'):
             search_roots.append(tab_instance)
         
+        # Special case: check if optimized_layout has a button_frame
+        if hasattr(tab_instance, 'optimized_layout') and hasattr(tab_instance.optimized_layout, 'button_frame'):
+            candidates.append((tab_instance.optimized_layout.button_frame, 1))
+        
         for root in search_roots:
             search_for_button_frames(root)
         
