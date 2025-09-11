@@ -1,36 +1,49 @@
 # WaveSpeed AI Complete Creative Suite
 
-A comprehensive GUI application for AI-powered image editing, upscaling, and video generation using the WaveSpeed AI APIs. Features a modern, responsive interface with professional workflow capabilities.
+A comprehensive GUI application for AI-powered image editing, upscaling, and video generation using the WaveSpeed AI APIs. Features a modern, responsive interface with professional workflow capabilities and advanced AI integration.
 
-**Created by Jackson Weed** - Professional AI workflow application with advanced UI/UX design.
+**Created by Jackson Weed** - Professional AI workflow application with advanced UI/UX design and comprehensive feature set.
+
+## 📚 Documentation
+
+- **[🤖 AI System Features](AI_SYSTEM_FEATURES.md)** - Complete guide to AI features, prompt advisor, and integrations
+- **[🎨 User Interface Guide](USER_INTERFACE_GUIDE.md)** - Comprehensive UI documentation, layouts, and video viewing
+- **[🚀 Implementation History](IMPLEMENTATION_HISTORY.md)** - Complete history of improvements and fixes
+- **[🛠️ Developer Guide](DEVELOPER_GUIDE.md)** - Essential guide for developers working on the project
+- **[🎯 Compact Layout System](COMPACT_LAYOUT_SYSTEM.md)** - Detailed UI layout system documentation
+- **[🛡️ Filter Training Guide](FILTER_TRAINING_GUIDE.md)** - Safety filter development documentation
+- **[🤖 AI Integration Instructions](ai_button_fix_instructions.md)** - Current AI system implementation details
 
 ## 🆕 Latest Features (2025)
 
-### 🤖 **AI Prompt Advisor** (Enhanced!)
+### 🤖 **AI Prompt Advisor System** (Complete!)
 - **✨ Smart Prompt Improvement**: AI-powered suggestions using Claude or OpenAI APIs
-- **🎯 Model-Specific Guidance**: Research-backed system prompts for each AI model's strengths
-- **🛡️ Filter Training Mode**: Advanced safety research capabilities for filter development
-- **🎨 Enhanced UI**: Rich dialog with color-coded categories and visual feedback
-- **⚙️ Settings Panel**: Configure API keys and preferences via main menu
-- **🔄 Multiple Enhancement Types**: Clarity, Creativity, and Technical optimization
-- **📋 Copy & Preview**: Easy sharing and preview of AI suggestions
-- **🎪 Right-Click Integration**: Quick access from any prompt text field
-- **🔧 Robust JSON Parsing**: Handles wrapped JSON responses with regex extraction
-- **📊 Confidence Scoring**: All suggestions include confidence values for quality assessment
+- **🎯 Model-Specific Guidance**: Research-backed system prompts optimized for each AI model
+- **🛡️ Filter Training Mode**: Advanced safety research capabilities for content moderation
+- **💬 AI Chat Interface**: Real-time conversational AI assistance with context awareness
+- **🖼️ Image Analysis**: Vision-powered prompt suggestions based on uploaded images
+- **⚙️ Professional Settings**: Complete API configuration and testing interface
+- **🔄 Multiple Enhancement Types**: Clarity, Creativity, and Technical optimization modes
+- **📋 Copy & Preview**: Easy sharing and preview of AI suggestions with one-click application
+- **🎪 Universal Integration**: AI features available in all tabs with right-click context menus
+- **📊 Prompt Analytics**: Comprehensive tracking and analytics for prompt effectiveness
 
-### 🌟 **Seedream V4 Integration** (NEW!)
-- **🚀 State-of-the-Art Editing**: Multi-modal image generation surpassing Nano Banana
-- **🎯 Complex Transformations**: Object addition, removal, and detailed modifications
-- **⚡ Ultra-Fast Inference**: 1.8 seconds for 2K image generation
-- **📐 Ultra-High Resolution**: Support up to 4096×4096 pixels
-- **🔧 Structured Prompts**: "Change action + Object + Target feature" format
-- **🎨 Advanced Capabilities**: Style transfers, scene changes, structural adjustments
+### 🌟 **Seedream V4 Integration** (Complete!)
+- **🚀 State-of-the-Art Editing**: Multi-modal image generation with advanced capabilities
+- **🎯 Complex Transformations**: Object addition, removal, style transfers, and structural modifications
+- **⚡ Ultra-Fast Inference**: 1.8 seconds for 2K image generation, up to 4096×4096 resolution
+- **🔧 Structured Prompts**: Optimized "Change action + Object + Target feature" format
+- **🎨 Professional Controls**: Advanced size controls, seed management, and output options
+- **📊 Enhanced UI**: Professional layout matching other tabs with tabbed image display
 
-### 🎯 **Enhanced User Experience**
-- **No Popup Interruptions**: Removed all success dialog boxes for streamlined workflow
-- **Silent Operations**: Privacy uploads, cross-tab transfers, and file saves happen seamlessly
-- **Status Bar Updates**: Success messages appear in status bars instead of blocking popups
-- **Professional Feel**: Clean, uninterrupted workflow like modern creative software
+### 🎯 **Enhanced User Experience** (Complete!)
+- **No Popup Interruptions**: Streamlined workflow without blocking dialog boxes
+- **🎬 YouTube-Style Video Player**: Professional video viewing with fullscreen support and controls
+- **🎨 Compact Layout System**: Optimized 3-column layout eliminating scrolling and maximizing workspace
+- **🔄 Cross-Tab Navigation**: Universal sharing system between all tabs with context preservation
+- **📊 Real-Time Status Updates**: Non-blocking status system with visual feedback
+- **🎯 Smart Focus Management**: Intelligent focus handling and keyboard navigation
+- **📱 Modern Interface**: Contemporary design with professional controls and animations
 
 ### 🔧 **Improved Stability & Performance**
 - **Fixed Cross-Tab Sharing**: Resolved temporary file creation errors when transferring images between tabs
