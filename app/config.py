@@ -36,6 +36,18 @@ class Config:
         'balance': f"{BASE_URL}/balance"
     }
     
+    # Seedream V4 Configuration
+    SEEDREAM_V4_SIZES = [
+        "1024*1024",
+        "1024*2048", 
+        "2048*1024",
+        "2048*2048",
+        "2048*4096",
+        "4096*2048",
+        "3840*2160",  # 4K landscape
+        "2160*3840"   # 4K portrait
+    ]
+    
     # UI Configuration
     WINDOW_SIZE = "1200x900"
     WINDOW_MIN_SIZE = (800, 600)  # Minimum window size

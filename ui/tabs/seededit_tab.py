@@ -439,10 +439,32 @@ class SeedEditTab(BaseTab):
             self.frame.after(0, lambda: self.handle_error(error_msg))
     
     def upload_image_for_seededit(self, image_path):
-        """Upload image securely for SeedEdit"""
+        """Upload image securely for SeedEdit with rotation fix"""
         try:
-            # Use privacy-friendly upload
-            success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(image_path, 'seededit')
+            # Fix image rotation before upload
+            from PIL import Image, ImageOps
+            import tempfile
+            
+            # Open image and fix rotation
+            image = Image.open(image_path)
+            
+            # Apply EXIF orientation correction
+            image = ImageOps.exif_transpose(image)
+            
+            # Save corrected image to temporary file
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                temp_path = temp_file.name
+                image.save(temp_path, 'PNG')
+            
+            try:
+                # Use privacy-friendly upload with corrected image
+                success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(temp_path, 'seededit')
+            finally:
+                # Clean up temp file
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
             
             if success:
                 # Privacy info logged but no popup

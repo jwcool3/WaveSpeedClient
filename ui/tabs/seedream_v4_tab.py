@@ -1,18 +1,21 @@
 """
-Seedream V4 Tab Component - Multi-Modal Image Generation
+Seedream V4 Tab Component - Multi-Modal Image Generation (IMPROVED VERSION)
 For WaveSpeed AI Creative Suite
 
 This module contains the ByteDance Seedream V4 image editing functionality.
-Seedream 4.0: Surpassing nano banana in every aspect with multi-modal support.
+Completely rewritten to match SeedEdit tab quality and fix all layout issues.
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk
 import threading
 import os
 import json
-from PIL import Image, ImageTk
+import random
+from PIL import Image, ImageTk, ImageOps
 from ui.components.ui_components import BaseTab
+from ui.components.optimized_image_layout import OptimizedImageLayout
+from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
 from utils.utils import *
 from core.auto_save import auto_save_manager
 from core.secure_upload import privacy_uploader
@@ -22,17 +25,29 @@ logger = get_logger()
 
 
 class SeedreamV4Tab(BaseTab):
-    """Seedream V4 Multi-Modal Image Editor Tab"""
+    """Seedream V4 Multi-Modal Image Editor Tab - IMPROVED VERSION"""
     
     def __init__(self, parent_frame, api_client, main_app=None):
         self.result_image = None
         self.main_app = main_app
-        self.images = []  # List of image URLs/paths for multi-modal support
-        self.image_widgets = []  # UI widgets for image management
+        self.selected_image_path = None
+        self.auto_resolution = True  # Auto-set resolution based on input image
         
         # Prompt storage for Seedream V4
         self.seedream_v4_prompts_file = "data/seedream_v4_prompts.json"
         self.saved_seedream_v4_prompts = load_json_file(self.seedream_v4_prompts_file, [])
+        
+        # Supported sizes as (width, height) tuples for easy calculation
+        self.supported_sizes = [
+            (1024, 1024),
+            (1024, 2048), 
+            (2048, 1024),
+            (2048, 2048),
+            (2048, 4096),
+            (4096, 2048),
+            (3840, 2160),  # 4K
+            (2160, 3840)   # 4K portrait
+        ]
         
         super().__init__(parent_frame, api_client)
     
@@ -42,477 +57,472 @@ class SeedreamV4Tab(BaseTab):
         self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
-        """Setup the comprehensive Seedream V4 UI"""
-        # Hide the scrollable canvas components since we're using direct container layout
+        """Setup the optimized Seedream V4 UI matching SeedEdit quality"""
+        # Hide the scrollable canvas components since we're using optimized layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # Create main container with proper layout
-        self.main_container = ttk.Frame(self.container)
-        self.main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Use the same optimized layout as SeedEdit for consistency
+        self.optimized_layout = OptimizedImageLayout(self.container, "Seedream V4")
         
-        # Configure grid weights
-        self.main_container.columnconfigure(0, weight=1)
-        self.main_container.columnconfigure(1, weight=2)
-        self.main_container.rowconfigure(0, weight=1)
+        # Setup Seedream V4 specific settings
+        self.setup_seedream_v4_settings()
         
-        # Create left panel for controls
-        self.create_left_panel()
+        # Setup prompt section in the left panel
+        self.setup_compact_prompt_section()
         
-        # Create right panel for image display
-        self.create_right_panel()
+        # Configure main action button
+        self.optimized_layout.set_main_action("🌟 Apply Seedream V4", self.process_task)
         
-        # Setup status section
-        self.setup_status_section()
-    
-    def create_left_panel(self):
-        """Create the left control panel"""
-        self.left_panel = ttk.Frame(self.main_container)
-        self.left_panel.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
-        self.left_panel.columnconfigure(0, weight=1)
+        # Connect image selector
+        self.optimized_layout.set_image_selector_command(self.browse_image)
         
-        # Title
-        title_label = ttk.Label(
-            self.left_panel, 
-            text="🌟 Seedream V4", 
-            font=('Arial', 14, 'bold')
+        # Connect result buttons
+        self.optimized_layout.set_result_button_commands(
+            self.save_result_image, 
+            self.use_result_as_input
         )
-        title_label.pack(pady=(0, 10))
         
-        # Prompt section
-        self.create_prompt_section()
+        # Connect sample and clear buttons
+        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
+        self.optimized_layout.clear_button.config(command=self.clear_all)
         
-        # Images section
-        self.create_images_section()
+        # Connect drag and drop handling
+        self.optimized_layout.set_parent_tab(self)
         
-        # Settings section
-        self.create_settings_section()
+        # Setup cross-tab sharing
+        self.optimized_layout.create_cross_tab_button(self.main_app, "Seedream V4")
         
-        # Action buttons
-        self.create_action_buttons()
+        # Setup progress section in the left panel
+        self.setup_compact_progress_section()
     
-    def create_prompt_section(self):
-        """Create the prompt input section"""
-        prompt_frame = ttk.LabelFrame(self.left_panel, text="Prompt", padding=10)
-        prompt_frame.pack(fill=tk.X, pady=(0, 10))
-        prompt_frame.columnconfigure(0, weight=1)
+    def setup_seedream_v4_settings(self):
+        """Setup Seedream V4 specific settings"""
+        settings_container = self.optimized_layout.settings_container
         
-        # Prompt text area
-        self.prompt_text = tk.Text(
-            prompt_frame, 
-            height=4, 
-            wrap=tk.WORD, 
-            font=('Arial', 10)
-        )
-        self.prompt_text.pack(fill=tk.X, pady=(0, 5))
-        
-        # Prompt guidance
-        guidance_text = """💡 Prompt Writing Guide:
-• Use clear instructions: "change action + change object + target feature"
-• For multiple images: "a series of", "group of images"
-• Be specific and detailed for best results"""
-        
-        guidance_label = ttk.Label(
-            prompt_frame, 
-            text=guidance_text, 
-            font=('Arial', 8), 
-            foreground="gray",
-            wraplength=300
-        )
-        guidance_label.pack(anchor=tk.W, pady=(5, 0))
-        
-        # AI enhancement buttons
-        ai_frame = ttk.Frame(prompt_frame)
-        ai_frame.pack(fill=tk.X, pady=(5, 0))
-        
-        ttk.Button(
-            ai_frame, 
-            text="✨ Improve with AI", 
-            command=self.improve_prompt_with_ai
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        ttk.Button(
-            ai_frame, 
-            text="🛡️ Filter Training", 
-            command=self.show_filter_training
-        ).pack(side=tk.LEFT)
-    
-    def create_images_section(self):
-        """Create the multi-image input section"""
-        images_frame = ttk.LabelFrame(self.left_panel, text="Images", padding=10)
-        images_frame.pack(fill=tk.X, pady=(0, 10))
-        images_frame.columnconfigure(0, weight=1)
-        
-        # Images list container
-        self.images_container = ttk.Frame(images_frame)
-        self.images_container.pack(fill=tk.X, pady=(0, 10))
-        
-        # Add item button
-        add_button = ttk.Button(
-            images_frame, 
-            text="+ Add Item", 
-            command=self.add_image_item
-        )
-        add_button.pack(fill=tk.X)
-        
-        # Add initial image item
-        self.add_image_item()
-    
-    def create_settings_section(self):
-        """Create the settings section"""
-        settings_frame = ttk.LabelFrame(self.left_panel, text="Settings", padding=10)
-        settings_frame.pack(fill=tk.X, pady=(0, 10))
-        settings_frame.columnconfigure(1, weight=1)
-        
-        # Size setting
-        size_frame = ttk.Frame(settings_frame)
-        size_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
+        # Size setting with auto-detection
+        size_frame = ttk.Frame(settings_container)
+        size_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         size_frame.columnconfigure(1, weight=1)
-        size_frame.columnconfigure(2, weight=1)
         
-        ttk.Label(size_frame, text="Size:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        ttk.Label(size_frame, text="Size:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
         
-        # Width
-        ttk.Label(size_frame, text="Width:").grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
-        self.width_var = tk.StringVar(value="2048")
-        width_scale = ttk.Scale(
+        # Auto size checkbox
+        self.auto_size_var = tk.BooleanVar(value=True)
+        auto_checkbox = ttk.Checkbutton(
             size_frame, 
-            from_=1024, 
-            to=4096, 
-            variable=self.width_var, 
-            orient=tk.HORIZONTAL,
-            command=self.update_size_display
+            text="Auto", 
+            variable=self.auto_size_var,
+            command=self.toggle_auto_size
         )
-        width_scale.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(5, 0))
+        auto_checkbox.grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
         
-        self.width_entry = ttk.Entry(size_frame, textvariable=self.width_var, width=8)
-        self.width_entry.grid(row=0, column=3, padx=(5, 0))
-        
-        # Height
-        height_frame = ttk.Frame(settings_frame)
-        height_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
-        height_frame.columnconfigure(1, weight=1)
-        height_frame.columnconfigure(2, weight=1)
-        
-        ttk.Label(height_frame, text="Height:").grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
-        self.height_var = tk.StringVar(value="2048")
-        height_scale = ttk.Scale(
-            height_frame, 
-            from_=1024, 
-            to=4096, 
-            variable=self.height_var, 
-            orient=tk.HORIZONTAL,
-            command=self.update_size_display
+        # Size selector (initially disabled)
+        self.size_var = tk.StringVar(value="2048*2048")
+        self.size_combo = ttk.Combobox(
+            size_frame, 
+            textvariable=self.size_var,
+            values=[
+                "1024*1024",
+                "1024*2048", 
+                "2048*1024",
+                "2048*2048",
+                "2048*4096",
+                "4096*2048",
+                "3840*2160",
+                "2160*3840"
+            ],
+            state="disabled",  # Start disabled for auto mode
+            width=12
         )
-        height_scale.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=(5, 0))
+        self.size_combo.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
         
-        self.height_entry = ttk.Entry(height_frame, textvariable=self.height_var, width=8)
-        self.height_entry.grid(row=0, column=3, padx=(5, 0))
-        
-        # Seed setting
-        seed_frame = ttk.Frame(settings_frame)
-        seed_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
+        # Seed setting with random generation
+        seed_frame = ttk.Frame(settings_container)
+        seed_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
         seed_frame.columnconfigure(1, weight=1)
         
-        ttk.Label(seed_frame, text="Seed:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
-        self.seed_var = tk.StringVar(value="1490001329")
-        self.seed_entry = ttk.Entry(seed_frame, textvariable=self.seed_var, width=15)
-        self.seed_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
+        ttk.Label(seed_frame, text="Seed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        
+        # Seed controls frame
+        seed_controls = ttk.Frame(seed_frame)
+        seed_controls.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        self.seed_var = tk.StringVar(value="-1")
+        seed_entry = ttk.Entry(seed_controls, textvariable=self.seed_var, width=12)
+        seed_entry.grid(row=0, column=0, padx=(0, 2))
         
         # Random seed button
-        random_seed_btn = ttk.Button(
-            seed_frame, 
+        random_button = ttk.Button(
+            seed_controls, 
             text="🎲", 
-            command=self.generate_random_seed,
-            width=3
+            width=3,
+            command=self.generate_random_seed
         )
-        random_seed_btn.grid(row=0, column=2, padx=(5, 0))
+        random_button.grid(row=0, column=1)
         
-        # Advanced settings
-        advanced_frame = ttk.Frame(settings_frame)
-        advanced_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        # Advanced options
+        advanced_frame = ttk.Frame(settings_container)
+        advanced_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        advanced_frame.columnconfigure(0, weight=1)
         
-        self.enable_sync_mode = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            advanced_frame, 
-            text="Enable Sync Mode", 
-            variable=self.enable_sync_mode
-        ).pack(anchor=tk.W)
-        
-        self.enable_base64_output = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            advanced_frame, 
-            text="Enable Base64 Output", 
-            variable=self.enable_base64_output
-        ).pack(anchor=tk.W)
-    
-    def create_action_buttons(self):
-        """Create action buttons"""
-        buttons_frame = ttk.Frame(self.left_panel)
-        buttons_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        # Main action button
-        self.process_button = ttk.Button(
-            buttons_frame, 
-            text="🌟 Apply Seedream V4", 
-            command=self.process_task,
-            style="Accent.TButton"
+        # Sync mode checkbox
+        self.sync_mode_var = tk.BooleanVar(value=False)
+        sync_checkbox = ttk.Checkbutton(
+            advanced_frame,
+            text="Enable Sync Mode",
+            variable=self.sync_mode_var
         )
-        self.process_button.pack(fill=tk.X, pady=(0, 5))
+        sync_checkbox.grid(row=0, column=0, sticky=tk.W)
         
-        # Secondary buttons
-        secondary_frame = ttk.Frame(buttons_frame)
-        secondary_frame.pack(fill=tk.X)
-        
-        ttk.Button(
-            secondary_frame, 
-            text="Clear", 
-            command=self.clear_all
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        ttk.Button(
-            secondary_frame, 
-            text="Sample", 
-            command=self.load_sample_prompt
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        ttk.Button(
-            secondary_frame, 
-            text="Save Prompt", 
-            command=self.save_current_prompt
-        ).pack(side=tk.LEFT)
-    
-    def create_right_panel(self):
-        """Create the right panel for image display"""
-        self.right_panel = ttk.Frame(self.main_container)
-        self.right_panel.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.right_panel.columnconfigure(0, weight=1)
-        self.right_panel.rowconfigure(1, weight=1)
-        
-        # Result tabs
-        self.result_notebook = ttk.Notebook(self.right_panel)
-        self.result_notebook.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        # Input images tab
-        self.input_frame = ttk.Frame(self.result_notebook)
-        self.result_notebook.add(self.input_frame, text="Input Images")
-        
-        # Result tab
-        self.result_frame = ttk.Frame(self.result_notebook)
-        self.result_notebook.add(self.result_frame, text="Result")
-        
-        # Image display areas
-        self.create_image_display_areas()
-    
-    def create_image_display_areas(self):
-        """Create image display areas"""
-        # Input images display
-        self.input_canvas = tk.Canvas(
-            self.input_frame, 
-            bg='white', 
-            height=200
+        # Base64 output checkbox
+        self.base64_output_var = tk.BooleanVar(value=False)
+        base64_checkbox = ttk.Checkbutton(
+            advanced_frame,
+            text="Enable Base64 Output",
+            variable=self.base64_output_var
         )
-        self.input_canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Result display
-        self.result_canvas = tk.Canvas(
-            self.result_frame, 
-            bg='white'
-        )
-        self.result_canvas.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # Initial display
-        self.show_placeholder()
+        base64_checkbox.grid(row=1, column=0, sticky=tk.W)
     
-    def setup_status_section(self):
-        """Setup status section"""
-        self.status_frame = ttk.Frame(self.main_container)
-        self.status_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        self.status_label = ttk.Label(
-            self.status_frame, 
-            text="Ready for Seedream V4", 
-            font=('Arial', 10),
-            foreground="green"
-        )
-        self.status_label.pack(side=tk.LEFT)
-        
-        self.progress_bar = ttk.Progressbar(
-            self.status_frame, 
-            mode='indeterminate'
-        )
-        # Progress bar initially hidden
-    
-    def add_image_item(self):
-        """Add a new image item to the list"""
-        item_frame = ttk.Frame(self.images_container)
-        item_frame.pack(fill=tk.X, pady=(0, 5))
-        item_frame.columnconfigure(1, weight=1)
-        
-        # URL/Path entry
-        url_var = tk.StringVar()
-        url_entry = ttk.Entry(item_frame, textvariable=url_var, width=40)
-        url_entry.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
-        
-        # Thumbnail display
-        thumbnail_label = ttk.Label(item_frame, text="No image", relief="solid", width=20)
-        thumbnail_label.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
-        
-        # Buttons
-        button_frame = ttk.Frame(item_frame)
-        button_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E))
-        
-        ttk.Button(
-            button_frame, 
-            text="📁 Browse", 
-            command=lambda: self.browse_image_for_item(url_var, thumbnail_label)
-        ).pack(side=tk.LEFT, padx=(0, 5))
-        
-        ttk.Button(
-            button_frame, 
-            text="🗑️ Delete", 
-            command=lambda: self.remove_image_item(item_frame)
-        ).pack(side=tk.LEFT)
-        
-        # Store references
-        item_data = {
-            'frame': item_frame,
-            'url_var': url_var,
-            'thumbnail_label': thumbnail_label,
-            'image_path': None
-        }
-        self.image_widgets.append(item_data)
-    
-    def browse_image_for_item(self, url_var, thumbnail_label):
-        """Browse for image file for a specific item"""
-        file_path = filedialog.askopenfilename(
-            title="Select Image",
-            filetypes=[
-                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
-                ("All files", "*.*")
-            ]
-        )
-        
-        if file_path:
-            url_var.set(file_path)
-            self.load_thumbnail(file_path, thumbnail_label)
-            
-            # Store the image path
-            for item in self.image_widgets:
-                if item['url_var'] == url_var:
-                    item['image_path'] = file_path
-                    break
-    
-    def load_thumbnail(self, image_path, thumbnail_label):
-        """Load thumbnail for image"""
-        try:
-            # Load and resize image for thumbnail
-            img = Image.open(image_path)
-            img.thumbnail((100, 100), Image.Resampling.LANCZOS)
-            
-            # Convert to PhotoImage
-            photo = ImageTk.PhotoImage(img)
-            
-            # Update label
-            thumbnail_label.config(image=photo, text="")
-            thumbnail_label.image = photo  # Keep a reference
-            
-        except Exception as e:
-            logger.error(f"Error loading thumbnail: {e}")
-            thumbnail_label.config(text="Error loading image")
-    
-    def remove_image_item(self, item_frame):
-        """Remove an image item"""
-        # Find and remove from widgets list
-        for i, item in enumerate(self.image_widgets):
-            if item['frame'] == item_frame:
-                del self.image_widgets[i]
-                break
-        
-        # Destroy the frame
-        item_frame.destroy()
-    
-    def update_size_display(self, value=None):
-        """Update size display when sliders change"""
-        # This method is called when sliders change
-        pass
+    def toggle_auto_size(self):
+        """Toggle auto size detection"""
+        if self.auto_size_var.get():
+            self.size_combo.config(state="disabled")
+            # If we have an image selected, auto-calculate size
+            if self.selected_image_path:
+                self.auto_set_resolution()
+        else:
+            self.size_combo.config(state="readonly")
     
     def generate_random_seed(self):
         """Generate a random seed"""
-        import random
-        random_seed = random.randint(0, 2147483647)
+        random_seed = random.randint(1, 2147483647)
         self.seed_var.set(str(random_seed))
     
-    def improve_prompt_with_ai(self):
-        """Improve prompt using AI"""
+    def auto_set_resolution(self):
+        """Automatically set resolution based on input image"""
+        if not self.selected_image_path:
+            return
+        
         try:
-            from ui.components.fixed_ai_settings import check_and_show_ai_unavailable_message
+            # Fix image rotation before getting dimensions
+            image = Image.open(self.selected_image_path)
             
-            if not check_and_show_ai_unavailable_message(self.main_container.winfo_toplevel()):
-                return
+            # Apply EXIF orientation correction
+            image = ImageOps.exif_transpose(image)
             
-            current_prompt = self.prompt_text.get("1.0", tk.END).strip()
-            if not current_prompt:
-                messagebox.showwarning("No Prompt", "Please enter a prompt first.")
-                return
+            original_width, original_height = image.size
+            original_aspect = original_width / original_height
             
-            # Show AI suggestions
-            from ui.components.universal_ai_integration import universal_ai_integrator
-            universal_ai_integrator._show_ai_suggestions(
-                self.prompt_text, 
-                "seedream_v4", 
-                self
-            )
+            # Find the best matching size that fits within limits and maintains aspect ratio
+            best_size = None
+            min_scale_factor = float('inf')
+            max_dimension = 4096  # Maximum supported dimension
+            
+            for width, height in self.supported_sizes:
+                target_aspect = width / height
+                
+                # Calculate how much we'd need to scale the original
+                if abs(target_aspect - original_aspect) < 0.1:  # Similar aspect ratio
+                    scale_factor = max(width / original_width, height / original_height)
+                    
+                    # Prefer smaller scale factors (less upscaling) but ensure minimum quality
+                    if scale_factor <= 4.0 and scale_factor < min_scale_factor:
+                        best_size = (width, height)
+                        min_scale_factor = scale_factor
+            
+            # If no good aspect ratio match, find closest by area that doesn't exceed limits
+            if not best_size:
+                original_area = original_width * original_height
+                
+                for width, height in self.supported_sizes:
+                    if width <= max_dimension and height <= max_dimension:
+                        if not best_size:
+                            best_size = (width, height)
+                        else:
+                            # Choose size with area closest to original
+                            current_area = width * height
+                            best_area = best_size[0] * best_size[1]
+                            
+                            if abs(current_area - original_area) < abs(best_area - original_area):
+                                best_size = (width, height)
+            
+            # Set the best size
+            if best_size:
+                size_string = f"{best_size[0]}*{best_size[1]}"
+                self.size_var.set(size_string)
+                logger.info(f"Auto-set resolution to {size_string} for image {original_width}x{original_height}")
             
         except Exception as e:
-            logger.error(f"Error improving prompt: {e}")
-            messagebox.showerror("Error", f"Failed to improve prompt: {str(e)}")
+            logger.error(f"Error auto-setting resolution: {e}")
+            # Fallback to default
+            self.size_var.set("2048*2048")
     
-    def show_filter_training(self):
-        """Show filter training mode"""
+    def browse_image(self):
+        """Browse for image file"""
+        from tkinter import filedialog
+        
+        file_path = filedialog.askopenfilename(
+            title="Select Image for Seedream V4",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            self.on_image_selected(file_path)
+    
+    def on_image_selected(self, file_path, replacing_image=False):
+        """Handle image selection with auto-resolution and rotation fix"""
         try:
-            from ui.components.fixed_ai_settings import check_and_show_ai_unavailable_message
-            
-            if not check_and_show_ai_unavailable_message(self.main_container.winfo_toplevel()):
+            if not validate_image_file(file_path):
+                show_error("Invalid Image", "Please select a valid image file.")
                 return
             
-            result = messagebox.askyesno(
-                "Filter Training Mode",
-                "⚠️ WARNING: Filter Training Mode generates harmful prompt examples for safety filter development only.\n\n"
-                "These examples are NEVER executed for generation - they are used to train safety filters.\n\n"
-                "Do you want to continue?",
-                icon="warning"
-            )
+            self.selected_image_path = file_path
             
-            if not result:
-                return
+            # Update the optimized layout's image display
+            success = self.optimized_layout.update_input_image(file_path)
             
-            current_prompt = self.prompt_text.get("1.0", tk.END).strip()
-            if not current_prompt:
-                messagebox.showwarning("No Prompt", "Please enter a prompt first.")
-                return
-            
-            # Show filter training suggestions
-            from ui.components.universal_ai_integration import universal_ai_integrator
-            universal_ai_integrator._show_filter_training(
-                self.prompt_text, 
-                "seedream_v4", 
-                self
-            )
-            
+            if success:
+                # Auto-set resolution if enabled
+                if self.auto_size_var.get():
+                    self.auto_set_resolution()
+                
+                # Update status
+                filename = os.path.basename(file_path)
+                self.update_status(f"📁 Image loaded: {filename}")
+                
+                if not replacing_image:
+                    show_success("Image Loaded", f"Successfully loaded: {filename}")
+            else:
+                show_error("Load Error", "Failed to load the selected image.")
+                
         except Exception as e:
-            logger.error(f"Error showing filter training: {e}")
-            messagebox.showerror("Error", f"Failed to show filter training: {str(e)}")
+            logger.error(f"Error selecting image: {e}")
+            show_error("Error", f"Failed to load image: {str(e)}")
+    
+    def setup_compact_prompt_section(self):
+        """Setup compact prompt section in the left panel"""
+        prompt_container = self.optimized_layout.prompt_container
+        
+        # Enhanced prompt text area with guidance
+        prompt_label = ttk.Label(prompt_container, text="✨ Seedream V4 Prompt", font=('Arial', 9, 'bold'))
+        prompt_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+        
+        # Guidance text
+        guidance_text = ("Use clear instructions: \"change action + change object + target feature\"\n"
+                        "For multiple images: \"a series of\", \"group of images\"\n"
+                        "Be specific and detailed for best results")
+        
+        guidance_label = ttk.Label(
+            prompt_container, 
+            text=guidance_text, 
+            font=('Arial', 8), 
+            foreground='gray',
+            wraplength=280
+        )
+        guidance_label.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
+        
+        # Prompt text widget
+        prompt_frame = ttk.Frame(prompt_container)
+        prompt_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        prompt_frame.columnconfigure(0, weight=1)
+        prompt_frame.rowconfigure(0, weight=1)
+        
+        self.prompt_text = tk.Text(
+            prompt_frame,
+            height=8,
+            wrap=tk.WORD,
+            font=('Arial', 9),
+            bg='white',
+            relief='solid',
+            borderwidth=1
+        )
+        self.prompt_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Scrollbar for prompt text
+        prompt_scrollbar = ttk.Scrollbar(prompt_frame, orient=tk.VERTICAL, command=self.prompt_text.yview)
+        prompt_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.prompt_text.config(yscrollcommand=prompt_scrollbar.set)
+        
+        # Placeholder text
+        self.prompt_text.insert("1.0", "remove man")
+        self.prompt_text.bind("<FocusIn>", self.clear_placeholder)
+        
+        # Add AI enhancement features to the prompt section
+        try:
+            from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
+            add_ai_features_to_prompt_section(prompt_container, self.prompt_text, 'seedream_v4', self)
+        except ImportError:
+            logger.warning("AI prompt suggestions not available")
+        
+        # Prompt management buttons
+        prompt_buttons_frame = ttk.Frame(prompt_container)
+        prompt_buttons_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        prompt_buttons_frame.columnconfigure(0, weight=1)
+        prompt_buttons_frame.columnconfigure(1, weight=1)
+        prompt_buttons_frame.columnconfigure(2, weight=1)
+        
+        # Save prompt button
+        save_button = ttk.Button(
+            prompt_buttons_frame,
+            text="💾 Save",
+            command=self.save_current_prompt,
+            width=8
+        )
+        save_button.grid(row=0, column=0, sticky=tk.W)
+        
+        # Load prompt button
+        load_button = ttk.Button(
+            prompt_buttons_frame,
+            text="📂 Load",
+            command=self.load_saved_prompt,
+            width=8
+        )
+        load_button.grid(row=0, column=1, padx=5)
+        
+        # Delete prompt button
+        delete_button = ttk.Button(
+            prompt_buttons_frame,
+            text="🗑️ Delete",
+            command=self.delete_saved_prompt,
+            width=8
+        )
+        delete_button.grid(row=0, column=2, sticky=tk.E)
+    
+    def clear_placeholder(self, event):
+        """Clear placeholder text when focused"""
+        if self.prompt_text.get("1.0", tk.END).strip() == "remove man":
+            self.prompt_text.delete("1.0", tk.END)
+    
+    def setup_compact_progress_section(self):
+        """Setup compact progress section"""
+        progress_container = self.optimized_layout.progress_container
+        
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(
+            progress_container,
+            mode='indeterminate',
+            length=200
+        )
+        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        
+        # Status label
+        self.status_label = ttk.Label(
+            progress_container,
+            text="Ready for Seedream V4 processing",
+            font=('Arial', 9)
+        )
+        self.status_label.grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
+        
+        # Initially hide progress
+        self.progress_bar.grid_remove()
+    
+    def show_progress(self, message="Processing..."):
+        """Show progress indicator"""
+        self.progress_bar.grid()
+        self.progress_bar.start(10)
+        self.status_label.config(text=message)
+    
+    def hide_progress(self):
+        """Hide progress indicator"""
+        self.progress_bar.stop()
+        self.progress_bar.grid_remove()
+    
+    def update_status(self, message):
+        """Update status message"""
+        self.status_label.config(text=message)
+    
+    def save_current_prompt(self):
+        """Save current prompt to file"""
+        prompt = self.prompt_text.get("1.0", tk.END).strip()
+        if not prompt or prompt == "remove man":
+            show_error("Save Error", "Please enter a prompt before saving.")
+            return
+        
+        # Check if prompt already exists
+        if prompt in self.saved_seedream_v4_prompts:
+            show_error("Duplicate Prompt", "This prompt is already saved.")
+            return
+        
+        # Add to saved prompts
+        self.saved_seedream_v4_prompts.append(prompt)
+        
+        # Save to file
+        save_json_file(self.seedream_v4_prompts_file, self.saved_seedream_v4_prompts)
+        
+        show_success("Prompt Saved", f"Prompt saved successfully!\nTotal saved: {len(self.saved_seedream_v4_prompts)}")
+    
+    def load_saved_prompt(self):
+        """Load a saved prompt"""
+        if not self.saved_seedream_v4_prompts:
+            show_error("No Prompts", "No saved prompts found.")
+            return
+        
+        # Create selection dialog
+        from tkinter import simpledialog
+        
+        # Show list of prompts
+        prompt_list = "\n".join([f"{i+1}. {prompt[:50]}..." if len(prompt) > 50 else f"{i+1}. {prompt}" 
+                                for i, prompt in enumerate(self.saved_seedream_v4_prompts)])
+        
+        selection = simpledialog.askinteger(
+            "Load Prompt",
+            f"Select a prompt to load:\n\n{prompt_list}",
+            minvalue=1,
+            maxvalue=len(self.saved_seedream_v4_prompts)
+        )
+        
+        if selection:
+            selected_prompt = self.saved_seedream_v4_prompts[selection - 1]
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", selected_prompt)
+    
+    def delete_saved_prompt(self):
+        """Delete a saved prompt"""
+        if not self.saved_seedream_v4_prompts:
+            show_error("No Prompts", "No saved prompts found.")
+            return
+        
+        # Create selection dialog
+        from tkinter import simpledialog, messagebox
+        
+        # Show list of prompts
+        prompt_list = "\n".join([f"{i+1}. {prompt[:50]}..." if len(prompt) > 50 else f"{i+1}. {prompt}" 
+                                for i, prompt in enumerate(self.saved_seedream_v4_prompts)])
+        
+        selection = simpledialog.askinteger(
+            "Delete Prompt",
+            f"Select a prompt to delete:\n\n{prompt_list}",
+            minvalue=1,
+            maxvalue=len(self.saved_seedream_v4_prompts)
+        )
+        
+        if selection:
+            prompt_to_delete = self.saved_seedream_v4_prompts[selection - 1]
+            
+            # Confirm deletion
+            if messagebox.askyesno("Confirm Delete", f"Delete this prompt?\n\n{prompt_to_delete}"):
+                self.saved_seedream_v4_prompts.pop(selection - 1)
+                save_json_file(self.seedream_v4_prompts_file, self.saved_seedream_v4_prompts)
+                show_success("Prompt Deleted", "Prompt deleted successfully.")
     
     def load_sample_prompt(self):
-        """Load sample prompt"""
+        """Load a sample prompt"""
         sample_prompts = [
-            "Replace the man in the frame with the face and head of the man from the reference photo. Keep the clothing, lighting, and background from the screen recording image unchanged.",
-            "Transform the person into a Renaissance-style painting with oil paint texture and classical lighting",
+            "remove man",
+            "Transform the person into a Renaissance-style painting with oil paint texture",
             "Change the background to a futuristic cyberpunk cityscape with neon lights",
-            "Convert this image to anime style with vibrant colors and stylized features",
-            "Add magical elements like floating particles and glowing effects around the subject",
-            "Transform the scene to vintage black and white photography with film grain"
+            "Convert this image to anime style with vibrant colors",
+            "Add magical elements like floating particles and glowing effects",
+            "Change the clothing to a formal business suit",
+            "Add a beautiful sunset sky in the background",
+            "Transform the scene into a winter wonderland with snow",
+            "Add professional studio lighting effects",
+            "Convert to black and white with dramatic contrast"
         ]
         
         import random
@@ -523,270 +533,239 @@ class SeedreamV4Tab(BaseTab):
     def clear_all(self):
         """Clear all inputs"""
         self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", "remove man")
+        self.seed_var.set("-1")
+        self.size_var.set("2048*2048")
+        self.sync_mode_var.set(False)
+        self.base64_output_var.set(False)
+        self.auto_size_var.set(True)
+        self.size_combo.config(state="disabled")
         
-        # Clear all image items except the first one
-        while len(self.image_widgets) > 1:
-            self.remove_image_item(self.image_widgets[-1]['frame'])
+        # Clear images
+        self.selected_image_path = None
+        self.result_image = None
+        self.optimized_layout.clear_input_image()
+        self.optimized_layout.clear_result_image()
         
-        # Clear the first item
-        if self.image_widgets:
-            first_item = self.image_widgets[0]
-            first_item['url_var'].set("")
-            first_item['thumbnail_label'].config(image="", text="No image")
-            first_item['image_path'] = None
-    
-    def save_current_prompt(self):
-        """Save the current prompt"""
-        prompt = self.prompt_text.get("1.0", tk.END).strip()
-        if prompt and prompt not in self.saved_seedream_v4_prompts:
-            self.saved_seedream_v4_prompts.append(prompt)
-            save_json_file(self.seedream_v4_prompts_file, self.saved_seedream_v4_prompts)
-            self.update_status("Prompt saved successfully")
-    
-    def show_placeholder(self):
-        """Show placeholder text"""
-        self.input_canvas.delete("all")
-        self.input_canvas.create_text(
-            self.input_canvas.winfo_width()//2, 
-            self.input_canvas.winfo_height()//2,
-            text="📷 Select images to edit\nDrag & drop supported",
-            font=('Arial', 12),
-            fill="gray"
-        )
-        
-        self.result_canvas.delete("all")
-        self.result_canvas.create_text(
-            self.result_canvas.winfo_width()//2, 
-            self.result_canvas.winfo_height()//2,
-            text="🌟 Result will appear here after processing",
-            font=('Arial', 12),
-            fill="gray"
-        )
+        self.update_status("All inputs cleared")
     
     def process_task(self):
         """Process Seedream V4 task"""
-        # Validation
+        # Validate inputs
         prompt = self.prompt_text.get("1.0", tk.END).strip()
-        if not prompt:
-            messagebox.showerror("No Prompt", "Please enter an editing instruction.")
+        if not prompt or prompt == "remove man":
+            show_error("Missing Prompt", "Please enter an editing instruction.")
             return
         
-        # Collect images
-        images = []
-        for item in self.image_widgets:
-            if item['image_path']:
-                images.append(item['image_path'])
-            elif item['url_var'].get().strip():
-                images.append(item['url_var'].get().strip())
-        
-        if not images:
-            messagebox.showerror("No Images", "Please add at least one image.")
+        if not self.selected_image_path:
+            show_error("Missing Image", "Please select an input image.")
             return
         
-        # Validate size
-        try:
-            width = int(self.width_var.get())
-            height = int(self.height_var.get())
-            if not (1024 <= width <= 4096 and 1024 <= height <= 4096):
-                raise ValueError("Size out of range")
-        except ValueError:
-            messagebox.showerror("Invalid Size", "Size must be between 1024 and 4096 pixels.")
-            return
+        # Show progress
+        self.show_progress("Uploading and processing with Seedream V4...")
         
-        # Validate seed
-        try:
-            seed = int(self.seed_var.get()) if self.seed_var.get().strip() != "-1" else -1
-            if seed != -1 and not (0 <= seed <= 2147483647):
-                raise ValueError("Seed out of range")
-        except ValueError:
-            messagebox.showerror("Invalid Seed", "Seed must be -1 for random or between 0 and 2147483647.")
-            return
+        # Process in background thread
+        def background_process():
+            try:
+                # Upload image with rotation fix
+                image_url = self.upload_image_with_rotation_fix(self.selected_image_path)
+                
+                if image_url:
+                    # Submit task
+                    self.submit_seedream_v4_task(image_url, prompt)
+                else:
+                    self.frame.after(0, lambda: self.handle_error("Image upload failed"))
+                    
+            except Exception as e:
+                logger.error(f"Background process error: {e}")
+                self.frame.after(0, lambda: self.handle_error(f"Processing error: {str(e)}"))
         
-        # Start processing
-        self.show_progress("Starting Seedream V4 processing...")
-        
-        # Start processing in background thread
-        thread = threading.Thread(target=self.process_thread, args=(prompt, images, width, height, seed))
+        thread = threading.Thread(target=background_process)
         thread.daemon = True
         thread.start()
     
-    def process_thread(self, prompt, images, width, height, seed):
-        """Process in background thread"""
+    def upload_image_with_rotation_fix(self, image_path):
+        """Upload image with EXIF rotation correction"""
         try:
-            # Update status
-            self.main_container.after(0, lambda: self.update_status("Preparing images..."))
+            # Open image and fix rotation
+            image = Image.open(image_path)
             
-            # Upload images
-            image_urls = []
-            for i, image_path in enumerate(images):
-                if image_path.startswith('http'):
-                    # Already a URL
-                    image_urls.append(image_path)
+            # Apply EXIF orientation correction
+            image = ImageOps.exif_transpose(image)
+            
+            # Save corrected image to temporary file
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                temp_path = temp_file.name
+                image.save(temp_path, 'PNG')
+            
+            # Upload the corrected image
+            try:
+                result = privacy_uploader.upload_file(
+                    temp_path,
+                    auto_delete_after_hours=24
+                )
+                
+                if result['success']:
+                    logger.info(f"Seedream V4 image uploaded successfully: {result['url']}")
+                    return result['url']
                 else:
-                    # Upload local image
-                    url = self.upload_image(image_path)
-                    if url:
-                        image_urls.append(url)
-                    else:
-                        self.main_container.after(0, lambda: self.handle_error("Failed to upload image"))
-                        return
-            
-            if not image_urls:
-                self.main_container.after(0, lambda: self.handle_error("No valid images to process"))
-                return
-            
-            # Update status
-            self.main_container.after(0, lambda: self.update_status("Submitting Seedream V4 task..."))
-            
-            # Prepare payload
-            size = f"{width}*{height}"
-            payload = {
-                "prompt": prompt,
-                "images": image_urls,
-                "size": size,
-                "seed": seed,
-                "enable_sync_mode": self.enable_sync_mode.get(),
-                "enable_base64_output": self.enable_base64_output.get()
-            }
-            
-            # Submit task
-            request_id, error = self.api_client.submit_seedream_v4_task(payload)
-            
-            if error:
-                self.main_container.after(0, lambda: self.handle_error(error))
-                return
-            
-            self.current_request_id = request_id
-            self.main_container.after(0, lambda: self.update_status(f"Task submitted. ID: {request_id}"))
-            
-            # Poll for results
-            def progress_callback(status, result):
-                self.main_container.after(0, lambda: self.update_status(f"Processing... Status: {status}"))
-            
-            output_url, error, duration = self.api_client.poll_until_complete(
-                request_id, progress_callback, poll_interval=0.5
-            )
-            
-            if error:
-                self.main_container.after(0, lambda: self.handle_error(error))
-            else:
-                self.main_container.after(0, lambda: self.handle_success(output_url, duration))
+                    logger.error(f"Upload failed: {result['error']}")
+                    return None
+                    
+            finally:
+                # Clean up temp file
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
                 
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            self.main_container.after(0, lambda: self.handle_error(error_msg))
-    
-    def upload_image(self, image_path):
-        """Upload image and return URL"""
-        try:
-            # Use privacy-friendly upload
-            success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(image_path, 'seedream_v4')
-            
-            if success:
-                logger.info(f"Seedream V4 image uploaded: {privacy_info}")
-                return url
-            else:
-                logger.error(f"Upload failed: {privacy_info}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Upload error: {e}")
+            logger.error(f"Image upload with rotation fix failed: {e}")
             return None
     
-    def show_progress(self, message):
-        """Show progress indicator"""
-        self.status_label.config(text=message, foreground="blue")
-        self.progress_bar.pack(side=tk.RIGHT, padx=(10, 0))
-        self.progress_bar.start()
-    
-    def hide_progress(self):
-        """Hide progress indicator"""
-        self.progress_bar.stop()
-        self.progress_bar.pack_forget()
-    
-    def update_status(self, message):
-        """Update status message"""
-        if "error" in message.lower() or "failed" in message.lower():
-            color = "red"
-        elif "processing" in message.lower() or "submitting" in message.lower():
-            color = "blue"
-        else:
-            color = "green"
-        
-        self.status_label.config(text=message, foreground=color)
+    def submit_seedream_v4_task(self, image_url, prompt):
+        """Submit Seedream V4 task"""
+        try:
+            # Get settings
+            size = self.size_var.get()
+            seed = int(self.seed_var.get()) if self.seed_var.get() != "-1" else -1
+            sync_mode = self.sync_mode_var.get()
+            base64_output = self.base64_output_var.get()
+            
+            # Submit task
+            result = self.api_client.submit_seedream_v4_task(
+                prompt=prompt,
+                images=[image_url],  # Seedream V4 expects array
+                size=size,
+                seed=seed,
+                enable_sync_mode=sync_mode,
+                enable_base64_output=base64_output
+            )
+            
+            if result['success']:
+                output_url = result['output_url']
+                duration = result.get('duration', 0)
+                
+                self.frame.after(0, lambda: self.handle_success(output_url, duration))
+            else:
+                error_msg = result.get('error', 'Unknown error occurred')
+                self.frame.after(0, lambda: self.handle_error(error_msg))
+                
+        except Exception as e:
+            logger.error(f"Seedream V4 task submission failed: {e}")
+            self.frame.after(0, lambda: self.handle_error(f"Task submission failed: {str(e)}"))
     
     def handle_success(self, output_url, duration):
-        """Handle successful processing"""
+        """Handle successful completion"""
+        # Hide progress
         self.hide_progress()
-        self.update_status(f"✅ Seedream V4 completed in {duration:.1f}s")
         
-        # Display result
-        self.display_result(output_url)
-        self.result_image = output_url
+        # Download and display result in optimized layout
+        success = self.optimized_layout.update_result_image(output_url)
         
-        # Auto-save
-        prompt = self.prompt_text.get("1.0", tk.END).strip()
-        size = f"{self.width_var.get()}*{self.height_var.get()}"
-        seed = self.seed_var.get()
-        
-        extra_info = f"size_{size}_seed_{seed}"
-        
-        auto_save_manager.save_result(
-            'seedream_v4', 
-            output_url, 
-            prompt=prompt, 
-            extra_info=extra_info, 
-            file_type="image"
-        )
+        if success:
+            self.result_image = self.optimized_layout.result_image
+            
+            # Auto-save the result
+            prompt = self.prompt_text.get("1.0", tk.END).strip()
+            size = self.size_var.get()
+            seed = self.seed_var.get()
+            extra_info = f"{size}_seed{seed}"
+            
+            success, saved_path, error = auto_save_manager.save_result(
+                'seedream_v4', 
+                output_url, 
+                prompt=prompt,
+                extra_info=extra_info
+            )
+            
+            # Update status
+            self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}!")
+            
+            success_msg = f"Seedream V4 completed successfully in {format_duration(duration)}!"
+            if success and saved_path:
+                success_msg += f"\n\nResult auto-saved to:\n{saved_path}"
+            
+            show_success("Seedream V4 Complete", success_msg)
+        else:
+            self.handle_error("Failed to download result image")
     
     def handle_error(self, error_message):
-        """Handle processing errors"""
+        """Handle processing error"""
         self.hide_progress()
-        self.update_status(f"❌ Error: {error_message}")
-        messagebox.showerror("Seedream V4 Error", error_message)
+        self.update_status("❌ Processing failed")
+        show_error("Seedream V4 Error", error_message)
     
-    def display_result(self, image_url):
-        """Display result image"""
+    def save_result_image(self):
+        """Save result image to file"""
+        if not self.result_image:
+            show_error("No Result", "No result image to save.")
+            return
+        
+        from tkinter import filedialog
+        
+        file_path = filedialog.asksaveasfilename(
+            title="Save Seedream V4 Result",
+            defaultextension=".png",
+            filetypes=[
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if file_path:
+            try:
+                self.result_image.save(file_path)
+                show_success("Image Saved", f"Result saved to:\n{file_path}")
+            except Exception as e:
+                show_error("Save Error", f"Failed to save image: {str(e)}")
+    
+    def use_result_as_input(self):
+        """Use result image as new input"""
+        if not self.result_image:
+            show_error("No Result", "No result image to use as input.")
+            return
+        
         try:
-            # Download and display image
-            import requests
-            from io import BytesIO
+            # Save result to temporary file
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                temp_path = temp_file.name
+                self.result_image.save(temp_path, 'PNG')
             
-            response = requests.get(image_url)
-            response.raise_for_status()
+            # Use as new input
+            self.on_image_selected(temp_path, replacing_image=True)
             
-            # Load image
-            img = Image.open(BytesIO(response.content))
-            
-            # Resize to fit canvas
-            canvas_width = self.result_canvas.winfo_width()
-            canvas_height = self.result_canvas.winfo_height()
-            
-            if canvas_width > 1 and canvas_height > 1:  # Canvas is initialized
-                img.thumbnail((canvas_width-20, canvas_height-20), Image.Resampling.LANCZOS)
-            
-            # Convert to PhotoImage
-            photo = ImageTk.PhotoImage(img)
-            
-            # Clear canvas and display image
-            self.result_canvas.delete("all")
-            self.result_canvas.create_image(
-                canvas_width//2, 
-                canvas_height//2, 
-                image=photo, 
-                anchor=tk.CENTER
-            )
-            
-            # Keep reference
-            self.result_canvas.image = photo
+            # Clean up temp file after a delay
+            self.frame.after(5000, lambda: self.cleanup_temp_file(temp_path))
             
         except Exception as e:
-            logger.error(f"Error displaying result: {e}")
-            self.result_canvas.delete("all")
-            self.result_canvas.create_text(
-                self.result_canvas.winfo_width()//2, 
-                self.result_canvas.winfo_height()//2,
-                text=f"Error loading result: {str(e)}",
-                font=('Arial', 10),
-                fill="red"
-            )
+            logger.error(f"Error using result as input: {e}")
+            show_error("Error", f"Failed to use result as input: {str(e)}")
+    
+    def cleanup_temp_file(self, file_path):
+        """Clean up temporary file"""
+        try:
+            if os.path.exists(file_path):
+                os.unlink(file_path)
+        except:
+            pass
+    
+    def handle_drag_drop(self, event):
+        """Handle drag and drop from system file manager"""
+        try:
+            # Parse the drag and drop data
+            files = parse_drag_drop_data(event.data)
+            
+            if files:
+                first_file = files[0]
+                if validate_image_file(first_file):
+                    self.on_image_selected(first_file)
+                else:
+                    show_error("Invalid File", "Please drop a valid image file.")
+            
+        except Exception as e:
+            logger.error(f"Drag and drop error: {e}")
+            show_error("Drop Error", f"Failed to process dropped file: {str(e)}")
