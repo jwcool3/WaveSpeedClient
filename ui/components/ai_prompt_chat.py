@@ -27,6 +27,7 @@ class AIPromptChat:
         self.current_prompt = ""
         self.chat_history = []
         self.is_processing = False
+        self.filter_training = False  # Flag for filter training mode
         
         self.setup_ui()
     
@@ -196,8 +197,15 @@ class AIPromptChat:
         # Process message in background
         def process_message():
             try:
-                response = asyncio.run(self.get_ai_response(message))
-                self.parent.after(0, lambda: self.handle_ai_response(response))
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    response = loop.run_until_complete(self.get_ai_response(message))
+                    self.parent.after(0, lambda: self.handle_ai_response(response))
+                finally:
+                    # Properly close the event loop
+                    loop.close()
             except Exception as e:
                 logger.error(f"Error processing message: {e}")
                 self.parent.after(0, lambda: self.handle_ai_error(str(e)))
@@ -225,7 +233,16 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
 """
             
             # Use the AI advisor to get a response
-            if "improve" in user_message.lower() or "better" in user_message.lower():
+            if self.filter_training:
+                # Use filter training mode
+                suggestions = await advisor.generate_filter_training_data(self.current_prompt, self.current_tab_name)
+                if suggestions and len(suggestions) > 0:
+                    improved_prompt = suggestions[0].improved_prompt
+                    confidence = getattr(suggestions[0], 'confidence', 'N/A')
+                    return f"Here's a filter training example based on your prompt:\n\n**Filter Training Example:**\n{improved_prompt}\n\n**Confidence:** {confidence}\n\n⚠️ This is for safety filter training only - never for actual generation."
+                else:
+                    return "I can help generate filter training examples. What type of harmful content patterns would you like me to demonstrate for safety filter training?"
+            elif "improve" in user_message.lower() or "better" in user_message.lower():
                 # Use prompt improvement
                 suggestions = await advisor.improve_prompt(self.current_prompt, self.current_tab_name)
                 if suggestions and len(suggestions) > 0:
