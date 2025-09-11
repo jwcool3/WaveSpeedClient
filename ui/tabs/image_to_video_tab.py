@@ -61,6 +61,38 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         
         logger.info("Optimized Wan 2.2 UI setup complete")
     
+    def browse_image(self):
+        """Browse for image file"""
+        from tkinter import filedialog
+        
+        file_path = filedialog.askopenfilename(
+            title="Select Image for Wan 2.2 Video Generation",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            self.on_image_selected(file_path)
+    
+    def play_in_system_placeholder(self):
+        """Placeholder for playing video in system player"""
+        pass
+    
+    def download_video_placeholder(self):
+        """Placeholder for downloading video"""
+        pass
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        pass
+    
+    def on_saved_prompt_selected_placeholder(self, event=None):
+        """Placeholder for saved prompt selection"""
+        pass
+    
     def connect_optimized_layout(self):
         """Connect the optimized layout methods to our existing functionality"""
         # Connect image browsing

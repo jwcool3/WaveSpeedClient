@@ -33,45 +33,65 @@ class ImageEditorTab(BaseTab):
         self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
-        """Setup the optimized image editor UI"""
+        """Setup the optimized image editor UI with new compact layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedImageLayout(self.container, "Nano Banana Editor")
+        # Use the new compact image layout instead of the generic optimized layout
+        from ui.components.compact_image_layout import CompactImageLayout
+        self.optimized_layout = CompactImageLayout(self.container, "Nano Banana Editor")
         
-        # Setup the layout with image editing specific settings
-        self.setup_image_editor_settings()
+        # Connect the compact layout methods to our existing functionality
+        self.connect_compact_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup image editor specific settings in the compact layout
+        self.setup_image_editor_settings_compact()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🍌 Edit with Nano Banana", self.process_task)
+        # Setup prompt section in the compact layout
+        self.setup_compact_prompt_section_compact()
         
-        # Connect image selector
-        self.optimized_layout.set_image_selector_command(self.browse_image)
+        # Setup progress section in the compact layout
+        self.setup_compact_progress_section_compact()
+    
+    def connect_compact_layout(self):
+        """Connect the compact layout methods to our existing functionality"""
+        # Connect the compact layout's methods to our existing functionality
+        self.optimized_layout.browse_image = self.browse_image
+        self.optimized_layout.process_image = self.process_task
+        self.optimized_layout.save_result = self.save_result_image
+        self.optimized_layout.load_result = self.use_result_as_input
+        self.optimized_layout.clear_all = self.clear_prompts
+        self.optimized_layout.load_sample = self.load_sample_prompt
+        self.optimized_layout.improve_with_ai = self.improve_with_ai_placeholder
         
-        # Connect result buttons
-        self.optimized_layout.set_result_button_commands(
-            self.save_result_image, 
-            self.use_result_as_input
-        )
-        
-        # Connect sample and clear buttons
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
-        self.optimized_layout.clear_button.config(command=self.clear_prompts)
-        
-        # Connect drag and drop handling
-        self.optimized_layout.set_parent_tab(self)
-        
-        # Setup cross-tab sharing
-        self.optimized_layout.create_cross_tab_button(self.main_app, "Nano Banana Editor")
-        
-        # Setup progress section in the left panel
-        self.setup_compact_progress_section()
+        # Store references to layout components for easy access
+        self.prompt_text = self.optimized_layout.prompt_text
+        self.status_label = self.optimized_layout.status_label
+        self.progress_bar = self.optimized_layout.progress_bar
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        # This would connect to your existing AI improvement system
+        pass
+    
+    def setup_image_editor_settings_compact(self):
+        """Setup image editor specific settings in the compact layout"""
+        # The compact layout already has image editor settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_prompt_section_compact(self):
+        """Setup compact prompt section in the compact layout"""
+        # The compact layout already has the prompt section built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_compact(self):
+        """Setup compact progress section in the compact layout"""
+        # The compact layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def browse_image(self):
         """Browse for image file"""
