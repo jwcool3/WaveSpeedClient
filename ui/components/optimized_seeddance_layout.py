@@ -13,6 +13,8 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 import time
+from .unified_status_console import UnifiedStatusConsole
+from .keyboard_manager import KeyboardManager
 
 
 class OptimizedSeedDanceLayout:
@@ -34,6 +36,7 @@ class OptimizedSeedDanceLayout:
         self.start_time = None
         
         self.setup_layout()
+        self.setup_enhanced_features()
     
     def setup_layout(self):
         """Setup streamlined 2-column layout for dance video generation"""

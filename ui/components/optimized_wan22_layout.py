@@ -13,6 +13,8 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 import time
+from .unified_status_console import UnifiedStatusConsole
+from .keyboard_manager import KeyboardManager
 
 
 class OptimizedWan22Layout:
@@ -33,6 +35,7 @@ class OptimizedWan22Layout:
         self.start_time = None
         
         self.setup_layout()
+        self.setup_enhanced_features()
     
     def setup_layout(self):
         """Setup optimized 2-column layout for video generation"""
@@ -68,8 +71,9 @@ class OptimizedWan22Layout:
         left_frame.rowconfigure(2, weight=0)  # Prompts - expandable but controlled
         left_frame.rowconfigure(3, weight=0)  # Primary action - prominent
         left_frame.rowconfigure(4, weight=0)  # Collapsible saved prompts
-        left_frame.rowconfigure(5, weight=1)  # Spacer
-        left_frame.rowconfigure(6, weight=0)  # Status/Progress
+        left_frame.rowconfigure(5, weight=0)  # Status console
+        left_frame.rowconfigure(6, weight=1)  # Spacer
+        left_frame.rowconfigure(7, weight=0)  # Legacy status/Progress
         
         # 1. COMPACT IMAGE INPUT
         self.setup_image_input(left_frame)
@@ -86,11 +90,14 @@ class OptimizedWan22Layout:
         # 5. COLLAPSIBLE SAVED PROMPTS
         self.setup_saved_prompts_section(left_frame)
         
-        # 6. SPACER
-        spacer = ttk.Frame(left_frame)
-        spacer.grid(row=5, column=0, sticky="nsew")
+        # 6. STATUS CONSOLE
+        self.setup_status_console(left_frame)
         
-        # 7. STATUS/PROGRESS
+        # 7. SPACER
+        spacer = ttk.Frame(left_frame)
+        spacer.grid(row=6, column=0, sticky="nsew")
+        
+        # 8. LEGACY STATUS/PROGRESS
         self.setup_status_section(left_frame)
     
     def setup_image_input(self, parent):
@@ -334,10 +341,15 @@ class OptimizedWan22Layout:
         # Configure content frame
         self.saved_content_frame.columnconfigure(0, weight=1)
     
+    def setup_status_console(self, parent):
+        """Setup unified status console"""
+        self.status_console = UnifiedStatusConsole(parent, title="📊 Video Status", height=3)
+        self.status_console.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+    
     def setup_status_section(self, parent):
         """Status and progress section"""
         status_frame = ttk.LabelFrame(parent, text="📊 Status", padding="4")
-        status_frame.grid(row=6, column=0, sticky="ew")
+        status_frame.grid(row=7, column=0, sticky="ew")
         status_frame.columnconfigure(0, weight=1)
         
         # Status label
@@ -411,6 +423,34 @@ class OptimizedWan22Layout:
         
         # Default message
         self.show_video_placeholder()
+    
+    def setup_enhanced_features(self):
+        """Setup status console and keyboard shortcuts integration"""
+        # Initialize keyboard manager for this layout
+        self.keyboard_manager = KeyboardManager(self.parent_frame, "Wan 2.2")
+        
+        # Register primary action
+        self.keyboard_manager.register_primary_action(self.process_video_generation, self.generate_btn)
+        
+        # Register file operations
+        self.keyboard_manager.register_file_actions(
+            open_callback=self.browse_image,
+            new_callback=self.clear_all
+        )
+        
+        # Register AI actions
+        self.keyboard_manager.register_ai_actions(
+            improve_callback=self.improve_with_ai
+        )
+        
+        # Register navigation widgets
+        self.keyboard_manager.register_navigation_widgets(
+            prompt_widgets=[self.video_prompt_text, self.negative_prompt_text],
+            setting_widgets=[self.thumbnail_label]
+        )
+        
+        # Register help callback
+        self.keyboard_manager.register_action('show_help', self.keyboard_manager.show_shortcuts_help)
     
     def setup_bottom_toolbar(self, parent):
         """Global video playback toolbar"""
@@ -540,6 +580,7 @@ class OptimizedWan22Layout:
             self.generate_btn.config(state='normal')
             
             # Update status
+            self.status_console.log_file_operation("Loaded input image", filename, success=True)
             self.status_label.config(text=f"✅ Input loaded: {filename}", foreground="green")
             
         except Exception as e:
@@ -570,7 +611,12 @@ class OptimizedWan22Layout:
         self.generate_btn.config(state='disabled', text="Generating Video...")
         self.progress_bar.grid(row=1, column=0, sticky="ew", pady=(4, 0))
         self.progress_bar.start()
+        self.status_console.log_processing_start("Video generation", f"Duration: {duration}, Seed: {seed}")
+        self.status_console.show_progress()
         self.status_label.config(text="🎬 Generating video with Wan 2.2...", foreground="blue")
+        
+        # Update keyboard manager state
+        self.keyboard_manager.set_operation_in_progress(True)
         
         # Update progress info
         self.progress_info_label.config(text=f"Duration: {duration} | Seed: {seed}")
@@ -587,9 +633,14 @@ class OptimizedWan22Layout:
         # Hide progress
         self.progress_bar.stop()
         self.progress_bar.grid_remove()
+        self.status_console.hide_progress()
         self.generate_btn.config(state='normal', text="🎬 Generate with Wan 2.2")
         
+        # Update keyboard manager state
+        self.keyboard_manager.set_operation_in_progress(False)
+        
         # Update status
+        self.status_console.log_processing_complete("Video generation", success=True, details=f"Duration: {self.duration_var.get()}")
         self.status_label.config(text=f"✅ Video generated successfully in {processing_time:.1f}s", foreground="green")
         
         # Update video info
