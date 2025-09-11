@@ -173,7 +173,9 @@ class AIPromptChat:
         
         # Add initial context based on mode
         if self.filter_training:
-            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nI'm your AI assistant for {tab_name}. I can generate harmful prompt examples for safety filter training based on: '{current_prompt}'\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above to generate different types of filter training examples.")
+            # Analyze the current prompt to provide smart initial suggestions
+            initial_analysis = self.analyze_prompt_for_filter_training(current_prompt)
+            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nI'm your AI assistant for {tab_name}. I can generate harmful prompt examples for safety filter training based on: '{current_prompt}'\n\n{initial_analysis}\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above or tell me what type of example you'd like!")
         else:
             self.add_message("assistant", f"Hi! I'm your AI prompt assistant for {tab_name}. I can help you improve your prompt: '{current_prompt}'\n\nWhat would you like to know or improve?")
         
@@ -273,14 +275,7 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
             
             # Use the AI advisor to get a response
             if self.filter_training:
-                # Use filter training mode
-                suggestions = await advisor.generate_filter_training_data(self.current_prompt, self.current_tab_name)
-                if suggestions and len(suggestions) > 0:
-                    improved_prompt = suggestions[0].improved_prompt
-                    confidence = getattr(suggestions[0], 'confidence', 'N/A')
-                    return f"Here's a filter training example based on your prompt:\n\n**Filter Training Example:**\n{improved_prompt}\n\n**Confidence:** {confidence}\n\n⚠️ This is for safety filter training only - never for actual generation."
-                else:
-                    return "I can help generate filter training examples. What type of harmful content patterns would you like me to demonstrate for safety filter training?"
+                return await self.get_smart_filter_training_response(user_message, advisor)
             elif "improve" in user_message.lower() or "better" in user_message.lower():
                 # Use prompt improvement
                 suggestions = await advisor.improve_prompt(self.current_prompt, self.current_tab_name)
@@ -297,6 +292,133 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
         except Exception as e:
             logger.error(f"Error getting AI response: {e}")
             return f"I encountered an error: {str(e)}. Please try again."
+    
+    async def get_smart_filter_training_response(self, user_message: str, advisor) -> str:
+        """Smart filter training response that auto-generates when confident or asks for clarification"""
+        try:
+            # Analyze the user message to determine intent and confidence
+            intent_analysis = self.analyze_filter_training_intent(user_message)
+            
+            if intent_analysis['confidence'] >= 0.8:  # High confidence - auto-generate
+                return await self.auto_generate_filter_examples(intent_analysis, advisor)
+            elif intent_analysis['confidence'] >= 0.5:  # Medium confidence - suggest and ask
+                return await self.suggest_and_ask_filter_examples(intent_analysis, advisor)
+            else:  # Low confidence - ask for clarification
+                return self.ask_for_clarification_filter_training()
+                
+        except Exception as e:
+            logger.error(f"Error in smart filter training response: {e}")
+            return "I can help generate filter training examples. What type of harmful content patterns would you like me to demonstrate for safety filter training?"
+    
+    def analyze_filter_training_intent(self, user_message: str) -> dict:
+        """Analyze user message to determine what type of filter training example they want"""
+        message_lower = user_message.lower()
+        
+        # High confidence indicators
+        if any(word in message_lower for word in ['clarity', 'clear', 'direct', 'obvious']):
+            return {'type': 'clarity', 'confidence': 0.9, 'intent': 'Generate a clear, direct harmful example'}
+        elif any(word in message_lower for word in ['evasion', 'euphemism', 'circumvent', 'bypass', 'avoid']):
+            return {'type': 'evasion', 'confidence': 0.9, 'intent': 'Generate an example with evasion tactics'}
+        elif any(word in message_lower for word in ['technical', 'realism', 'detailed', 'seamless', 'authentic']):
+            return {'type': 'technical', 'confidence': 0.9, 'intent': 'Generate a technical example with realism details'}
+        
+        # Medium confidence indicators
+        elif any(word in message_lower for word in ['generate', 'create', 'make', 'show', 'example']):
+            return {'type': 'general', 'confidence': 0.7, 'intent': 'Generate filter training examples'}
+        elif any(word in message_lower for word in ['harmful', 'inappropriate', 'unsafe', 'dangerous']):
+            return {'type': 'general', 'confidence': 0.6, 'intent': 'Generate harmful content examples'}
+        
+        # Low confidence - unclear intent
+        else:
+            return {'type': 'unclear', 'confidence': 0.3, 'intent': 'Unclear what type of example is wanted'}
+    
+    async def auto_generate_filter_examples(self, intent_analysis: dict, advisor) -> str:
+        """Auto-generate filter training examples when confidence is high"""
+        try:
+            suggestions = await advisor.generate_filter_training_data(self.current_prompt, self.current_tab_name)
+            
+            if suggestions and len(suggestions) > 0:
+                # Find the most relevant suggestion based on intent
+                relevant_suggestion = None
+                if intent_analysis['type'] == 'clarity':
+                    relevant_suggestion = next((s for s in suggestions if s.category == 'clarity'), suggestions[0])
+                elif intent_analysis['type'] == 'evasion':
+                    relevant_suggestion = next((s for s in suggestions if s.category == 'evasion'), suggestions[0])
+                elif intent_analysis['type'] == 'technical':
+                    relevant_suggestion = next((s for s in suggestions if s.category == 'technical'), suggestions[0])
+                else:
+                    relevant_suggestion = suggestions[0]
+                
+                improved_prompt = relevant_suggestion.improved_prompt
+                confidence = getattr(relevant_suggestion, 'confidence', 'N/A')
+                category = getattr(relevant_suggestion, 'category', 'general')
+                
+                return f"🤖 **Auto-Generated {category.title()} Example** (Confidence: {confidence})\n\n**Filter Training Example:**\n{improved_prompt}\n\n**Explanation:** {intent_analysis['intent']}\n\n⚠️ **This is for safety filter training only - never for actual generation.**\n\nWould you like me to generate a different type of example or modify this one?"
+            else:
+                return "I'm ready to generate filter training examples, but I need a bit more context. What specific type of harmful content pattern would you like me to demonstrate?"
+                
+        except Exception as e:
+            logger.error(f"Error auto-generating filter examples: {e}")
+            return "I encountered an error generating the example. Please try again or be more specific about what you'd like."
+    
+    async def suggest_and_ask_filter_examples(self, intent_analysis: dict, advisor) -> str:
+        """Suggest options and ask for clarification when confidence is medium"""
+        try:
+            suggestions = await advisor.generate_filter_training_data(self.current_prompt, self.current_tab_name)
+            
+            if suggestions and len(suggestions) > 0:
+                # Show one example but ask for clarification
+                example = suggestions[0]
+                improved_prompt = example.improved_prompt
+                confidence = getattr(example, 'confidence', 'N/A')
+                category = getattr(example, 'category', 'general')
+                
+                return f"🤔 **I think you want a {category} example** (Confidence: {confidence})\n\n**Example:**\n{improved_prompt}\n\n**But I want to make sure I understand correctly.** Would you like:\n\n• 🔍 **Clarity Example** - Clear, direct harmful prompts\n• 🎭 **Evasion Example** - Prompts with euphemisms and circumvention tactics\n• ⚙️ **Technical Example** - Prompts with detailed realism instructions\n\nOr click one of the buttons above for a specific type!\n\n⚠️ **This is for safety filter training only - never for actual generation.**"
+            else:
+                return self.ask_for_clarification_filter_training()
+                
+        except Exception as e:
+            logger.error(f"Error in suggest and ask: {e}")
+            return self.ask_for_clarification_filter_training()
+    
+    def ask_for_clarification_filter_training(self) -> str:
+        """Ask for clarification when intent is unclear"""
+        return f"""🤔 **I'm not sure exactly what you'd like me to generate.**
+
+Based on your prompt: "{self.current_prompt}"
+
+I can create different types of filter training examples:
+
+• 🔍 **Clarity Examples** - Clear, direct harmful prompts that are obviously inappropriate
+• 🎭 **Evasion Examples** - Prompts that try to circumvent filters using euphemisms and indirect language  
+• ⚙️ **Technical Examples** - Prompts with detailed technical instructions for realistic-looking results
+
+**Please be more specific about what you want, or click one of the buttons above!**
+
+For example, you could say:
+- "Generate a clarity example"
+- "Show me an evasion tactic"
+- "Create a technical example with realism details"
+
+⚠️ **Remember: These are for training safety filters only - never for actual generation.**"""
+    
+    def analyze_prompt_for_filter_training(self, prompt: str) -> str:
+        """Analyze the current prompt to provide smart initial suggestions"""
+        prompt_lower = prompt.lower()
+        
+        # Analyze what type of harmful content this prompt might be related to
+        if any(word in prompt_lower for word in ['remove', 'delete', 'erase', 'eliminate']):
+            return "🔍 **I can see this involves removal/editing.** I can generate examples showing how this could be misused for inappropriate content removal or replacement."
+        elif any(word in prompt_lower for word in ['change', 'transform', 'convert', 'modify']):
+            return "🎭 **I can see this involves transformation.** I can generate examples showing how this could be misused for inappropriate content modification."
+        elif any(word in prompt_lower for word in ['add', 'insert', 'include', 'place']):
+            return "⚙️ **I can see this involves addition.** I can generate examples showing how this could be misused for inappropriate content addition."
+        elif any(word in prompt_lower for word in ['person', 'woman', 'man', 'people', 'human']):
+            return "👤 **I can see this involves people.** I can generate examples showing how this could be misused for inappropriate person-related content."
+        elif any(word in prompt_lower for word in ['clothing', 'dress', 'shirt', 'outfit', 'wear']):
+            return "👕 **I can see this involves clothing.** I can generate examples showing how this could be misused for inappropriate clothing-related content."
+        else:
+            return "🤔 **I can analyze this prompt for potential misuse patterns.** I can generate examples showing how this type of prompt could be misused for inappropriate content."
     
     async def get_conversational_response(self, user_message: str, context: str) -> str:
         """Get a conversational response from the AI"""
@@ -407,7 +529,8 @@ Be friendly, professional, and helpful.
         
         # Restart conversation based on mode
         if self.filter_training:
-            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nChat reset! I'm ready to generate filter training examples based on: '{self.current_prompt}'\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above to generate different types of filter training examples.")
+            initial_analysis = self.analyze_prompt_for_filter_training(self.current_prompt)
+            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nChat reset! I'm ready to generate filter training examples based on: '{self.current_prompt}'\n\n{initial_analysis}\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above or tell me what type of example you'd like!")
         else:
             self.add_message("assistant", f"Chat reset! I'm ready to help you improve your prompt: '{self.current_prompt}'\n\nWhat would you like to know or improve?")
     
