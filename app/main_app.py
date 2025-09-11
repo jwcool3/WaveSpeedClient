@@ -216,7 +216,7 @@ class WaveSpeedAIApp:
         self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # Create left panel for main content
+        # Create left panel for main content with scrolling
         self.left_panel = ttk.Frame(self.main_paned_window)
         self.main_paned_window.add(self.left_panel, weight=3)
         

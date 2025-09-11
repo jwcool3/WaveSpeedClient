@@ -67,7 +67,11 @@ class UniversalAIIntegrator:
     
     def _find_button_parent(self, tab_instance):
         """Find the best place to add AI buttons"""
-        # Strategy 1: Look for existing prompt action frames
+        # Strategy 1: Check if optimized_layout has AI chat container
+        if hasattr(tab_instance, 'optimized_layout') and hasattr(tab_instance.optimized_layout, 'ai_chat_container'):
+            return tab_instance.optimized_layout.ai_chat_container
+        
+        # Strategy 2: Look for existing prompt action frames
         candidates = []
         
         def search_for_button_frames(widget, depth=0):
@@ -119,6 +123,22 @@ class UniversalAIIntegrator:
     def _add_ai_buttons(self, parent_frame, prompt_widget, model_type: str, tab_instance):
         """Add AI improvement buttons to the parent frame"""
         try:
+            # Check if this is an optimized layout with AI chat container
+            if (hasattr(tab_instance, 'optimized_layout') and 
+                hasattr(tab_instance.optimized_layout, 'ai_chat_container') and
+                parent_frame == tab_instance.optimized_layout.ai_chat_container):
+                
+                # Use the new AI chat interface
+                success = tab_instance.optimized_layout.add_ai_chat_interface(
+                    prompt_widget, model_type, tab_instance
+                )
+                if success:
+                    logger.info(f"Added AI chat interface to {model_type} tab")
+                    return
+                else:
+                    logger.warning(f"Failed to add AI chat interface to {model_type} tab, falling back to buttons")
+            
+            # Fallback to traditional buttons
             # Create AI improve button
             improve_button = ttk.Button(
                 parent_frame,
