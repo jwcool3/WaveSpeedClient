@@ -72,6 +72,9 @@ class WaveSpeedAIApp:
         self.root.minsize(*Config.WINDOW_MIN_SIZE)
         self.root.configure(bg=Config.COLORS['background'])
         
+        # Setup responsive layout
+        self.setup_responsive_layout()
+        
         # Set window icon if available
         self.set_window_icon()
         
@@ -91,6 +94,28 @@ class WaveSpeedAIApp:
         
         # Auto-integrate AI features with all tabs after UI is ready
         self.root.after(500, self.integrate_ai_features)
+    
+    def setup_responsive_layout(self):
+        """Configure responsive layout"""
+        # Bind to window resize events
+        self.root.bind('<Configure>', self._on_window_resize)
+        
+        # Configure weight distribution for main container
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+    
+    def _on_window_resize(self, event):
+        """Handle window resize"""
+        if event.widget == self.root:
+            # Trigger layout updates for all tabs
+            self._update_layout_for_size(event.width, event.height)
+    
+    def _update_layout_for_size(self, width, height):
+        """Update layout based on window size"""
+        # Update any size-dependent layouts
+        if hasattr(self, 'notebook') and self.notebook:
+            # Force notebook to update its layout
+            self.notebook.update_idletasks()
     
     def integrate_ai_features(self):
         """Integrate AI features with all tabs"""

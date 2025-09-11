@@ -67,6 +67,10 @@ class WaveSpeedAPIClient:
                 raise ImageProcessingError(f"Invalid image file: {error}", str(image_path))
             
             with Image.open(image_path) as img:
+                # Apply EXIF orientation correction
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
+                
                 if img.mode in ("RGBA", "P"):
                     img = img.convert("RGB")
                 
@@ -196,48 +200,155 @@ class WaveSpeedAPIClient:
             logger.error(error_msg)
             return None, error_msg
     
-    def submit_seedream_v4_task(self, payload_or_images, prompt=None, size="2048*2048", seed=-1, enable_sync_mode=False, enable_base64_output=False):
-        """Submit Seedream V4 image editing task to WaveSpeed AI with multi-modal support"""
+    def submit_seedream_v4_task(self, prompt, images, size="2048*2048", seed=-1, 
+                                enable_sync_mode=False, enable_base64_output=False):
+        """
+        Submit a task to ByteDance Seedream V4 API
+        
+        Args:
+            prompt (str): The editing instruction
+            images (list): List of image URLs for multi-modal input
+            size (str): Output size in format "width*height" (e.g., "2048*2048")
+            seed (int): Random seed for reproducible results (-1 for random)
+            enable_sync_mode (bool): Enable synchronous processing
+            enable_base64_output (bool): Enable base64 output format
+        
+        Returns:
+            dict: API response with success status and result data
+        """
         try:
-            # Support both old and new API formats
-            if isinstance(payload_or_images, dict):
-                # New format: full payload
-                payload = payload_or_images
-                logger.info(f"Submitting Seedream V4 task with {len(payload.get('images', []))} images")
-            else:
-                # Old format: single image URL
-                image_url = payload_or_images
-                payload = {
-                    "prompt": prompt,
-                    "images": [image_url],
-                    "size": size,
-                    "seed": seed,
-                    "enable_sync_mode": enable_sync_mode,
-                    "enable_base64_output": enable_base64_output
+            import time
+            start_time = time.time()
+            
+            # Validate inputs
+            if not prompt or not prompt.strip():
+                return {
+                    'success': False,
+                    'error': 'Prompt is required'
                 }
-                logger.info(f"Submitting Seedream V4 task with prompt: {prompt[:50]}...")
             
-            url = Config.ENDPOINTS['seedream_v4']
-            headers = self.get_headers()
+            if not images or not isinstance(images, list):
+                return {
+                    'success': False,
+                    'error': 'At least one input image is required'
+                }
             
-            response = self.session.post(url, headers=headers, 
-                                       data=json.dumps(payload), 
-                                       timeout=Config.TIMEOUT)
+            # Validate size format
+            if not self._validate_seedream_v4_size(size):
+                return {
+                    'success': False,
+                    'error': f'Invalid size format: {size}. Expected format: "width*height"'
+                }
             
+            # Validate seed range
+            if seed != -1 and (seed < 0 or seed > 2147483647):
+                return {
+                    'success': False,
+                    'error': 'Seed must be -1 (random) or between 0 and 2147483647'
+                }
+            
+            # Prepare request data
+            data = {
+                "prompt": prompt.strip(),
+                "images": images,  # Array of image URLs
+                "size": size,
+                "seed": seed,
+                "enable_sync_mode": enable_sync_mode,
+                "enable_base64_output": enable_base64_output
+            }
+            
+            logger.info(f"Submitting Seedream V4 task with {len(images)} images, size: {size}, seed: {seed}")
+            
+            # Submit request
+            response = self.session.post(
+                Config.ENDPOINTS['seedream_v4'],
+                json=data,
+                headers=self.get_headers(),
+                timeout=300  # 5 minute timeout for large images
+            )
+            
+            # Handle response
             if response.status_code == 200:
-                result = response.json()["data"]
-                request_id = result["id"]
-                logger.log_api_request("seedream_v4", request_id, "submitted")
-                return request_id, None
-            else:
-                error_msg = f"API Error: {response.status_code}, {response.text}"
-                logger.error(error_msg)
-                return None, error_msg
+                result = response.json()
                 
+                if result.get('success'):
+                    output_url = result.get('output_url')
+                    if output_url:
+                        duration = time.time() - start_time
+                        logger.info(f"Seedream V4 task completed successfully in {duration:.2f}s")
+                        
+                        return {
+                            'success': True,
+                            'output_url': output_url,
+                            'duration': duration,
+                            'task_id': result.get('task_id'),
+                            'metadata': {
+                                'prompt': prompt,
+                                'size': size,
+                                'seed': seed,
+                                'input_images_count': len(images),
+                                'sync_mode': enable_sync_mode,
+                                'base64_output': enable_base64_output
+                            }
+                        }
+                    else:
+                        return {
+                            'success': False,
+                            'error': 'No output URL in response'
+                        }
+                else:
+                    error_msg = result.get('error', 'Unknown API error')
+                    logger.error(f"Seedream V4 API error: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg
+                    }
+            
+            else:
+                error_msg = f"HTTP {response.status_code}: {response.text}"
+                logger.error(f"Seedream V4 request failed: {error_msg}")
+                
+                # Try to parse error details
+                try:
+                    error_data = response.json()
+                    if 'error' in error_data:
+                        error_msg = error_data['error']
+                except:
+                    pass
+                
+                return {
+                    'success': False,
+                    'error': f"API request failed: {error_msg}"
+                }
+        
         except Exception as e:
-            error_msg = f"Error submitting Seedream V4 task: {str(e)}"
-            logger.error(error_msg)
-            return None, error_msg
+            logger.error(f"Seedream V4 submission error: {e}")
+            return {
+                'success': False,
+                'error': f'Unexpected error: {str(e)}'
+            }
+    
+    def _validate_seedream_v4_size(self, size):
+        """Validate Seedream V4 size format"""
+        try:
+            if not isinstance(size, str) or '*' not in size:
+                return False
+            
+            width_str, height_str = size.split('*')
+            width = int(width_str)
+            height = int(height_str)
+            
+            # Check if size is in supported list
+            supported_sizes = [
+                (1024, 1024), (1024, 2048), (2048, 1024),
+                (2048, 2048), (2048, 4096), (4096, 2048),
+                (3840, 2160), (2160, 3840)  # 4K variations
+            ]
+            
+            return (width, height) in supported_sizes
+            
+        except (ValueError, AttributeError):
+            return False
     
     def submit_image_upscale_task(self, image_url, target_resolution="4k", creativity=0, output_format="png"):
         """Submit image upscaling task to WaveSpeed AI"""
