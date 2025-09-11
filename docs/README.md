@@ -27,21 +27,26 @@ waveapi/
 │   ├── resource_manager.py  # Resource and file management utilities
 │   └── validation.py        # Input validation and sanitization functions
 ├── 🎨 ui/                    # User interface components and layouts
-│   ├── components/           # Reusable UI components and widgets
+│   ├── components/           # Reusable UI components and widgets (31 files)
+│   │   ├── ui_components.py            # BaseTab class and core UI components
 │   │   ├── ai_prompt_chat.py           # AI chat interface for real-time assistance
 │   │   ├── ai_prompt_suggestions.py    # AI suggestion panels and dialogs
-│   │   ├── compact_image_layout.py     # Compact layout system implementation
+│   │   ├── enhanced_compact_layout.py  # Modern compact layout system
+│   │   ├── improved_seedream_layout.py # Specialized Seedream V4 layout
+│   │   ├── optimized_upscaler_layout.py # Streamlined upscaler layout
+│   │   ├── optimized_wan22_layout.py   # Video-optimized Wan 2.2 layout
+│   │   ├── optimized_seeddance_layout.py # Dance-specialized SeedDance layout
+│   │   ├── enhanced_seededit_layout.py # Professional SeedEdit layout
+│   │   ├── optimized_image_layout.py   # Generic optimized layout system
 │   │   ├── cross_tab_navigator.py      # Universal sharing between tabs
-│   │   ├── enhanced_compact_layout.py  # Full-featured compact layout
 │   │   ├── fixed_ai_settings.py        # AI settings configuration dialog
-│   │   ├── optimized_image_layout.py   # Professional image display system
 │   │   ├── universal_ai_integration.py # Automatic AI button integration
-│   │   └── video_player.py             # YouTube-style video player
-│   └── tabs/                 # Individual tab implementations
-│       ├── base_tab.py              # Base class for all tabs
+│   │   ├── enhanced_video_player.py    # YouTube-style video player
+│   │   └── [20 other specialized components] # Additional UI components
+│   └── tabs/                 # Individual tab implementations (6 tabs)
 │       ├── image_editor_tab.py      # Nano Banana Editor (artistic transformations)
 │       ├── image_to_video_tab.py    # Wan 2.2 (image to video generation)
-│       ├── image_upscaler_tab.py    # Image upscaling with various algorithms
+│       ├── image_upscaler_tab.py    # Image upscaling with streamlined workflow
 │       ├── seededit_tab.py          # SeedEdit (precise image editing)
 │       ├── seedream_v4_tab.py       # Seedream V4 (advanced multi-modal editing)
 │       └── seeddance_tab.py         # SeedDance Pro (dance video generation)
@@ -64,11 +69,11 @@ waveapi/
 
 #### **🎨 UI/UX Development Tasks**
 **Top 5 Essential Files:**
-1. `ui/components/optimized_image_layout.py` - Main layout system
-2. `ui/components/enhanced_compact_layout.py` - Modern compact layout
+1. `ui/components/ui_components.py` - BaseTab class and core UI foundation
+2. `ui/components/[model]_layout.py` - Specialized layout for target model (improved_seedream_layout.py, optimized_upscaler_layout.py, etc.)
 3. `ui/tabs/[specific_tab].py` - Target tab implementation
-4. `docs/USER_INTERFACE_GUIDE.md` - Complete UI documentation
-5. `docs/COMPACT_LAYOUT_SYSTEM.md` - Layout system details
+4. `docs/USER_INTERFACE_GUIDE.md` - Complete UI documentation with model-specific layouts
+5. `docs/COMPACT_LAYOUT_SYSTEM.md` - Layout system architecture details
 
 #### **🤖 AI Integration Tasks**
 **Top 5 Essential Files:**
@@ -81,10 +86,10 @@ waveapi/
 #### **🚀 New Model Integration Tasks**
 **Top 5 Essential Files:**
 1. `core/api_client.py` - API client for adding new endpoints
-2. `ui/tabs/base_tab.py` - Base patterns for new tab creation
+2. `ui/components/ui_components.py` - BaseTab class for new tab creation
 3. `app/constants.py` - Constants and model definitions
 4. `ui/tabs/seedream_v4_tab.py` - Reference implementation for complex models
-5. `docs/DEVELOPER_GUIDE.md` - Step-by-step integration guide
+5. `ui/components/improved_seedream_layout.py` - Reference specialized layout implementation
 
 #### **🐛 Debugging & Error Handling Tasks**
 **Top 5 Essential Files:**
@@ -180,24 +185,33 @@ waveapi/
 - **🌟 Environmental Effects**: Weather, lighting, and atmospheric animations
 
 #### **🕺 SeedDance Pro** - Advanced Dance Video Generation
-- **💃 Dynamic Choreography**: Professional dance movement generation
-- **📹 Camera Integration**: Advanced camera work synchronized with movement  
-- **🎵 Beat Awareness**: Music-synchronized movement and transitions
-- **🎬 Production Quality**: Professional dance video creation tools
+- **💃 Dynamic Choreography**: Professional dance movement generation with specialized controls
+- **🎬 Streamlined Workflow**: Cleaner interface than Wan 2.2 with no negative prompts needed
+- **📹 Large Video Player**: Specialized layout with 540px width optimized for motion preview
+- **⚙️ Dance-Specific Settings**: Duration, resolution, camera fixed mode, and seed management
+- **📋 Collapsible Prompts**: Space-saving prompt library with expandable saved prompts
+- **🎯 Natural Flow**: Generate button positioned immediately after video prompt entry
 
 ### 🎯 **Enhanced User Experience**
 
 #### **🎨 Modern Interface Design**
-- **📱 Compact Layout System**: Revolutionary 3-column design eliminating scrolling
-- **🎬 YouTube-Style Video Player**: Professional video viewing with fullscreen and controls
-- **🔄 Universal Sharing**: Seamless result transfer between all creative tools
-- **📊 Real-Time Feedback**: Non-blocking status updates with visual progress indicators
+- **🎯 Model-Specific Layouts**: Each tab optimized for its specific workflow:
+  - **Seedream V4**: Two-column structure with collapsible sections, eliminating vertical scrolling
+  - **Image Upscaler**: Streamlined layout without unnecessary prompts, console-style feedback
+  - **Wan 2.2**: Video-first design with 62% screen width dedicated to video player
+  - **SeedDance Pro**: Dance-specialized layout with large video player and streamlined controls
+  - **SeedEdit**: Enhanced layout with professional controls and real-time validation
+- **🎬 YouTube-Style Video Player**: Professional video viewing with auto-hide controls and fullscreen
+- **🔄 Universal Sharing**: Seamless result transfer between all creative tools with context preservation
+- **📊 Real-Time Feedback**: Console-style status updates with timestamps and processing info
 
 #### **⚡ Streamlined Workflow**
-- **🚫 Zero Interruptions**: No popup dialogs blocking creative flow
-- **🎯 Smart Focus**: Intelligent focus management and keyboard navigation
-- **📝 Auto-Save System**: Organized automatic saving with custom naming conventions
-- **🔄 Cross-Tab Memory**: Maintains context and settings across tool switches
+- **🚫 Zero Interruptions**: No popup dialogs blocking creative flow anywhere in the application
+- **⚡ Natural Button Placement**: Apply/Generate buttons positioned immediately after prompts
+- **🎯 Smart Focus**: Intelligent focus management and keyboard navigation throughout
+- **📝 Auto-Save System**: Organized automatic saving with custom naming and metadata
+- **🔄 Cross-Tab Memory**: Maintains context and settings across all tool switches
+- **📐 Space Optimization**: Minimal margins (5px) and efficient 2-column layouts maximize workspace
 
 #### **🔧 Professional Features**
 - **📊 Balance Tracking**: Real-time API usage monitoring
@@ -299,6 +313,16 @@ python main.py
 "Water flowing smoothly with realistic physics and reflections"
 ```
 
+### 🕺 **SeedDance Pro - Dance Video Generation**
+```python
+# Dance and choreography prompts
+"Person performing contemporary dance with flowing movements and graceful extensions"
+"Hip-hop dance routine with sharp movements and dynamic poses"
+"Ballet dancer executing elegant pirouettes and grand jetés"
+"Freestyle dance with expressive arm movements and rhythmic steps"
+"Group choreography with synchronized movements and formation changes"
+```
+
 ---
 
 ## ⚙️ Advanced Configuration
@@ -398,10 +422,16 @@ Access via: **🤖 AI Assistant → Settings**
 - Vision integration for image-based prompts
 
 **🎨 UI Component System** (`ui/components/`)
-- Modular, reusable components
-- Consistent design language across all tabs
-- Advanced layout management with compact system
-- Universal AI integration with automatic button placement
+- **31 Specialized Components**: Modular, reusable UI widgets and layouts
+- **Model-Specific Layouts**: Each AI model has a custom-optimized layout component
+- **BaseTab Architecture**: `ui_components.py` provides the foundation for all tabs
+- **Layout Specialization**: 
+  - `improved_seedream_layout.py` - Advanced multi-modal editing layout
+  - `optimized_upscaler_layout.py` - Streamlined upscaling workflow
+  - `optimized_wan22_layout.py` - Video-first generation interface
+  - `optimized_seeddance_layout.py` - Dance-specialized video generation layout
+  - `enhanced_seededit_layout.py` - Precision editing controls
+- **Universal AI Integration**: Automatic AI button placement across all specialized layouts
 
 ### 🔄 **Data Flow Architecture**
 

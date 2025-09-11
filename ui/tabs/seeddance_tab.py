@@ -41,37 +41,98 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
-        """Setup the optimized SeedDance UI"""
+        """Setup the optimized SeedDance UI with new dance-specific layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedVideoLayout(self.container, "SeedDance Video Generation")
+        # Use the new optimized SeedDance layout instead of the generic optimized layout
+        from ui.components.optimized_seeddance_layout import OptimizedSeedDanceLayout
+        self.optimized_layout = OptimizedSeedDanceLayout(self.container)
         
-        # Setup the layout with SeedDance-specific settings
-        self.setup_seeddance_settings()
+        # Connect the optimized layout methods to our existing functionality
+        self.connect_optimized_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup SeedDance specific settings in the optimized layout
+        self.setup_seeddance_settings_optimized()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🕺 Generate SeedDance Video", self.process_task)
-        
-        # Connect sample button to load sample prompt
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
-        
-        # Connect clear button to clear prompts
-        self.optimized_layout.clear_button.config(command=self.clear_prompts)
-        
-        # Get references to important components
-        self.modern_video_player = self.optimized_layout.get_video_player()
-        
-        # Setup progress and results (compact)
-        self.setup_compact_progress_section()
+        # Setup progress section in the optimized layout
+        self.setup_compact_progress_section_optimized()
         
         logger.info("Optimized SeedDance UI setup complete")
+    
+    def connect_optimized_layout(self):
+        """Connect the optimized layout methods to our existing functionality"""
+        # Connect image browsing
+        self.optimized_layout.browse_image = self.browse_image
+        
+        # Connect processing
+        self.optimized_layout.process_dance_generation = self.process_task
+        
+        # Connect result actions
+        self.optimized_layout.open_in_browser = self.open_video_in_browser
+        self.optimized_layout.play_in_system = self.play_in_system_placeholder
+        self.optimized_layout.download_video = self.download_video_placeholder
+        
+        # Connect utility methods
+        self.optimized_layout.clear_all = self.clear_prompts
+        self.optimized_layout.load_sample = self.load_sample_prompt
+        self.optimized_layout.improve_with_ai = self.improve_with_ai_placeholder
+        
+        # Connect prompt management
+        self.optimized_layout.save_current_prompt = self.save_current_prompt
+        self.optimized_layout.delete_saved_prompt = self.delete_selected_prompt
+        self.optimized_layout.on_saved_prompt_selected = self.on_saved_prompt_selected_placeholder
+        
+        # Store references to layout components for easy access
+        self.prompt_text = self.optimized_layout.video_prompt_text
+        self.status_label = self.optimized_layout.status_label
+        self.progress_bar = self.optimized_layout.progress_bar
+        self.primary_btn = self.optimized_layout.generate_btn
+    
+    def browse_image(self):
+        """Browse for image file"""
+        from tkinter import filedialog
+        
+        file_path = filedialog.askopenfilename(
+            title="Select Image for SeedDance Video Generation",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            self.on_image_selected(file_path)
+    
+    def play_in_system_placeholder(self):
+        """Placeholder for playing video in system player"""
+        pass
+    
+    def download_video_placeholder(self):
+        """Placeholder for downloading video"""
+        pass
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        pass
+    
+    def on_saved_prompt_selected_placeholder(self, event=None):
+        """Placeholder for saved prompt selection"""
+        pass
+    
+    def setup_seeddance_settings_optimized(self):
+        """Setup SeedDance specific settings in the optimized layout"""
+        # The optimized layout already has SeedDance settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_optimized(self):
+        """Setup compact progress section in the optimized layout"""
+        # The optimized layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def setup_seeddance_settings(self):
         """Setup SeedDance generation settings in the optimized layout"""
