@@ -196,21 +196,29 @@ class WaveSpeedAPIClient:
             logger.error(error_msg)
             return None, error_msg
     
-    def submit_seedream_v4_task(self, image_url, prompt, size="2048*2048", seed=-1):
-        """Submit Seedream V4 image editing task to WaveSpeed AI"""
+    def submit_seedream_v4_task(self, payload_or_images, prompt=None, size="2048*2048", seed=-1, enable_sync_mode=False, enable_base64_output=False):
+        """Submit Seedream V4 image editing task to WaveSpeed AI with multi-modal support"""
         try:
-            logger.info(f"Submitting Seedream V4 task with prompt: {prompt[:50]}...")
+            # Support both old and new API formats
+            if isinstance(payload_or_images, dict):
+                # New format: full payload
+                payload = payload_or_images
+                logger.info(f"Submitting Seedream V4 task with {len(payload.get('images', []))} images")
+            else:
+                # Old format: single image URL
+                image_url = payload_or_images
+                payload = {
+                    "prompt": prompt,
+                    "images": [image_url],
+                    "size": size,
+                    "seed": seed,
+                    "enable_sync_mode": enable_sync_mode,
+                    "enable_base64_output": enable_base64_output
+                }
+                logger.info(f"Submitting Seedream V4 task with prompt: {prompt[:50]}...")
             
             url = Config.ENDPOINTS['seedream_v4']
             headers = self.get_headers()
-            payload = {
-                "prompt": prompt,
-                "images": [image_url],  # Note: images is an array for Seedream V4
-                "size": size,
-                "seed": seed,
-                "enable_sync_mode": False,
-                "enable_base64_output": False
-            }
             
             response = self.session.post(url, headers=headers, 
                                        data=json.dumps(payload), 
