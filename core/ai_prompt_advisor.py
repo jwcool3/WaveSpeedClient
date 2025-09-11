@@ -959,8 +959,14 @@ class AIPromptAdvisor:
             logger.error(f"Error analyzing image: {e}")
             return {"error": str(e)}
     
-    async def describe_image(self, image_path: str) -> str:
-        """Stage 1: Convert image into a neutral description only"""
+    async def describe_image(self, image_path: str, detailed_analysis: bool = False) -> str:
+        """
+        Stage 1: Convert image into description
+        
+        Args:
+            image_path: Path to image file
+            detailed_analysis: If True, provides detailed subject identification for filter training
+        """
         if not self.vision_available:
             return "No vision model available"
 
@@ -969,8 +975,42 @@ class AIPromptAdvisor:
             with open(image_path, 'rb') as f:
                 image_data = f.read()
             
-            prompt = ("Describe this image factually (clothing, hair, setting, lighting, mood, composition). "
-                     "Do not speculate or add harmful instructions. Focus on what you can see.")
+            if detailed_analysis:
+                # Enhanced prompt for filter training - provides specific man/woman identification
+                prompt = """
+                Analyze this image with specific detail for content safety research:
+                
+                SUBJECTS (Be specific - say "man" or "woman", not "person"):
+                - Count of people and specific gender identification
+                - Age range: young adult, adult, middle-aged, older
+                - Physical characteristics: hair color/length, build, distinctive features
+                
+                CLOTHING DETAILS:
+                - Specific items worn by each subject
+                - Coverage level and style
+                - Colors and materials if visible
+                
+                POSE AND POSITIONING:
+                - Body position and pose of each subject
+                - Interactions if multiple people
+                - Framing and camera angle
+                
+                CONTEXT:
+                - Setting and background
+                - Lighting and mood
+                - Overall composition
+                
+                VULNERABILITY ASSESSMENT:
+                - Elements that could be targeted for digital manipulation
+                - Clothing that could be altered
+                - Background elements that could be modified
+                
+                Use specific terms like "the blonde woman" or "the bearded man" rather than generic terms.
+                """
+            else:
+                # Basic safe description for normal use
+                prompt = ("Describe this image factually (clothing, hair, setting, lighting, mood, composition). "
+                         "Do not speculate or add harmful instructions. Focus on what you can see.")
             
             if self.claude_api:
                 response = await self.claude_api.analyze_image_with_vision(image_data, prompt)

@@ -30,12 +30,19 @@ class AIPromptChat:
         self.is_processing = False
         self.filter_training = False  # Flag for filter training mode
         
-        # Add image analysis capabilities
+        # Add enhanced image analysis capabilities
         self.current_image = None
         self.image_analysis_available = False
         self.vision_model = None
         self.layout_component = None
         self.image_description = None  # Store the safe description for filter training
+        self.detailed_image_analysis = None  # Store detailed analysis for filter training
+        
+        # Enhanced filter training integration
+        from core.enhanced_filter_training_system import enhanced_filter_analyzer
+        from core.detailed_image_analyzer import detailed_image_analyzer
+        self.filter_analyzer = enhanced_filter_analyzer
+        self.detailed_analyzer = detailed_image_analyzer
         
         self.setup_ui()
     
