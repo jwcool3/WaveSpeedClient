@@ -54,41 +54,80 @@ class SeedreamV4Tab(BaseTab):
         self.prompt_text.insert("1.0", improved_prompt)
     
     def setup_ui(self):
-        """Setup the optimized Seedream V4 UI matching SeedEdit quality"""
-        # Keep the scrollable canvas components for proper scrolling
-        # Use the same optimized layout as SeedEdit for consistency
-        self.optimized_layout = OptimizedImageLayout(self.scrollable_frame, "Seedream V4")
+        """Setup the improved Seedream V4 UI with new compact layout"""
+        # Use the new improved layout instead of the old optimized layout
+        from ui.components.improved_seedream_layout import ImprovedSeedreamLayout
+        self.improved_layout = ImprovedSeedreamLayout(self.scrollable_frame)
         
-        # Setup Seedream V4 specific settings
-        self.setup_seedream_v4_settings()
+        # Connect the improved layout methods to our existing functionality
+        self.connect_improved_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup Seedream V4 specific settings in the improved layout
+        self.setup_seedream_v4_settings_improved()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🌟 Apply Seedream V4", self.process_task)
+        # Setup prompt section in the improved layout
+        self.setup_compact_prompt_section_improved()
         
-        # Connect image selector
-        self.optimized_layout.set_image_selector_command(self.browse_image)
+        # Setup progress section in the improved layout
+        self.setup_compact_progress_section_improved()
+    
+    def connect_improved_layout(self):
+        """Connect the improved layout methods to our existing functionality"""
+        # Connect image browsing
+        self.improved_layout.browse_image = self.browse_image
         
-        # Connect result buttons
-        self.optimized_layout.set_result_button_commands(
-            self.save_result_image, 
-            self.use_result_as_input
-        )
+        # Connect processing
+        self.improved_layout.process_seedream = self.process_task
         
-        # Connect sample and clear buttons
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
-        self.optimized_layout.clear_button.config(command=self.clear_all)
+        # Connect result actions
+        self.improved_layout.save_result = self.save_result_image
+        self.improved_layout.load_result = self.load_saved_prompt
         
-        # Connect drag and drop handling
-        self.optimized_layout.set_parent_tab(self)
+        # Connect utility methods
+        self.improved_layout.clear_all = self.clear_all
+        self.improved_layout.load_sample = self.load_sample_prompt
+        self.improved_layout.improve_with_ai = self.improve_with_ai_placeholder
         
-        # Setup cross-tab sharing
-        self.optimized_layout.create_cross_tab_button(self.main_app, "Seedream V4")
+        # Connect prompt management
+        self.improved_layout.save_preset = self.save_current_prompt
+        self.improved_layout.load_preset = self.load_saved_prompt
         
-        # Setup progress section in the left panel
-        self.setup_compact_progress_section()
+        # Connect settings
+        self.improved_layout.auto_set_resolution = self.auto_set_resolution
+        
+        # Store references to layout components for easy access
+        self.prompt_text = self.improved_layout.prompt_text
+        self.width_var = self.improved_layout.width_var
+        self.height_var = self.improved_layout.height_var
+        self.seed_var = self.improved_layout.seed_var
+        self.sync_mode_var = self.improved_layout.sync_mode_var
+        self.base64_output_var = self.improved_layout.base64_var
+        self.status_label = self.improved_layout.status_label
+        self.progress_bar = self.improved_layout.progress_bar
+        self.primary_btn = self.improved_layout.primary_btn
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        # This would connect to your existing AI improvement system
+        pass
+    
+    def setup_seedream_v4_settings_improved(self):
+        """Setup Seedream V4 specific settings in the improved layout"""
+        # The improved layout already has compact settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_prompt_section_improved(self):
+        """Setup compact prompt section in the improved layout"""
+        # The improved layout already has the prompt section built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_improved(self):
+        """Setup compact progress section in the improved layout"""
+        # The improved layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def setup_seedream_v4_settings(self):
         """Setup Seedream V4 specific settings"""
@@ -501,19 +540,23 @@ class SeedreamV4Tab(BaseTab):
             # Calculate aspect ratio for potential locking
             self.calculate_original_aspect_ratio()
             
-            # Update the optimized layout's image display
-            success = self.optimized_layout.update_input_image(file_path)
-            
-            if success:
-                # Auto-set resolution if enabled
-                if self.auto_size_var.get():
-                    self.auto_set_resolution()
-                
-                # Update status
-                filename = os.path.basename(file_path)
-                self.update_status(f"📁 Image loaded: {filename}")
+            # Update the improved layout's image display
+            if hasattr(self, 'improved_layout'):
+                self.improved_layout.load_image(file_path)
             else:
-                show_error("Load Error", "Failed to load the selected image.")
+                # Fallback to old layout if improved layout not available
+                success = self.optimized_layout.update_input_image(file_path)
+                if not success:
+                    show_error("Load Error", "Failed to load the selected image.")
+                    return
+            
+            # Auto-set resolution if enabled
+            if hasattr(self, 'auto_size_var') and self.auto_size_var.get():
+                self.auto_set_resolution()
+            
+            # Update status
+            filename = os.path.basename(file_path)
+            self.update_status(f"📁 Image loaded: {filename}")
                 
         except Exception as e:
             logger.error(f"Error selecting image: {e}")
@@ -775,8 +818,16 @@ class SeedreamV4Tab(BaseTab):
         # Clear images
         self.selected_image_path = None
         self.result_image = None
-        self.optimized_layout.clear_input_image()
-        self.optimized_layout.clear_result_image()
+        
+        if hasattr(self, 'improved_layout'):
+            # Clear improved layout images
+            self.improved_layout.selected_image_path = None
+            self.improved_layout.result_image_path = None
+            self.improved_layout.show_default_message()
+        else:
+            # Fallback to old layout
+            self.optimized_layout.clear_input_image()
+            self.optimized_layout.clear_result_image()
         
         self.update_status("All inputs cleared")
     
@@ -981,11 +1032,33 @@ class SeedreamV4Tab(BaseTab):
         # Hide progress
         self.hide_progress()
         
-        # Download and display result in optimized layout
-        success = self.optimized_layout.update_result_image(output_url)
+        # Download and display result in improved layout
+        if hasattr(self, 'improved_layout'):
+            # For the improved layout, we need to download the image and set it as result
+            try:
+                import requests
+                from PIL import Image
+                import io
+                
+                response = requests.get(output_url)
+                if response.status_code == 200:
+                    img = Image.open(io.BytesIO(response.content))
+                    self.result_image = img
+                    self.improved_layout.result_image_path = output_url
+                    self.improved_layout.display_image(output_url)
+                    success = True
+                else:
+                    success = False
+            except Exception as e:
+                logger.error(f"Error downloading result image: {e}")
+                success = False
+        else:
+            # Fallback to old layout
+            success = self.optimized_layout.update_result_image(output_url)
+            if success:
+                self.result_image = self.optimized_layout.result_image
         
         if success:
-            self.result_image = self.optimized_layout.result_image
             
             # Auto-save the result
             prompt = self.prompt_text.get("1.0", tk.END).strip()
