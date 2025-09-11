@@ -92,18 +92,11 @@ class AIPromptChat:
         self.send_btn.grid(row=0, column=1)
         
         # Quick actions
-        actions_frame = ttk.Frame(self.container)
-        actions_frame.pack(fill=tk.X, pady=(0, 10))
+        self.actions_frame = ttk.Frame(self.container)
+        self.actions_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # Quick action buttons
-        ttk.Button(actions_frame, text="💡 Improve Prompt", 
-                  command=self.quick_improve).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(actions_frame, text="❓ Explain Prompt", 
-                  command=self.quick_explain).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(actions_frame, text="🎯 Make Specific", 
-                  command=self.quick_specific).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(actions_frame, text="🔄 Reset Chat", 
-                  command=self.reset_chat).pack(side=tk.LEFT, padx=(0, 5))
+        # Create buttons based on mode (will be set up after filter_training is determined)
+        self.setup_action_buttons()
         
         # Apply changes button
         apply_frame = ttk.Frame(self.container)
@@ -120,13 +113,52 @@ class AIPromptChat:
         # Bind Enter key to send message
         self.message_entry.bind('<Control-Return>', lambda e: self.send_message())
         
-        # Placeholder text
-        self.message_entry.insert("1.0", "Ask me anything about your prompt! (Ctrl+Enter to send)")
+        # Placeholder text (will be updated based on mode)
+        self.update_placeholder_text()
         self.message_entry.bind("<FocusIn>", self.clear_placeholder)
+    
+    def setup_action_buttons(self):
+        """Setup action buttons based on filter training mode"""
+        # Clear existing buttons
+        for widget in self.actions_frame.winfo_children():
+            widget.destroy()
+        
+        if self.filter_training:
+            # Filter training mode buttons
+            ttk.Button(self.actions_frame, text="🔍 Generate Clarity Example", 
+                      command=self.quick_clarity_example).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="🎭 Generate Evasion Example", 
+                      command=self.quick_evasion_example).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="⚙️ Generate Technical Example", 
+                      command=self.quick_technical_example).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="🔄 Reset Chat", 
+                      command=self.reset_chat).pack(side=tk.LEFT, padx=(0, 5))
+        else:
+            # Normal AI assistant mode buttons
+            ttk.Button(self.actions_frame, text="💡 Improve Prompt", 
+                      command=self.quick_improve).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="❓ Explain Prompt", 
+                      command=self.quick_explain).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="🎯 Make Specific", 
+                      command=self.quick_specific).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="🔄 Reset Chat", 
+                      command=self.reset_chat).pack(side=tk.LEFT, padx=(0, 5))
+    
+    def update_placeholder_text(self):
+        """Update placeholder text based on mode"""
+        if self.filter_training:
+            placeholder = "Ask for filter training examples... (Ctrl+Enter to send)"
+        else:
+            placeholder = "Ask me anything about your prompt! (Ctrl+Enter to send)"
+        
+        self.message_entry.delete("1.0", tk.END)
+        self.message_entry.insert("1.0", placeholder)
     
     def clear_placeholder(self, event):
         """Clear placeholder text when focused"""
-        if self.message_entry.get("1.0", tk.END).strip() == "Ask me anything about your prompt! (Ctrl+Enter to send)":
+        current_text = self.message_entry.get("1.0", tk.END).strip()
+        if (current_text == "Ask me anything about your prompt! (Ctrl+Enter to send)" or 
+            current_text == "Ask for filter training examples... (Ctrl+Enter to send)"):
             self.message_entry.delete("1.0", tk.END)
     
     def show_chat(self, current_prompt: str, tab_name: str):
@@ -135,8 +167,15 @@ class AIPromptChat:
         self.current_tab_name = tab_name
         self.chat_history = []
         
-        # Add initial context
-        self.add_message("assistant", f"Hi! I'm your AI prompt assistant for {tab_name}. I can help you improve your prompt: '{current_prompt}'\n\nWhat would you like to know or improve?")
+        # Refresh action buttons and placeholder text based on current mode
+        self.setup_action_buttons()
+        self.update_placeholder_text()
+        
+        # Add initial context based on mode
+        if self.filter_training:
+            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nI'm your AI assistant for {tab_name}. I can generate harmful prompt examples for safety filter training based on: '{current_prompt}'\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above to generate different types of filter training examples.")
+        else:
+            self.add_message("assistant", f"Hi! I'm your AI prompt assistant for {tab_name}. I can help you improve your prompt: '{current_prompt}'\n\nWhat would you like to know or improve?")
         
         self.container.pack(fill=tk.BOTH, expand=True, pady=10)
         
@@ -337,6 +376,24 @@ Be friendly, professional, and helpful.
         self.message_entry.insert("1.0", "Can you make this prompt more specific and detailed?")
         self.send_message()
     
+    def quick_clarity_example(self):
+        """Quick generate clarity example for filter training"""
+        self.message_entry.delete("1.0", tk.END)
+        self.message_entry.insert("1.0", "Generate a clear, direct harmful prompt example for filter training")
+        self.send_message()
+    
+    def quick_evasion_example(self):
+        """Quick generate evasion example for filter training"""
+        self.message_entry.delete("1.0", tk.END)
+        self.message_entry.insert("1.0", "Generate a harmful prompt example that uses euphemisms and evasion tactics")
+        self.send_message()
+    
+    def quick_technical_example(self):
+        """Quick generate technical example for filter training"""
+        self.message_entry.delete("1.0", tk.END)
+        self.message_entry.insert("1.0", "Generate a harmful prompt example with technical details and realism cues")
+        self.send_message()
+    
     def reset_chat(self):
         """Reset the chat"""
         self.chat_display.config(state=tk.NORMAL)
@@ -345,8 +402,14 @@ Be friendly, professional, and helpful.
         self.chat_history = []
         self.apply_btn.config(state=tk.DISABLED)
         
-        # Restart conversation
-        self.add_message("assistant", f"Chat reset! I'm ready to help you improve your prompt: '{self.current_prompt}'\n\nWhat would you like to know or improve?")
+        # Refresh action buttons
+        self.setup_action_buttons()
+        
+        # Restart conversation based on mode
+        if self.filter_training:
+            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nChat reset! I'm ready to generate filter training examples based on: '{self.current_prompt}'\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above to generate different types of filter training examples.")
+        else:
+            self.add_message("assistant", f"Chat reset! I'm ready to help you improve your prompt: '{self.current_prompt}'\n\nWhat would you like to know or improve?")
     
     def apply_improved_prompt(self):
         """Apply the improved prompt"""
