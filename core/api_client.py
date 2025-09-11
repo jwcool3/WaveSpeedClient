@@ -271,17 +271,32 @@ class WaveSpeedAPIClient:
             if response.status_code == 200:
                 result = response.json()
                 
-                if result.get('success'):
-                    output_url = result.get('output_url')
-                    if output_url:
+                # Check API response format (code, message, data)
+                if result.get('code') == 200:
+                    data = result.get('data', {})
+                    task_id = data.get('id')
+                    
+                    if task_id:
                         duration = time.time() - start_time
-                        logger.info(f"Seedream V4 task completed successfully in {duration:.2f}s")
+                        
+                        # Log successful API request
+                        logger.info("=" * 60)
+                        logger.info("SEEDREAM V4 API SUCCESS")
+                        logger.info("=" * 60)
+                        logger.info(f"Task ID: {task_id}")
+                        logger.info(f"Duration: {duration:.2f}s")
+                        logger.info(f"Prompt: {prompt}")
+                        logger.info(f"Size: {size}")
+                        logger.info(f"Seed: {seed}")
+                        logger.info(f"Images Count: {len(images)}")
+                        logger.info(f"Sync Mode: {enable_sync_mode}")
+                        logger.info(f"Base64 Output: {enable_base64_output}")
+                        logger.info("=" * 60)
                         
                         return {
                             'success': True,
-                            'output_url': output_url,
+                            'task_id': task_id,
                             'duration': duration,
-                            'task_id': result.get('task_id'),
                             'metadata': {
                                 'prompt': prompt,
                                 'size': size,
@@ -294,11 +309,21 @@ class WaveSpeedAPIClient:
                     else:
                         return {
                             'success': False,
-                            'error': 'No output URL in response'
+                            'error': 'No task ID in response'
                         }
                 else:
-                    error_msg = result.get('error', 'Unknown API error')
-                    logger.error(f"Seedream V4 API error: {error_msg}")
+                    error_msg = result.get('message', 'Unknown API error')
+                    
+                    # Log detailed API error information
+                    logger.error("=" * 60)
+                    logger.error("SEEDREAM V4 API ERROR")
+                    logger.error("=" * 60)
+                    logger.error(f"Error Code: {result.get('code')}")
+                    logger.error(f"Error Message: {error_msg}")
+                    logger.error(f"Full Response: {result}")
+                    logger.error(f"Request Data: {data}")
+                    logger.error("=" * 60)
+                    
                     return {
                         'success': False,
                         'error': error_msg
@@ -308,11 +333,22 @@ class WaveSpeedAPIClient:
                 error_msg = f"HTTP {response.status_code}: {response.text}"
                 logger.error(f"Seedream V4 request failed: {error_msg}")
                 
+                # Log detailed API error information
+                logger.error("=" * 60)
+                logger.error("SEEDREAM V4 API ERROR DETAILS")
+                logger.error("=" * 60)
+                logger.error(f"Status Code: {response.status_code}")
+                logger.error(f"Response Text: {response.text}")
+                logger.error(f"Request URL: {Config.ENDPOINTS['seedream_v4']}")
+                logger.error(f"Request Data: {data}")
+                logger.error("=" * 60)
+                
                 # Try to parse error details
                 try:
                     error_data = response.json()
                     if 'error' in error_data:
                         error_msg = error_data['error']
+                        logger.error(f"Parsed Error: {error_msg}")
                 except:
                     pass
                 
@@ -328,6 +364,99 @@ class WaveSpeedAPIClient:
                 'error': f'Unexpected error: {str(e)}'
             }
     
+    def get_seedream_v4_result(self, task_id):
+        """
+        Get the result of a Seedream V4 task
+        
+        Args:
+            task_id (str): The task ID returned from submit_seedream_v4_task
+        
+        Returns:
+            dict: API response with success status and result data
+        """
+        try:
+            # Get result URL
+            result_url = f"https://api.wavespeed.ai/api/v3/predictions/{task_id}/result"
+            
+            logger.info(f"Getting Seedream V4 result for task: {task_id}")
+            
+            # Get result
+            response = self.session.get(
+                result_url,
+                headers=self.get_headers(),
+                timeout=30
+            )
+            
+            # Handle response
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Check API response format (code, message, data)
+                if result.get('code') == 200:
+                    data = result.get('data', {})
+                    status = data.get('status')
+                    
+                    if status == 'completed':
+                        outputs = data.get('outputs', [])
+                        if outputs:
+                            output_url = outputs[0]  # First output URL
+                            logger.info(f"Seedream V4 task completed. Output URL: {output_url}")
+                            
+                            return {
+                                'success': True,
+                                'status': 'completed',
+                                'output_url': output_url,
+                                'task_id': task_id,
+                                'metadata': {
+                                    'inference_time': data.get('timings', {}).get('inference'),
+                                    'created_at': data.get('created_at'),
+                                    'has_nsfw': data.get('has_nsfw_contents', [False])[0] if data.get('has_nsfw_contents') else False
+                                }
+                            }
+                        else:
+                            return {
+                                'success': False,
+                                'error': 'No outputs in completed result'
+                            }
+                    elif status == 'failed':
+                        error_msg = data.get('error', 'Task failed')
+                        logger.error(f"Seedream V4 task failed: {error_msg}")
+                        return {
+                            'success': False,
+                            'status': 'failed',
+                            'error': error_msg
+                        }
+                    else:
+                        # Still processing
+                        return {
+                            'success': True,
+                            'status': status,
+                            'task_id': task_id
+                        }
+                else:
+                    error_msg = result.get('message', 'Unknown API error')
+                    logger.error(f"Seedream V4 result API error: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg
+                    }
+            
+            else:
+                error_msg = f"HTTP {response.status_code}: {response.text}"
+                logger.error(f"Seedream V4 result request failed: {error_msg}")
+                
+                return {
+                    'success': False,
+                    'error': error_msg
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting Seedream V4 result: {e}")
+            return {
+                'success': False,
+                'error': f"Error getting result: {str(e)}"
+            }
+    
     def _validate_seedream_v4_size(self, size):
         """Validate Seedream V4 size format"""
         try:
@@ -338,14 +467,12 @@ class WaveSpeedAPIClient:
             width = int(width_str)
             height = int(height_str)
             
-            # Check if size is in supported list
-            supported_sizes = [
-                (1024, 1024), (1024, 2048), (2048, 1024),
-                (2048, 2048), (2048, 4096), (4096, 2048),
-                (3840, 2160), (2160, 3840)  # 4K variations
-            ]
+            # Check if dimensions are within supported range (256-4096)
+            min_size = 256
+            max_size = 4096
             
-            return (width, height) in supported_sizes
+            return (min_size <= width <= max_size and 
+                    min_size <= height <= max_size)
             
         except (ValueError, AttributeError):
             return False

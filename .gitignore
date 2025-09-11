@@ -179,12 +179,46 @@ temp_*
 tmp/
 *.tmp
 
-# AI Results (optional - uncomment if you don't want to track results)
-# WaveSpeed_Results/
+# AI Results and Generated Content
+# ================================
+WaveSpeed_Results/
+**/WaveSpeed_Results/
+WaveSpeed_Results/**
+*/WaveSpeed_Results/**
 
-# Data files that might contain personal information
-# data/saved_prompts.json
-# data/seededit_prompts.json
+# Generated result files (only in results folders)
+# ================================================
+WaveSpeed_Results/**/*.png
+WaveSpeed_Results/**/*.jpg
+WaveSpeed_Results/**/*.jpeg
+WaveSpeed_Results/**/*.gif
+WaveSpeed_Results/**/*.webp
+WaveSpeed_Results/**/*.bmp
+WaveSpeed_Results/**/*.mp4
+WaveSpeed_Results/**/*.avi
+WaveSpeed_Results/**/*.mov
+WaveSpeed_Results/**/*.mkv
+WaveSpeed_Results/**/*.webm
+
+# Result metadata files (only in results folders)
+# ===============================================
+WaveSpeed_Results/**/*_result.json
+WaveSpeed_Results/**/*_metadata.json
+WaveSpeed_Results/**/*_info.json
+
+# Prompt Tracking Data (contains user prompts and results)
+# =======================================================
+data/failed_prompts.json
+data/successful_prompts.json
+data/prompt_statistics.json
+data/prompt_export_*.json
+
+# Auto-save and User Data
+# =======================
+data/saved_prompts.json
+data/seededit_prompts.json
+data/seedream_v4_prompts.json
+data/*_prompts.json
 
 # OS generated files
 .DS_Store
@@ -207,7 +241,4 @@ desktop.ini
 *.bak
 *.backup
 
-*/WaveSpeed_Results/
-
-
-data/saved_prompts.json
+# End of file

@@ -20,6 +20,7 @@ from utils.utils import *
 from core.auto_save import auto_save_manager
 from core.secure_upload import privacy_uploader
 from core.logger import get_logger
+from core.prompt_tracker import prompt_tracker
 
 logger = get_logger()
 
@@ -37,17 +38,13 @@ class SeedreamV4Tab(BaseTab):
         self.seedream_v4_prompts_file = "data/seedream_v4_prompts.json"
         self.saved_seedream_v4_prompts = load_json_file(self.seedream_v4_prompts_file, [])
         
-        # Supported sizes as (width, height) tuples for easy calculation
-        self.supported_sizes = [
-            (1024, 1024),
-            (1024, 2048), 
-            (2048, 1024),
-            (2048, 2048),
-            (2048, 4096),
-            (4096, 2048),
-            (3840, 2160),  # 4K
-            (2160, 3840)   # 4K portrait
-        ]
+        # Size limits for validation
+        self.min_size = 256
+        self.max_size = 4096
+        
+        # Aspect ratio tracking
+        self.original_aspect_ratio = None
+        self.aspect_ratio_locked = False
         
         super().__init__(parent_frame, api_client)
     
@@ -97,7 +94,7 @@ class SeedreamV4Tab(BaseTab):
         """Setup Seedream V4 specific settings"""
         settings_container = self.optimized_layout.settings_container
         
-        # Size setting with auto-detection
+        # Size setting with auto-detection and slider
         size_frame = ttk.Frame(settings_container)
         size_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         size_frame.columnconfigure(1, weight=1)
@@ -114,29 +111,106 @@ class SeedreamV4Tab(BaseTab):
         )
         auto_checkbox.grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
         
-        # Size selector (initially disabled)
-        self.size_var = tk.StringVar(value="2048*2048")
-        self.size_combo = ttk.Combobox(
+        # Aspect ratio lock checkbox
+        self.aspect_ratio_lock_var = tk.BooleanVar(value=False)
+        aspect_lock_checkbox = ttk.Checkbutton(
             size_frame, 
-            textvariable=self.size_var,
-            values=[
-                "1024*1024",
-                "1024*2048", 
-                "2048*1024",
-                "2048*2048",
-                "2048*4096",
-                "4096*2048",
-                "3840*2160",
-                "2160*3840"
-            ],
-            state="disabled",  # Start disabled for auto mode
-            width=12
+            text="Lock Aspect", 
+            variable=self.aspect_ratio_lock_var,
+            command=self.toggle_aspect_ratio_lock
         )
-        self.size_combo.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
+        aspect_lock_checkbox.grid(row=0, column=3, sticky=tk.W, padx=(5, 0))
+        
+        # Size display label
+        self.size_display_var = tk.StringVar(value="2048 x 2048")
+        size_label = ttk.Label(size_frame, textvariable=self.size_display_var, font=('Arial', 9))
+        size_label.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
+        
+        # Width slider with number input
+        width_frame = ttk.Frame(settings_container)
+        width_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        width_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(width_frame, text="Width:", font=('Arial', 8)).grid(row=0, column=0, sticky=tk.W)
+        
+        self.width_var = tk.IntVar(value=2048)
+        self.width_slider = ttk.Scale(
+            width_frame,
+            from_=256,
+            to=4096,
+            variable=self.width_var,
+            orient=tk.HORIZONTAL,
+            command=self.update_size_display,
+            state="disabled"  # Start disabled for auto mode
+        )
+        self.width_slider.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
+        
+        # Width number input
+        self.width_entry = ttk.Entry(width_frame, textvariable=self.width_var, width=6, state="disabled")
+        self.width_entry.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
+        self.width_entry.bind('<Return>', self.on_width_entry_change)
+        self.width_entry.bind('<FocusOut>', self.on_width_entry_change)
+        
+        # Height slider with number input
+        height_frame = ttk.Frame(settings_container)
+        height_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        height_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(height_frame, text="Height:", font=('Arial', 8)).grid(row=0, column=0, sticky=tk.W)
+        
+        self.height_var = tk.IntVar(value=2048)
+        self.height_slider = ttk.Scale(
+            height_frame,
+            from_=256,
+            to=4096,
+            variable=self.height_var,
+            orient=tk.HORIZONTAL,
+            command=self.update_size_display,
+            state="disabled"  # Start disabled for auto mode
+        )
+        self.height_slider.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
+        
+        # Height number input
+        self.height_entry = ttk.Entry(height_frame, textvariable=self.height_var, width=6, state="disabled")
+        self.height_entry.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
+        self.height_entry.bind('<Return>', self.on_height_entry_change)
+        self.height_entry.bind('<FocusOut>', self.on_height_entry_change)
+        
+        # Preset size buttons
+        preset_frame = ttk.Frame(settings_container)
+        preset_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        preset_frame.columnconfigure(0, weight=1)
+        preset_frame.columnconfigure(1, weight=1)
+        preset_frame.columnconfigure(2, weight=1)
+        
+        ttk.Label(preset_frame, text="Preset Sizes:", font=('Arial', 8, 'bold')).grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        
+        # Common sizes
+        preset_sizes = [
+            ("1K", "1024*1024"),
+            ("2K", "2048*2048"), 
+            ("4K", "4096*4096"),
+            ("HD", "1920*1080"),
+            ("2K HD", "2560*1440"),
+            ("4K UHD", "3840*2160")
+        ]
+        
+        # Store preset button references for easy management
+        self.preset_buttons = []
+        for i, (label, size) in enumerate(preset_sizes):
+            btn = ttk.Button(
+                preset_frame,
+                text=label,
+                width=6,
+                command=lambda s=size: self.set_preset_size(s),
+                state="disabled"  # Start disabled for auto mode
+            )
+            btn.grid(row=1 + i//3, column=i%3, padx=2, pady=2, sticky=(tk.W, tk.E))
+            self.preset_buttons.append(btn)
         
         # Seed setting with random generation
         seed_frame = ttk.Frame(settings_container)
-        seed_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        seed_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
         seed_frame.columnconfigure(1, weight=1)
         
         ttk.Label(seed_frame, text="Seed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
@@ -160,7 +234,7 @@ class SeedreamV4Tab(BaseTab):
         
         # Advanced options
         advanced_frame = ttk.Frame(settings_container)
-        advanced_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        advanced_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
         advanced_frame.columnconfigure(0, weight=1)
         
         # Sync mode checkbox
@@ -184,12 +258,163 @@ class SeedreamV4Tab(BaseTab):
     def toggle_auto_size(self):
         """Toggle auto size detection"""
         if self.auto_size_var.get():
-            self.size_combo.config(state="disabled")
+            self.width_slider.config(state="disabled")
+            self.height_slider.config(state="disabled")
+            self.width_entry.config(state="disabled")
+            self.height_entry.config(state="disabled")
+            # Disable preset buttons
+            for btn in self.preset_buttons:
+                btn.config(state="disabled")
             # If we have an image selected, auto-calculate size
             if self.selected_image_path:
                 self.auto_set_resolution()
         else:
-            self.size_combo.config(state="readonly")
+            self.width_slider.config(state="normal")
+            self.height_slider.config(state="normal")
+            self.width_entry.config(state="normal")
+            self.height_entry.config(state="normal")
+            # Enable preset buttons
+            for btn in self.preset_buttons:
+                btn.config(state="normal")
+    
+    def toggle_aspect_ratio_lock(self):
+        """Toggle aspect ratio lock"""
+        self.aspect_ratio_locked = self.aspect_ratio_lock_var.get()
+        
+        if self.aspect_ratio_locked and self.original_aspect_ratio is None:
+            # Try to get aspect ratio from current image
+            if self.selected_image_path:
+                self.calculate_original_aspect_ratio()
+            else:
+                # Use current slider values to calculate aspect ratio
+                current_width = int(self.width_var.get())
+                current_height = int(self.height_var.get())
+                if current_width > 0 and current_height > 0:
+                    self.original_aspect_ratio = current_width / current_height
+                    logger.info(f"Locked aspect ratio to current values: {self.original_aspect_ratio:.3f}")
+        
+        if self.aspect_ratio_locked:
+            logger.info(f"Aspect ratio lock enabled: {self.original_aspect_ratio:.3f}")
+        else:
+            logger.info("Aspect ratio lock disabled")
+    
+    def calculate_original_aspect_ratio(self):
+        """Calculate aspect ratio from the original image"""
+        if not self.selected_image_path:
+            return
+        
+        try:
+            from PIL import Image, ImageOps
+            image = Image.open(self.selected_image_path)
+            image = ImageOps.exif_transpose(image)
+            width, height = image.size
+            self.original_aspect_ratio = width / height
+            logger.info(f"Calculated original aspect ratio: {self.original_aspect_ratio:.3f} ({width}x{height})")
+        except Exception as e:
+            logger.error(f"Error calculating aspect ratio: {e}")
+            self.original_aspect_ratio = None
+    
+    def update_size_display(self, value=None):
+        """Update size display when sliders change"""
+        width = int(self.width_var.get())
+        height = int(self.height_var.get())
+        
+        # If aspect ratio is locked, adjust the other dimension
+        if self.aspect_ratio_locked and self.original_aspect_ratio is not None:
+            # Determine which slider was moved (this is approximate)
+            if value is not None:
+                # If we have a value, it came from a slider
+                if hasattr(self, '_last_width') and hasattr(self, '_last_height'):
+                    width_diff = abs(width - self._last_width)
+                    height_diff = abs(height - self._last_height)
+                    
+                    if width_diff > height_diff:
+                        # Width slider was moved, adjust height
+                        new_height = int(width / self.original_aspect_ratio)
+                        new_height = max(256, min(4096, new_height))
+                        self.height_var.set(new_height)
+                        height = new_height
+                    else:
+                        # Height slider was moved, adjust width
+                        new_width = int(height * self.original_aspect_ratio)
+                        new_width = max(256, min(4096, new_width))
+                        self.width_var.set(new_width)
+                        width = new_width
+            
+            # Store current values for next comparison
+            self._last_width = width
+            self._last_height = height
+        
+        # Update main size display
+        self.size_display_var.set(f"{width} x {height}")
+    
+    def on_width_entry_change(self, event=None):
+        """Handle width entry field changes"""
+        try:
+            value = int(self.width_var.get())
+            if 256 <= value <= 4096:
+                self.width_var.set(value)
+                
+                # If aspect ratio is locked, adjust height accordingly
+                if self.aspect_ratio_locked and self.original_aspect_ratio is not None:
+                    new_height = int(value / self.original_aspect_ratio)
+                    new_height = max(256, min(4096, new_height))  # Clamp to valid range
+                    self.height_var.set(new_height)
+                
+                self.update_size_display()
+            else:
+                # Reset to valid range
+                if value < 256:
+                    self.width_var.set(256)
+                elif value > 4096:
+                    self.width_var.set(4096)
+                self.update_size_display()
+        except (ValueError, tk.TclError):
+            # Reset to current slider value if invalid input
+            self.width_var.set(int(self.width_slider.get()))
+            self.update_size_display()
+    
+    def on_height_entry_change(self, event=None):
+        """Handle height entry field changes"""
+        try:
+            value = int(self.height_var.get())
+            if 256 <= value <= 4096:
+                self.height_var.set(value)
+                
+                # If aspect ratio is locked, adjust width accordingly
+                if self.aspect_ratio_locked and self.original_aspect_ratio is not None:
+                    new_width = int(value * self.original_aspect_ratio)
+                    new_width = max(256, min(4096, new_width))  # Clamp to valid range
+                    self.width_var.set(new_width)
+                
+                self.update_size_display()
+            else:
+                # Reset to valid range
+                if value < 256:
+                    self.height_var.set(256)
+                elif value > 4096:
+                    self.height_var.set(4096)
+                self.update_size_display()
+        except (ValueError, tk.TclError):
+            # Reset to current slider value if invalid input
+            self.height_var.set(int(self.height_slider.get()))
+            self.update_size_display()
+    
+    def set_preset_size(self, size_string):
+        """Set size from preset button"""
+        try:
+            width_str, height_str = size_string.split('*')
+            width = int(width_str)
+            height = int(height_str)
+            
+            self.width_var.set(width)
+            self.height_var.set(height)
+            self.update_size_display()
+            
+            logger.info(f"Set preset size: {size_string}")
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Error setting preset size {size_string}: {e}")
+            show_error("Preset Error", f"Invalid preset size: {size_string}")
     
     def generate_random_seed(self):
         """Generate a random seed"""
@@ -197,7 +422,7 @@ class SeedreamV4Tab(BaseTab):
         self.seed_var.set(str(random_seed))
     
     def auto_set_resolution(self):
-        """Automatically set resolution based on input image"""
+        """Automatically set resolution based on input image - pixel perfect matching"""
         if not self.selected_image_path:
             return
         
@@ -209,51 +434,44 @@ class SeedreamV4Tab(BaseTab):
             image = ImageOps.exif_transpose(image)
             
             original_width, original_height = image.size
-            original_aspect = original_width / original_height
+            logger.info(f"Original image dimensions: {original_width}x{original_height}")
             
-            # Find the best matching size that fits within limits and maintains aspect ratio
-            best_size = None
-            min_scale_factor = float('inf')
-            max_dimension = 4096  # Maximum supported dimension
+            # Pixel-perfect matching: use exact dimensions if within limits
+            target_width = original_width
+            target_height = original_height
             
-            for width, height in self.supported_sizes:
-                target_aspect = width / height
+            # Ensure dimensions are within supported range (256-4096)
+            target_width = max(256, min(4096, target_width))
+            target_height = max(256, min(4096, target_height))
+            
+            # If we had to clamp dimensions, maintain aspect ratio
+            if target_width != original_width or target_height != original_height:
+                aspect_ratio = original_width / original_height
                 
-                # Calculate how much we'd need to scale the original
-                if abs(target_aspect - original_aspect) < 0.1:  # Similar aspect ratio
-                    scale_factor = max(width / original_width, height / original_height)
-                    
-                    # Prefer smaller scale factors (less upscaling) but ensure minimum quality
-                    if scale_factor <= 4.0 and scale_factor < min_scale_factor:
-                        best_size = (width, height)
-                        min_scale_factor = scale_factor
+                if target_width != original_width:
+                    # Width was clamped, adjust height to maintain aspect ratio
+                    target_height = int(target_width / aspect_ratio)
+                    target_height = max(256, min(4096, target_height))
+                elif target_height != original_height:
+                    # Height was clamped, adjust width to maintain aspect ratio
+                    target_width = int(target_height * aspect_ratio)
+                    target_width = max(256, min(4096, target_width))
             
-            # If no good aspect ratio match, find closest by area that doesn't exceed limits
-            if not best_size:
-                original_area = original_width * original_height
-                
-                for width, height in self.supported_sizes:
-                    if width <= max_dimension and height <= max_dimension:
-                        if not best_size:
-                            best_size = (width, height)
-                        else:
-                            # Choose size with area closest to original
-                            current_area = width * height
-                            best_area = best_size[0] * best_size[1]
-                            
-                            if abs(current_area - original_area) < abs(best_area - original_area):
-                                best_size = (width, height)
+            # Set the sliders to the calculated values
+            self.width_var.set(target_width)
+            self.height_var.set(target_height)
             
-            # Set the best size
-            if best_size:
-                size_string = f"{best_size[0]}*{best_size[1]}"
-                self.size_var.set(size_string)
-                logger.info(f"Auto-set resolution to {size_string} for image {original_width}x{original_height}")
+            # Update the display
+            self.update_size_display()
+            
+            logger.info(f"Auto-set resolution to {target_width}x{target_height} for image {original_width}x{original_height}")
             
         except Exception as e:
             logger.error(f"Error auto-setting resolution: {e}")
             # Fallback to default
-            self.size_var.set("2048*2048")
+            self.width_var.set(2048)
+            self.height_var.set(2048)
+            self.update_size_display()
     
     def browse_image(self):
         """Browse for image file"""
@@ -279,6 +497,9 @@ class SeedreamV4Tab(BaseTab):
                 return
             
             self.selected_image_path = file_path
+            
+            # Calculate aspect ratio for potential locking
+            self.calculate_original_aspect_ratio()
             
             # Update the optimized layout's image display
             success = self.optimized_layout.update_input_image(file_path)
@@ -529,11 +750,27 @@ class SeedreamV4Tab(BaseTab):
         self.prompt_text.delete("1.0", tk.END)
         self.prompt_text.insert("1.0", "remove man")
         self.seed_var.set("-1")
-        self.size_var.set("2048*2048")
+        self.width_var.set(2048)
+        self.height_var.set(2048)
         self.sync_mode_var.set(False)
         self.base64_output_var.set(False)
         self.auto_size_var.set(True)
-        self.size_combo.config(state="disabled")
+        self.aspect_ratio_lock_var.set(False)
+        self.width_slider.config(state="disabled")
+        self.height_slider.config(state="disabled")
+        self.width_entry.config(state="disabled")
+        self.height_entry.config(state="disabled")
+        
+        # Reset aspect ratio tracking
+        self.original_aspect_ratio = None
+        self.aspect_ratio_locked = False
+        
+        # Disable preset buttons
+        for btn in self.preset_buttons:
+            btn.config(state="disabled")
+        
+        # Update display
+        self.update_size_display()
         
         # Clear images
         self.selected_image_path = None
@@ -579,8 +816,12 @@ class SeedreamV4Tab(BaseTab):
         thread.start()
     
     def upload_image_with_rotation_fix(self, image_path):
-        """Upload image with EXIF rotation correction"""
+        """Upload image securely for Seedream V4 with rotation fix"""
         try:
+            # Fix image rotation before upload
+            from PIL import Image, ImageOps
+            import tempfile
+            
             # Open image and fix rotation
             image = Image.open(image_path)
             
@@ -588,44 +829,101 @@ class SeedreamV4Tab(BaseTab):
             image = ImageOps.exif_transpose(image)
             
             # Save corrected image to temporary file
-            import tempfile
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
                 temp_path = temp_file.name
                 image.save(temp_path, 'PNG')
             
-            # Upload the corrected image
             try:
-                result = privacy_uploader.upload_file(
-                    temp_path,
-                    auto_delete_after_hours=24
-                )
-                
-                if result['success']:
-                    logger.info(f"Seedream V4 image uploaded successfully: {result['url']}")
-                    return result['url']
-                else:
-                    logger.error(f"Upload failed: {result['error']}")
-                    return None
-                    
+                # Use privacy-friendly upload with corrected image
+                from core.secure_upload import privacy_uploader
+                success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(temp_path, 'seedream_v4')
             finally:
                 # Clean up temp file
                 try:
                     os.unlink(temp_path)
                 except:
                     pass
+            
+            if success:
+                # Privacy info logged but no popup
+                logger.info(f"Seedream V4 image uploaded: {privacy_info}")
+                return url
+            else:
+                # Fallback to sample URL with explanation
+                from utils.utils import show_warning
+                show_warning(
+                    "Upload Failed - Using Sample", 
+                    f"Could not upload your image securely.\n\n"
+                    f"Error: {privacy_info}\n\n"
+                    f"Using sample image for demonstration.\n"
+                    f"Your selected image: {image_path}\n\n"
+                    f"Note: This is a demo mode. In production, images would be uploaded securely."
+                )
+                
+                # Fallback to sample URL
+                return "https://example.com/sample-image.png"
                 
         except Exception as e:
             logger.error(f"Image upload with rotation fix failed: {e}")
-            return None
+            
+            # Fallback to sample URL
+            from utils.utils import show_error
+            show_error(
+                "Upload Error", 
+                f"Failed to upload image: {str(e)}\n\n"
+                f"Using sample image for demonstration."
+            )
+            
+            return "https://example.com/sample-image.png"
+    
+    def start_polling(self, task_id, duration):
+        """Start polling for task results"""
+        def poll_for_results():
+            try:
+                result = self.api_client.get_seedream_v4_result(task_id)
+                
+                if result['success']:
+                    status = result.get('status')
+                    
+                    if status == 'completed':
+                        output_url = result.get('output_url')
+                        if output_url:
+                            self.frame.after(0, lambda: self.handle_success(output_url, duration))
+                        else:
+                            self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
+                    elif status == 'failed':
+                        error_msg = result.get('error', 'Task failed')
+                        self.frame.after(0, lambda: self.handle_error(error_msg))
+                    else:
+                        # Still processing, poll again in 2 seconds
+                        self.frame.after(2000, lambda: self.start_polling(task_id, duration))
+                else:
+                    error_msg = result.get('error', 'Failed to get task status')
+                    self.frame.after(0, lambda: self.handle_error(error_msg))
+                    
+            except Exception as e:
+                logger.error(f"Error polling for results: {e}")
+                self.frame.after(0, lambda: self.handle_error(f"Error checking task status: {str(e)}"))
+        
+        # Start polling in background thread
+        import threading
+        thread = threading.Thread(target=poll_for_results)
+        thread.daemon = True
+        thread.start()
     
     def submit_seedream_v4_task(self, image_url, prompt):
-        """Submit Seedream V4 task"""
+        """Submit Seedream V4 task with detailed logging"""
         try:
             # Get settings
-            size = self.size_var.get()
+            width = int(self.width_var.get())
+            height = int(self.height_var.get())
+            size = f"{width}*{height}"
             seed = int(self.seed_var.get()) if self.seed_var.get() != "-1" else -1
             sync_mode = self.sync_mode_var.get()
             base64_output = self.base64_output_var.get()
+            
+            # Log request details before submission
+            self.log_request_submission(prompt, image_url, size, seed, sync_mode, base64_output)
             
             # Submit task
             result = self.api_client.submit_seedream_v4_task(
@@ -638,10 +936,14 @@ class SeedreamV4Tab(BaseTab):
             )
             
             if result['success']:
-                output_url = result['output_url']
+                task_id = result['task_id']
                 duration = result.get('duration', 0)
                 
-                self.frame.after(0, lambda: self.handle_success(output_url, duration))
+                # Log successful submission
+                logger.info(f"Seedream V4 task submitted successfully. Task ID: {task_id}")
+                
+                # Start polling for results
+                self.frame.after(0, lambda: self.start_polling(task_id, duration))
             else:
                 error_msg = result.get('error', 'Unknown error occurred')
                 self.frame.after(0, lambda: self.handle_error(error_msg))
@@ -649,6 +951,30 @@ class SeedreamV4Tab(BaseTab):
         except Exception as e:
             logger.error(f"Seedream V4 task submission failed: {e}")
             self.frame.after(0, lambda: self.handle_error(f"Task submission failed: {str(e)}"))
+    
+    def log_request_submission(self, prompt, image_url, size, seed, sync_mode, base64_output):
+        """Log request details before submission"""
+        try:
+            # Get image info
+            image_path = self.selected_image_path if hasattr(self, 'selected_image_path') else "N/A"
+            image_filename = os.path.basename(image_path) if image_path and image_path != "N/A" else "N/A"
+            
+            # Log request information
+            logger.info("=" * 80)
+            logger.info("SEEDREAM V4 REQUEST SUBMISSION")
+            logger.info("=" * 80)
+            logger.info(f"Prompt: {prompt}")
+            logger.info(f"Image: {image_filename} ({image_path})")
+            logger.info(f"Image URL: {image_url}")
+            logger.info(f"Size: {size}")
+            logger.info(f"Seed: {seed}")
+            logger.info(f"Sync Mode: {sync_mode}")
+            logger.info(f"Base64 Output: {base64_output}")
+            logger.info(f"Timestamp: {self.get_current_timestamp()}")
+            logger.info("=" * 80)
+            
+        except Exception as e:
+            logger.error(f"Error logging request submission details: {e}")
     
     def handle_success(self, output_url, duration):
         """Handle successful completion"""
@@ -663,9 +989,17 @@ class SeedreamV4Tab(BaseTab):
             
             # Auto-save the result
             prompt = self.prompt_text.get("1.0", tk.END).strip()
-            size = self.size_var.get()
+            width = int(self.width_var.get())
+            height = int(self.height_var.get())
+            size = f"{width}x{height}"  # Use 'x' instead of '*' for filename compatibility
             seed = self.seed_var.get()
             extra_info = f"{size}_seed{seed}"
+            
+            # Log auto-save attempt
+            logger.info(f"Attempting to auto-save Seedream V4 result: {output_url}")
+            
+            # Show auto-save progress
+            self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}! Auto-saving result...")
             
             success, saved_path, error = auto_save_manager.save_result(
                 'seedream_v4', 
@@ -674,22 +1008,210 @@ class SeedreamV4Tab(BaseTab):
                 extra_info=extra_info
             )
             
-            # Update status
-            self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}!")
+            # If auto-save failed, try to save the result image directly
+            if not success and self.result_image:
+                logger.warning(f"Auto-save from URL failed, attempting to save result image directly: {error}")
+                try:
+                    # Try to save the result image directly
+                    fallback_success, fallback_path = self.save_result_image_directly(prompt, extra_info)
+                    if fallback_success:
+                        success = True
+                        saved_path = fallback_path
+                        error = None
+                        logger.info(f"Fallback auto-save successful: {saved_path}")
+                    else:
+                        logger.error(f"Fallback auto-save also failed: {fallback_path}")
+                except Exception as e:
+                    logger.error(f"Fallback auto-save error: {e}")
+            
+            # Log auto-save result
+            if success:
+                logger.info(f"Seedream V4 result auto-saved successfully to: {saved_path}")
+                
+                # Track successful prompt for auto-saved results
+                additional_context = {
+                    "width": width,
+                    "height": height,
+                    "seed": seed,
+                    "sync_mode": self.sync_mode_var.get(),
+                    "base64_output": self.base64_output_var.get(),
+                    "auto_size": self.auto_size_var.get(),
+                    "aspect_ratio_locked": self.aspect_ratio_lock_var.get(),
+                    "auto_saved": True
+                }
+                
+                prompt_tracker.log_successful_prompt(
+                    prompt=prompt,
+                    ai_model="seedream_v4",
+                    result_url=output_url,
+                    save_path=saved_path,
+                    additional_context=additional_context
+                )
+            else:
+                logger.error(f"Seedream V4 auto-save failed: {error}")
+            
+            # Update status with auto-save information
+            if success and saved_path:
+                self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}! Auto-saved to: {os.path.basename(saved_path)}")
+            else:
+                self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}! (Auto-save failed)")
             
             success_msg = f"Seedream V4 completed successfully in {format_duration(duration)}!"
             if success and saved_path:
                 success_msg += f"\n\nResult auto-saved to:\n{saved_path}"
+            elif not success:
+                success_msg += f"\n\nAuto-save failed: {error}"
+                # Show warning about auto-save failure
+                from utils.utils import show_warning
+                show_warning("Auto-Save Failed", f"Result generated successfully but auto-save failed:\n{error}\n\nYou can still save the result manually using the Save button.")
             
             show_success("Seedream V4 Complete", success_msg)
         else:
             self.handle_error("Failed to download result image")
     
     def handle_error(self, error_message):
-        """Handle processing error"""
+        """Handle processing error with detailed logging"""
         self.hide_progress()
         self.update_status("❌ Processing failed")
+        
+        # Log detailed error information
+        self.log_request_denial(error_message)
+        
+        # Track failed prompt
+        prompt = self.prompt_text.get("1.0", tk.END).strip()
+        width = int(self.width_var.get())
+        height = int(self.height_var.get())
+        seed = self.seed_var.get()
+        
+        additional_context = {
+            "width": width,
+            "height": height,
+            "seed": seed,
+            "sync_mode": self.sync_mode_var.get(),
+            "base64_output": self.base64_output_var.get(),
+            "auto_size": self.auto_size_var.get(),
+            "aspect_ratio_locked": self.aspect_ratio_lock_var.get()
+        }
+        
+        # Determine error type from message
+        error_type = "api_error"
+        if "denied" in error_message.lower():
+            error_type = "request_denied"
+        elif "timeout" in error_message.lower():
+            error_type = "timeout"
+        elif "invalid" in error_message.lower():
+            error_type = "invalid_parameters"
+        elif "quota" in error_message.lower() or "limit" in error_message.lower():
+            error_type = "quota_exceeded"
+        
+        prompt_tracker.log_failed_prompt(
+            prompt=prompt,
+            ai_model="seedream_v4",
+            error_message=error_message,
+            error_type=error_type,
+            additional_context=additional_context
+        )
+        
         show_error("Seedream V4 Error", error_message)
+    
+    def log_request_denial(self, error_message):
+        """Log detailed information about denied requests"""
+        try:
+            # Get current prompt
+            prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else "N/A"
+            
+            # Get current settings
+            width = int(self.width_var.get()) if hasattr(self, 'width_var') else "N/A"
+            height = int(self.height_var.get()) if hasattr(self, 'height_var') else "N/A"
+            size = f"{width}*{height}" if width != "N/A" and height != "N/A" else "N/A"
+            seed = self.seed_var.get() if hasattr(self, 'seed_var') else "N/A"
+            sync_mode = self.sync_mode_var.get() if hasattr(self, 'sync_mode_var') else "N/A"
+            base64_output = self.base64_output_var.get() if hasattr(self, 'base64_output_var') else "N/A"
+            
+            # Get image info
+            image_path = self.selected_image_path if hasattr(self, 'selected_image_path') else "N/A"
+            image_filename = os.path.basename(image_path) if image_path and image_path != "N/A" else "N/A"
+            
+            # Log comprehensive denial information
+            logger.error("=" * 80)
+            logger.error("SEEDREAM V4 REQUEST DENIED")
+            logger.error("=" * 80)
+            logger.error(f"Error Message: {error_message}")
+            logger.error(f"Prompt: {prompt}")
+            logger.error(f"Image: {image_filename} ({image_path})")
+            logger.error(f"Size: {size}")
+            logger.error(f"Seed: {seed}")
+            logger.error(f"Sync Mode: {sync_mode}")
+            logger.error(f"Base64 Output: {base64_output}")
+            logger.error(f"Timestamp: {self.get_current_timestamp()}")
+            logger.error("=" * 80)
+            
+        except Exception as e:
+            logger.error(f"Error logging request denial details: {e}")
+    
+    def get_current_timestamp(self):
+        """Get current timestamp for logging"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    def sanitize_filename(self, filename):
+        """Sanitize filename to remove invalid characters for Windows/Unix compatibility"""
+        import re
+        # Remove or replace invalid characters
+        invalid_chars = r'[<>:"/\\|?*]'
+        sanitized = re.sub(invalid_chars, '_', filename)
+        # Remove multiple consecutive underscores
+        sanitized = re.sub(r'_+', '_', sanitized)
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        return sanitized
+    
+    def save_result_image_directly(self, prompt, extra_info):
+        """Save result image directly as fallback when URL auto-save fails"""
+        try:
+            from datetime import datetime
+            from pathlib import Path
+            
+            # Create save directory
+            save_dir = Path("WaveSpeed_Results") / "Seedream_V4"
+            save_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            prompt_part = ""
+            if prompt:
+                # Clean prompt for filename
+                clean_prompt = "".join(c for c in prompt[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+                prompt_part = f"_{clean_prompt.replace(' ', '_')}"
+            
+            # Create and sanitize filename
+            filename = f"seedream_v4_{timestamp}{prompt_part}_{extra_info}.png"
+            filename = self.sanitize_filename(filename)
+            save_path = save_dir / filename
+            
+            # Save the image
+            self.result_image.save(save_path, 'PNG')
+            
+            # Create metadata file
+            metadata = {
+                "ai_model": "seedream_v4",
+                "timestamp": timestamp,
+                "prompt": prompt,
+                "extra_info": extra_info,
+                "filename": filename,
+                "saved_directly": True
+            }
+            
+            metadata_path = save_path.with_suffix('.json')
+            with open(metadata_path, 'w') as f:
+                json.dump(metadata, f, indent=2)
+            
+            logger.info(f"Direct save successful: {save_path}")
+            return True, str(save_path)
+            
+        except Exception as e:
+            logger.error(f"Direct save failed: {e}")
+            return False, str(e)
     
     def save_result_image(self):
         """Save result image to file"""
@@ -712,6 +1234,32 @@ class SeedreamV4Tab(BaseTab):
         if file_path:
             try:
                 self.result_image.save(file_path)
+                
+                # Log successful prompt when user saves
+                prompt = self.prompt_text.get("1.0", tk.END).strip()
+                width = int(self.width_var.get())
+                height = int(self.height_var.get())
+                seed = self.seed_var.get()
+                
+                additional_context = {
+                    "width": width,
+                    "height": height,
+                    "seed": seed,
+                    "sync_mode": self.sync_mode_var.get(),
+                    "base64_output": self.base64_output_var.get(),
+                    "auto_size": self.auto_size_var.get(),
+                    "aspect_ratio_locked": self.aspect_ratio_lock_var.get(),
+                    "manual_save": True
+                }
+                
+                prompt_tracker.log_successful_prompt(
+                    prompt=prompt,
+                    ai_model="seedream_v4",
+                    result_url=getattr(self, 'last_result_url', None),
+                    save_path=file_path,
+                    additional_context=additional_context
+                )
+                
                 show_success("Image Saved", f"Result saved to:\n{file_path}")
             except Exception as e:
                 show_error("Save Error", f"Failed to save image: {str(e)}")
@@ -729,11 +1277,14 @@ class SeedreamV4Tab(BaseTab):
                 temp_path = temp_file.name
                 self.result_image.save(temp_path, 'PNG')
             
-            # Use as new input
-            self.on_image_selected(temp_path, replacing_image=True)
+            # Use as new input - call the method directly without replacing_image parameter
+            self.on_image_selected(temp_path)
             
-            # Clean up temp file after a delay
-            self.frame.after(5000, lambda: self.cleanup_temp_file(temp_path))
+            # Clean up temp file after a longer delay to ensure it's processed
+            self.frame.after(10000, lambda: self.cleanup_temp_file(temp_path))
+            
+            # Update status
+            self.update_status("✅ Result image set as new input")
                 
         except Exception as e:
             logger.error(f"Error using result as input: {e}")

@@ -17,6 +17,7 @@ from utils.utils import *
 from core.auto_save import auto_save_manager
 from core.secure_upload import privacy_uploader
 from core.logger import get_logger
+from core.prompt_tracker import prompt_tracker
 
 logger = get_logger()
 
@@ -543,6 +544,35 @@ class SeedEditTab(BaseTab):
         
         # Update status
         self.update_status(f"❌ Error: {error_message}")
+        
+        # Track failed prompt
+        prompt = self.prompt_text.get("1.0", tk.END).strip()
+        seed = self.seed_var.get()
+        
+        additional_context = {
+            "seed": seed,
+            "guidance_scale": getattr(self, 'guidance_scale_var', tk.DoubleVar()).get(),
+            "num_inference_steps": getattr(self, 'num_inference_steps_var', tk.IntVar()).get()
+        }
+        
+        # Determine error type from message
+        error_type = "api_error"
+        if "denied" in error_message.lower():
+            error_type = "request_denied"
+        elif "timeout" in error_message.lower():
+            error_type = "timeout"
+        elif "invalid" in error_message.lower():
+            error_type = "invalid_parameters"
+        elif "quota" in error_message.lower() or "limit" in error_message.lower():
+            error_type = "quota_exceeded"
+        
+        prompt_tracker.log_failed_prompt(
+            prompt=prompt,
+            ai_model="seededit",
+            error_message=error_message,
+            error_type=error_type,
+            additional_context=additional_context
+        )
         
         # Show error dialog
         show_error("SeedEdit Error", error_message)
