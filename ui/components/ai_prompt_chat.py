@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 import asyncio
 import threading
+import os
 from typing import Optional, Callable, List
 from core.ai_prompt_advisor import get_ai_advisor
 from core.logger import get_logger
@@ -28,6 +29,12 @@ class AIPromptChat:
         self.chat_history = []
         self.is_processing = False
         self.filter_training = False  # Flag for filter training mode
+        
+        # Add image analysis capabilities
+        self.current_image = None
+        self.image_analysis_available = False
+        self.vision_model = None
+        self.layout_component = None
         
         self.setup_ui()
     
@@ -97,6 +104,9 @@ class AIPromptChat:
         
         # Create buttons based on mode (will be set up after filter_training is determined)
         self.setup_action_buttons()
+        
+        # Image analysis section (only for non-filter training mode)
+        self.setup_image_analysis_section()
         
         # Apply changes button
         apply_frame = ttk.Frame(self.container)
@@ -264,11 +274,13 @@ class AIPromptChat:
                 return "I'm sorry, but I'm not available right now. Please check your API configuration in the .env file."
             
             # Create context for the AI
+            image_context = self.get_image_analysis_context()
             context = f"""
 Current prompt: {self.current_prompt}
 Tab: {self.current_tab_name}
 Chat history: {self.chat_history[-3:] if len(self.chat_history) > 3 else self.chat_history}
 User message: {user_message}
+{image_context}
 
 Please respond as a helpful AI assistant that specializes in prompt improvement. Be conversational, explain your reasoning, and provide actionable suggestions.
 """
@@ -481,15 +493,25 @@ Be friendly, professional, and helpful.
             self.message_entry.config(state=tk.NORMAL)
     
     def quick_improve(self):
-        """Quick improve prompt action"""
+        """Quick improve prompt action with image context"""
+        if self.current_image and os.path.exists(self.current_image):
+            message = "Analyze the image and improve this prompt based on what you see"
+        else:
+            message = "Can you improve this prompt and explain what changes you made?"
+        
         self.message_entry.delete("1.0", tk.END)
-        self.message_entry.insert("1.0", "Can you improve this prompt and explain what changes you made?")
+        self.message_entry.insert("1.0", message)
         self.send_message()
     
     def quick_explain(self):
-        """Quick explain prompt action"""
+        """Quick explain prompt action with image context"""
+        if self.current_image and os.path.exists(self.current_image):
+            message = "Look at the image and explain what this prompt does and how it could be better"
+        else:
+            message = "Can you explain what this prompt does and how it could be better?"
+        
         self.message_entry.delete("1.0", tk.END)
-        self.message_entry.insert("1.0", "Can you explain what this prompt does and how it could be better?")
+        self.message_entry.insert("1.0", message)
         self.send_message()
     
     def quick_specific(self):
@@ -560,6 +582,139 @@ Be friendly, professional, and helpful.
                 show_error("Error", "No improved prompt found in the conversation.")
         else:
             show_error("Error", "No callback function provided for applying prompts.")
+    
+    def set_current_image(self, image_path: str):
+        """Set the current image for analysis"""
+        self.current_image = image_path
+        self.image_analysis_available = bool(image_path and os.path.exists(image_path) if image_path else False)
+        self.update_image_analysis_visibility()
+    
+    def get_current_image_path(self) -> Optional[str]:
+        """Get current image path"""
+        return self.current_image
+    
+    def set_image_reference(self, layout_component):
+        """Set reference to the layout component for image access"""
+        self.layout_component = layout_component
+    
+    def get_image_analysis_context(self) -> str:
+        """Get image analysis context for AI"""
+        if not self.image_analysis_available:
+            return ""
+        
+        return f"Current image: {self.current_image}"
+    
+    def update_image_analysis_visibility(self):
+        """Update visibility of image analysis section"""
+        if hasattr(self, 'image_analysis_frame'):
+            if self.image_analysis_available and not self.filter_training:
+                self.image_analysis_frame.pack(fill=tk.X, pady=(0, 10))
+            else:
+                self.image_analysis_frame.pack_forget()
+    
+    def setup_image_analysis_section(self):
+        """Setup image analysis display section"""
+        if self.filter_training:
+            return  # No image analysis for filter training
+        
+        self.image_analysis_frame = ttk.LabelFrame(
+            self.container, 
+            text="🖼️ Image Analysis", 
+            padding="5"
+        )
+        
+        # Text display for analysis results
+        self.image_analysis_display = tk.Text(
+            self.image_analysis_frame,
+            height=4,
+            wrap=tk.WORD,
+            font=('Arial', 9),
+            bg='#f8f9fa',
+            state=tk.DISABLED
+        )
+        self.image_analysis_display.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Auto-analyze button
+        self.auto_analyze_btn = ttk.Button(
+            self.image_analysis_frame,
+            text="🔍 Analyze Image & Suggest",
+            command=self.auto_analyze_image
+        )
+        self.auto_analyze_btn.pack(pady=(0, 5))
+        
+        self.update_image_analysis_visibility()
+    
+    def auto_analyze_image(self):
+        """Automatically analyze the current image and suggest prompt improvements"""
+        if not self.current_image or not os.path.exists(self.current_image):
+            show_error("No Image", "Please select an image first before requesting analysis.")
+            return
+        
+        if not self.image_analysis_available:
+            show_error("Vision Unavailable", "Image analysis is not available. Please check your API configuration.")
+            return
+        
+        # Disable button while processing
+        self.auto_analyze_btn.config(state=tk.DISABLED, text="🔍 Analyzing...")
+        
+        # Process in background
+        def analyze_image():
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    from core.ai_prompt_advisor import get_ai_advisor
+                    advisor = get_ai_advisor()
+                    
+                    # Analyze the image
+                    analysis_result = loop.run_until_complete(
+                        advisor.analyze_image(self.current_image, f"Current prompt: {self.current_prompt}")
+                    )
+                    
+                    # Update UI in main thread
+                    self.parent.after(0, lambda: self.handle_image_analysis_result(analysis_result))
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.error(f"Error analyzing image: {e}")
+                self.parent.after(0, lambda: self.handle_image_analysis_error(str(e)))
+        
+        thread = threading.Thread(target=analyze_image)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_image_analysis_result(self, result: dict):
+        """Handle successful image analysis result"""
+        self.auto_analyze_btn.config(state=tk.NORMAL, text="🔍 Analyze Image & Suggest")
+        
+        if "error" in result:
+            self.image_analysis_display.config(state=tk.NORMAL)
+            self.image_analysis_display.delete("1.0", tk.END)
+            self.image_analysis_display.insert("1.0", f"Error: {result['error']}")
+            self.image_analysis_display.config(state=tk.DISABLED)
+        else:
+            analysis_text = result.get("analysis", "No analysis available")
+            provider = result.get("provider", "unknown")
+            
+            self.image_analysis_display.config(state=tk.NORMAL)
+            self.image_analysis_display.delete("1.0", tk.END)
+            self.image_analysis_display.insert("1.0", f"Analysis ({provider}):\n{analysis_text}")
+            self.image_analysis_display.config(state=tk.DISABLED)
+            
+            # Add a message to the chat with the analysis
+            self.add_message("assistant", f"🖼️ **Image Analysis Complete**\n\n{analysis_text}\n\nBased on this analysis, I can help you improve your prompt to better match what you see in the image. What specific changes would you like to make?")
+    
+    def handle_image_analysis_error(self, error: str):
+        """Handle image analysis error"""
+        self.auto_analyze_btn.config(state=tk.NORMAL, text="🔍 Analyze Image & Suggest")
+        
+        self.image_analysis_display.config(state=tk.NORMAL)
+        self.image_analysis_display.delete("1.0", tk.END)
+        self.image_analysis_display.insert("1.0", f"Error analyzing image: {error}")
+        self.image_analysis_display.config(state=tk.DISABLED)
+        
+        show_error("Analysis Error", f"Failed to analyze image: {error}")
 
 
 def show_ai_prompt_chat(parent, current_prompt: str, tab_name: str, on_prompt_updated: Optional[Callable] = None):

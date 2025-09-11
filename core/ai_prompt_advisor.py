@@ -7,6 +7,7 @@ This module provides AI-powered prompt improvement using Claude or OpenAI APIs.
 import asyncio
 import json
 import re
+import os
 import aiohttp
 from typing import List, Dict, Optional, Tuple, Literal
 from dataclasses import dataclass
@@ -522,6 +523,54 @@ class ClaudeAPI:
             logger.error(f"Error parsing suggestions: {e}")
         
         return suggestions[:3]  # Return max 3 suggestions
+    
+    async def analyze_image_with_vision(self, image_data: bytes, prompt: str) -> str:
+        """Analyze image using Claude Vision API"""
+        import base64
+        
+        # Encode image to base64
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+            "anthropic-version": "2023-06-01"
+        }
+        
+        payload = {
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 1000,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image_base64
+                        }
+                    }
+                ]
+            }]
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.base_url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["content"][0]["text"]
+                    else:
+                        logger.error(f"Claude Vision API error: {response.status}")
+                        return "Error analyzing image"
+        except Exception as e:
+            logger.error(f"Claude Vision API request failed: {e}")
+            return "Error analyzing image"
 
 
 class OpenAIAPI:
@@ -639,6 +688,51 @@ class OpenAIAPI:
             logger.error(f"Error parsing OpenAI suggestions: {e}")
         
         return suggestions[:3]
+    
+    async def analyze_image_with_vision(self, image_data: bytes, prompt: str) -> str:
+        """Analyze image using OpenAI Vision API"""
+        import base64
+        
+        # Encode image to base64
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        payload = {
+            "model": "gpt-4o",
+            "max_tokens": 1000,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}"
+                        }
+                    }
+                ]
+            }]
+        }
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(self.base_url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data["choices"][0]["message"]["content"]
+                    else:
+                        logger.error(f"OpenAI Vision API error: {response.status}")
+                        return "Error analyzing image"
+        except Exception as e:
+            logger.error(f"OpenAI Vision API request failed: {e}")
+            return "Error analyzing image"
 
 
 class AIPromptAdvisor:
@@ -649,6 +743,9 @@ class AIPromptAdvisor:
         self.claude_api = None
         self.openai_api = None
         self.system_prompts = SystemPrompts()
+        
+        # Add vision capabilities
+        self.vision_available = self._check_vision_availability()
         
         # Initialize APIs based on available keys
         self._initialize_apis()
@@ -769,6 +866,94 @@ class AIPromptAdvisor:
         if self.openai_api:
             providers.append("openai")
         return providers
+    
+    def _check_vision_availability(self) -> bool:
+        """Check if vision models are available"""
+        try:
+            return bool(os.getenv('OPENAI_API_KEY') or os.getenv('ANTHROPIC_API_KEY'))
+        except:
+            return False
+    
+    async def analyze_image(self, image_path: str, context: str = "") -> dict:
+        """Analyze image and return structured analysis"""
+        if not self.vision_available:
+            return {"error": "Vision capabilities not available"}
+        
+        try:
+            # Use Claude or OpenAI based on availability
+            if os.getenv('ANTHROPIC_API_KEY'):
+                return await self._analyze_with_claude_vision(image_path, context)
+            elif os.getenv('OPENAI_API_KEY'):
+                return await self._analyze_with_openai_vision(image_path, context)
+        except Exception as e:
+            logger.error(f"Error analyzing image: {e}")
+            return {"error": str(e)}
+    
+    async def _analyze_with_claude_vision(self, image_path: str, context: str) -> dict:
+        """Analyze image using Claude Vision API"""
+        try:
+            if not self.claude_api:
+                return {"error": "Claude API not available"}
+            
+            # Read image file
+            with open(image_path, 'rb') as image_file:
+                image_data = image_file.read()
+            
+            # Create analysis prompt
+            analysis_prompt = f"""
+            Analyze this image and provide a detailed description that would be useful for AI prompt improvement.
+            
+            Context: {context}
+            
+            Please provide:
+            1. Main subjects and objects in the image
+            2. Visual style, colors, and mood
+            3. Composition and lighting
+            4. Any specific details that would help improve prompts for image editing
+            
+            Be concise but comprehensive.
+            """
+            
+            # Use Claude's vision capabilities
+            response = await self.claude_api.analyze_image_with_vision(image_data, analysis_prompt)
+            return {"analysis": response, "provider": "claude"}
+            
+        except Exception as e:
+            logger.error(f"Error in Claude vision analysis: {e}")
+            return {"error": str(e)}
+    
+    async def _analyze_with_openai_vision(self, image_path: str, context: str) -> dict:
+        """Analyze image using OpenAI Vision API"""
+        try:
+            if not self.openai_api:
+                return {"error": "OpenAI API not available"}
+            
+            # Read image file
+            with open(image_path, 'rb') as image_file:
+                image_data = image_file.read()
+            
+            # Create analysis prompt
+            analysis_prompt = f"""
+            Analyze this image and provide a detailed description that would be useful for AI prompt improvement.
+            
+            Context: {context}
+            
+            Please provide:
+            1. Main subjects and objects in the image
+            2. Visual style, colors, and mood
+            3. Composition and lighting
+            4. Any specific details that would help improve prompts for image editing
+            
+            Be concise but comprehensive.
+            """
+            
+            # Use OpenAI's vision capabilities
+            response = await self.openai_api.analyze_image_with_vision(image_data, analysis_prompt)
+            return {"analysis": response, "provider": "openai"}
+            
+        except Exception as e:
+            logger.error(f"Error in OpenAI vision analysis: {e}")
+            return {"error": str(e)}
     
     async def get_conversational_response(self, user_message: str, context: str) -> str:
         """Get a conversational response from the AI"""
