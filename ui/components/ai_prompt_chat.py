@@ -141,6 +141,12 @@ class AIPromptChat:
                       command=self.quick_evasion_example).pack(side=tk.LEFT, padx=(0, 5))
             ttk.Button(self.actions_frame, text="⚙️ Generate Technical Example", 
                       command=self.quick_technical_example).pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Add image analysis button if image is available (for filter training)
+            if self.image_analysis_available and self.current_image:
+                ttk.Button(self.actions_frame, text="🖼️ Analyze Image", 
+                          command=self.auto_analyze_image).pack(side=tk.LEFT, padx=(0, 5))
+            
             ttk.Button(self.actions_frame, text="🔄 Reset Chat", 
                       command=self.reset_chat).pack(side=tk.LEFT, padx=(0, 5))
         else:
@@ -151,6 +157,12 @@ class AIPromptChat:
                       command=self.quick_explain).pack(side=tk.LEFT, padx=(0, 5))
             ttk.Button(self.actions_frame, text="🎯 Make Specific", 
                       command=self.quick_specific).pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Add image analysis button if image is available
+            if self.image_analysis_available and self.current_image:
+                ttk.Button(self.actions_frame, text="🖼️ Analyze Image", 
+                          command=self.auto_analyze_image).pack(side=tk.LEFT, padx=(0, 5))
+            
             ttk.Button(self.actions_frame, text="🔄 Reset Chat", 
                       command=self.reset_chat).pack(side=tk.LEFT, padx=(0, 5))
     
@@ -588,6 +600,10 @@ Be friendly, professional, and helpful.
         self.current_image = image_path
         self.image_analysis_available = bool(image_path and os.path.exists(image_path) if image_path else False)
         self.update_image_analysis_visibility()
+        
+        # Refresh action buttons to show/hide image analysis button
+        if hasattr(self, 'actions_frame'):
+            self.setup_action_buttons()
     
     def get_current_image_path(self) -> Optional[str]:
         """Get current image path"""
@@ -607,21 +623,42 @@ Be friendly, professional, and helpful.
     def update_image_analysis_visibility(self):
         """Update visibility of image analysis section"""
         if hasattr(self, 'image_analysis_frame'):
-            if self.image_analysis_available and not self.filter_training:
-                self.image_analysis_frame.pack(fill=tk.X, pady=(0, 10))
+            # Always show the frame for both normal and filter training modes
+            self.image_analysis_frame.pack(fill=tk.X, pady=(0, 10))
+            
+            # Update status label and button state
+            if self.image_analysis_available and self.current_image:
+                filename = os.path.basename(self.current_image)
+                self.image_status_label.config(
+                    text=f"📷 Image: {filename}",
+                    foreground="green"
+                )
+                self.auto_analyze_btn.config(state=tk.NORMAL)
             else:
-                self.image_analysis_frame.pack_forget()
+                self.image_status_label.config(
+                    text="📷 No image selected - Select an image to enable analysis",
+                    foreground="gray"
+                )
+                self.auto_analyze_btn.config(state=tk.DISABLED)
     
     def setup_image_analysis_section(self):
         """Setup image analysis display section"""
-        if self.filter_training:
-            return  # No image analysis for filter training
+        # Image analysis is now available for both normal and filter training modes
         
         self.image_analysis_frame = ttk.LabelFrame(
             self.container, 
             text="🖼️ Image Analysis", 
             padding="5"
         )
+        
+        # Status label to show current image or prompt to select one
+        self.image_status_label = ttk.Label(
+            self.image_analysis_frame,
+            text="📷 No image selected - Select an image to enable analysis",
+            font=('Arial', 9),
+            foreground="gray"
+        )
+        self.image_status_label.pack(pady=(0, 5))
         
         # Text display for analysis results
         self.image_analysis_display = tk.Text(
@@ -638,10 +675,13 @@ Be friendly, professional, and helpful.
         self.auto_analyze_btn = ttk.Button(
             self.image_analysis_frame,
             text="🔍 Analyze Image & Suggest",
-            command=self.auto_analyze_image
+            command=self.auto_analyze_image,
+            state=tk.DISABLED
         )
         self.auto_analyze_btn.pack(pady=(0, 5))
         
+        # Always show the frame, but update visibility based on image availability
+        self.image_analysis_frame.pack(fill=tk.X, pady=(0, 10))
         self.update_image_analysis_visibility()
     
     def auto_analyze_image(self):
@@ -667,9 +707,15 @@ Be friendly, professional, and helpful.
                     from core.ai_prompt_advisor import get_ai_advisor
                     advisor = get_ai_advisor()
                     
+                    # Create context based on mode
+                    if self.filter_training:
+                        context = f"Current prompt: {self.current_prompt}\n\nThis is for filter training mode - analyze the image to help generate harmful prompt examples for safety filter development."
+                    else:
+                        context = f"Current prompt: {self.current_prompt}"
+                    
                     # Analyze the image
                     analysis_result = loop.run_until_complete(
-                        advisor.analyze_image(self.current_image, f"Current prompt: {self.current_prompt}")
+                        advisor.analyze_image(self.current_image, context)
                     )
                     
                     # Update UI in main thread
@@ -703,7 +749,10 @@ Be friendly, professional, and helpful.
             self.image_analysis_display.config(state=tk.DISABLED)
             
             # Add a message to the chat with the analysis
-            self.add_message("assistant", f"🖼️ **Image Analysis Complete**\n\n{analysis_text}\n\nBased on this analysis, I can help you improve your prompt to better match what you see in the image. What specific changes would you like to make?")
+            if self.filter_training:
+                self.add_message("assistant", f"🖼️ **Image Analysis Complete** (Filter Training Mode)\n\n{analysis_text}\n\nBased on this analysis, I can help you generate harmful prompt examples for safety filter training. What type of harmful content pattern would you like me to demonstrate?")
+            else:
+                self.add_message("assistant", f"🖼️ **Image Analysis Complete**\n\n{analysis_text}\n\nBased on this analysis, I can help you improve your prompt to better match what you see in the image. What specific changes would you like to make?")
     
     def handle_image_analysis_error(self, error: str):
         """Handle image analysis error"""
