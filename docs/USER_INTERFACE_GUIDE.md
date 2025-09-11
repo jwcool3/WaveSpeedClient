@@ -251,32 +251,50 @@ def on_status_update(self, message, status_type):
     pass
 ```
 
-### 🎨 Model-Specific Features
+### 🎨 Model-Specific Features & Layouts
 
-#### Seedream V4
-- Width/Height controls with professional sliders
-- Seed input with randomize functionality
-- Sync mode toggle for consistent outputs
-- Base64 output option for direct integration
-- Auto-size functionality based on input images
+#### Seedream V4 - Improved Layout System
+- **Two-Column Structure**: Left controls (380px) + Right image display (520px, 2x weight)
+- **Compact Settings Panel**: Width/height sliders side-by-side, 3x2 size preset grid
+- **Apply Button Positioning**: Directly under prompt for natural workflow
+- **Collapsible Sections**: AI Assistant, Advanced Options, Progress Log (collapsed by default)
+- **Auto-Resolution**: Instant size matching from input images
+- **Minimal Margins**: 5px margins for maximum preview space
 
-#### SeedEdit
-- Guidance scale control with fine-tuning
-- Inference steps setting for quality control
-- Advanced seed management system
-- Professional parameter controls with validation
+#### SeedEdit - Enhanced Layout System  
+- **Professional Controls**: Guidance scale control with fine-tuning sliders
+- **Advanced Parameters**: Inference steps setting for quality control
+- **Smart Seed Management**: Advanced seed system with randomization
+- **Parameter Validation**: Real-time validation with visual feedback
+- **Efficient Layout**: Optimized space usage with professional styling
 
-#### Image Editor (Nano Banana)
-- Output format selection (PNG, JPG, WebP)
-- Quality settings with real-time preview
-- Edit mode options for different transformations
-- Advanced preview controls with zoom
+#### Image Upscaler - Streamlined Layout
+- **No Prompts Needed**: Removed unnecessary prompt section for upscaling workflow
+- **Compact Settings**: Factor, Creativity, Format in minimal space
+- **Immediate Action**: Upscale button right after settings configuration
+- **Clean Status Console**: Console-style feedback with timestamps and processing info
+- **Size Calculations**: Real-time output size and file size estimates
 
-#### Image Upscaler
-- Scale factor controls (2x, 4x, 8x options)
-- Quality settings for different output needs
-- Output format options with size estimates
-- Batch processing options for multiple images
+#### Image Editor (Nano Banana) - Optimized Layout
+- **Artistic Focus**: Output format selection (PNG, JPG, WebP) with quality settings
+- **Creative Controls**: Edit mode options for different artistic transformations
+- **Advanced Preview**: Professional preview controls with zoom and comparison
+- **Workflow Optimization**: Streamlined creative process with minimal clicks
+
+#### Wan 2.2 Video Generation - Optimized Layout
+- **Video-First Design**: 62% width dedicated to video player preview
+- **Generate Button Placement**: Immediately after prompts for natural workflow
+- **Collapsible Prompts**: Saved prompts section collapsed by default
+- **Professional Video Controls**: Integrated playback controls in player
+- **Duration Controls**: Flexible video length and timing parameters
+
+#### SeedDance Pro - Optimized Dance Layout
+- **Dance-Specialized Design**: Left controls (360px) + Right large video player (540px, 2x weight)
+- **Streamlined Workflow**: Cleaner than Wan 2.2 with no negative prompts needed
+- **Generate Button Placement**: Immediately after video prompt for natural dance workflow
+- **Collapsible Saved Prompts**: Space-saving design with expandable prompt library
+- **Motion-Optimized Settings**: Duration, resolution, camera fixed mode, and seed controls
+- **Large Video Player**: Specialized for dance/motion preview with professional playback controls
 
 ### 📈 Performance Benefits
 
