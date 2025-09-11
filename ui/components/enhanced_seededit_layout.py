@@ -15,6 +15,8 @@ from typing import Optional, Callable
 from core.logger import get_logger
 from core.auto_save import auto_save_manager
 from core.prompt_tracker import prompt_tracker
+from core.enhanced_prompt_tracker import enhanced_prompt_tracker, FailureReason
+from core.quality_rating_widget import QualityRatingWidget
 from .unified_status_console import UnifiedStatusConsole
 from .keyboard_manager import KeyboardManager
 
@@ -36,6 +38,11 @@ class EnhancedSeedEditLayout:
         self.result_url = None
         self.is_processing = False
         self.current_view_mode = "original"
+        
+        # Enhanced tracking
+        self.current_prompt_hash = None
+        self.current_prompt = None
+        self.quality_rating_widget = None
         
         # Callbacks
         self.on_image_selected: Optional[Callable] = None
@@ -72,9 +79,9 @@ class EnhancedSeedEditLayout:
         left_frame.columnconfigure(0, weight=1)
         
         # Configure rows
-        for i in range(7):
+        for i in range(8):
             left_frame.rowconfigure(i, weight=0)
-        left_frame.rowconfigure(7, weight=1, minsize=50)  # Spacer
+        left_frame.rowconfigure(8, weight=1, minsize=50)  # Spacer
         
         # 1. COMPACT IMAGE INPUT
         self.setup_compact_image_input(left_frame)
@@ -94,12 +101,15 @@ class EnhancedSeedEditLayout:
         # 6. STATUS CONSOLE
         self.setup_status_console(left_frame)
         
-        # 7. SECONDARY ACTIONS
+        # 7. QUALITY RATING (hidden initially)
+        self.setup_quality_rating_section(left_frame)
+        
+        # 8. SECONDARY ACTIONS
         self.setup_secondary_actions(left_frame)
         
-        # 8. SPACER
+        # 9. SPACER
         spacer = ttk.Frame(left_frame)
-        spacer.grid(row=7, column=0, sticky="nsew")
+        spacer.grid(row=8, column=0, sticky="nsew")
     
     def setup_compact_image_input(self, parent):
         """Enhanced image input section"""
@@ -340,10 +350,19 @@ class EnhancedSeedEditLayout:
         self.status_console = UnifiedStatusConsole(parent, title="📊 Status", height=3)
         self.status_console.grid(row=5, column=0, sticky="ew", pady=(0, 4))
     
+    def setup_quality_rating_section(self, parent):
+        """Setup quality rating section (hidden by default)"""
+        self.rating_frame = ttk.LabelFrame(parent, text="⭐ Rate Result Quality", padding="8")
+        # Don't grid it initially - will be shown after successful processing
+        
+        # This will hold the quality rating widget when shown
+        self.rating_container = ttk.Frame(self.rating_frame)
+        self.rating_container.pack(fill=tk.X)
+    
     def setup_secondary_actions(self, parent):
         """Enhanced secondary actions"""
         secondary_frame = ttk.LabelFrame(parent, text="🔧 Tools", padding="8")
-        secondary_frame.grid(row=6, column=0, sticky="ew")
+        secondary_frame.grid(row=7, column=0, sticky="ew")
         secondary_frame.columnconfigure(0, weight=1)
         secondary_frame.columnconfigure(1, weight=1)
         
@@ -502,6 +521,48 @@ class EnhancedSeedEditLayout:
         
         # Register help callback
         self.keyboard_manager.register_action('show_help', self.keyboard_manager.show_shortcuts_help)
+    
+    def show_quality_rating(self):
+        """Show quality rating widget after successful processing"""
+        if self.current_prompt and self.result_url:
+            # Clear any existing rating widget
+            for widget in self.rating_container.winfo_children():
+                widget.destroy()
+            
+            # Create new quality rating widget
+            self.quality_rating_widget = QualityRatingWidget(
+                parent=self.rating_container,
+                prompt=self.current_prompt,
+                result_path=self.result_url,
+                prompt_hash=self.current_prompt_hash
+            )
+            self.quality_rating_widget.pack(fill=tk.X)
+            
+            # Show the rating frame
+            self.rating_frame.grid(row=6, column=0, sticky="ew", pady=(0, 4))
+    
+    def _categorize_failure(self, error_message: str) -> FailureReason:
+        """Categorize error message into failure reason"""
+        error_lower = error_message.lower()
+        
+        if "filter" in error_lower or "content policy" in error_lower:
+            return FailureReason.CONTENT_FILTER
+        elif "timeout" in error_lower:
+            return FailureReason.TIMEOUT
+        elif "network" in error_lower or "connection" in error_lower:
+            return FailureReason.NETWORK_ERROR
+        elif "server" in error_lower or "500" in error_lower:
+            return FailureReason.SERVER_ERROR
+        elif "quota" in error_lower or "limit exceeded" in error_lower:
+            return FailureReason.QUOTA_EXCEEDED
+        elif "parameter" in error_lower or "invalid" in error_lower:
+            return FailureReason.INVALID_PARAMETERS
+        elif "nsfw" in error_lower or "adult content" in error_lower:
+            return FailureReason.NSFW_CONTENT
+        elif "api" in error_lower:
+            return FailureReason.API_ERROR
+        else:
+            return FailureReason.OTHER
     
     def show_default_message(self):
         """Show default message when no image is loaded"""
@@ -757,6 +818,10 @@ class EnhancedSeedEditLayout:
             self.update_status("Already processing...", "warning")
             return
         
+        # Store current prompt for tracking
+        self.current_prompt = prompt
+        self.current_prompt_hash = hash(prompt)
+        
         # Show processing state
         self.is_processing = True
         self.status_console.log_processing_start("SeedEdit processing", f"Guidance: {self.guidance_scale_var.get()}, Steps: {self.steps_var.get()}")
@@ -795,9 +860,40 @@ class EnhancedSeedEditLayout:
             self.view_result_btn.config(state='normal')
             self.comparison_btn.config(state='normal')
             
+            # Log successful prompt with enhanced tracker
+            enhanced_prompt_tracker.log_successful_prompt(
+                prompt=self.current_prompt,
+                ai_model="seededit",
+                result_url=result_url,
+                save_method="auto",
+                model_parameters={
+                    "guidance_scale": self.guidance_scale_var.get(),
+                    "steps": self.steps_var.get(),
+                    "seed": self.seed_var.get(),
+                    "format": self.format_var.get()
+                }
+            )
+            
+            # Show quality rating widget
+            self.show_quality_rating()
+            
             # Auto-save if enabled
             self.auto_save_result()
         else:
+            # Log failed prompt with enhanced tracker
+            enhanced_prompt_tracker.log_failed_prompt(
+                prompt=self.current_prompt,
+                ai_model="seededit",
+                error_message=error_message,
+                failure_reason=self._categorize_failure(error_message),
+                model_parameters={
+                    "guidance_scale": self.guidance_scale_var.get(),
+                    "steps": self.steps_var.get(),
+                    "seed": self.seed_var.get(),
+                    "format": self.format_var.get()
+                }
+            )
+            
             self.status_console.log_processing_complete("SeedEdit processing", success=False, details=error_message)
             self.update_status(f"Error: {error_message}", "error")
     
@@ -993,7 +1089,13 @@ class EnhancedSeedEditLayout:
         self.prompt_text.delete("1.0", tk.END)
         self.prompt_text.insert("1.0", "Describe the changes you want to make to the image...")
         self.preset_var.set("")
+        self.hide_quality_rating()
         self.update_status("All cleared", "info")
+    
+    def hide_quality_rating(self):
+        """Hide the quality rating widget"""
+        if hasattr(self, 'rating_frame'):
+            self.rating_frame.grid_remove()
     
     def load_result(self):
         """Load result manually"""
