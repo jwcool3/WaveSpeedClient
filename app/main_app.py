@@ -276,32 +276,30 @@ class WaveSpeedAIApp:
         try:
             # Nano Banana Editor Tab
             self.editor_tab = ImageEditorTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.editor_tab, text="🍌 Nano Banana Editor")
+            self.notebook.add(self.editor_tab.container, text="🍌 Nano Banana Editor")
             
             # SeedEdit Tab
             self.seededit_tab = SeedEditTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.seededit_tab, text="✨ SeedEdit")
+            self.notebook.add(self.seededit_tab.container, text="✨ SeedEdit")
             
             # Image Upscaler Tab
             self.upscaler_tab = ImageUpscalerTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.upscaler_tab, text="🔍 Image Upscaler")
+            self.notebook.add(self.upscaler_tab.container, text="🔍 Image Upscaler")
             
             # Image to Video Tab
             self.video_tab = ImageToVideoTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.video_tab, text="🎬 Wan 2.2")
+            self.notebook.add(self.video_tab.container, text="🎬 Wan 2.2")
             
             # SeedDance Tab
             self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.seeddance_tab, text="🕺 SeedDance Pro")
+            self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance Pro")
             
             # Try to add Seedream V4 tab if available
             try:
                 from ui.tabs.seedream_v4_tab import SeedreamV4Tab
                 self.seedream_tab = SeedreamV4Tab(self.notebook, self.api_client, self)
-                self.notebook.add(self.seedream_tab, text="🌟 Seedream V4")
                 # Insert before upscaler (at index 2)
-                self.notebook.insert(2, self.seedream_tab, text="🌟 Seedream V4")
-                # Update other tab indices in tools menu
+                self.notebook.insert(2, self.seedream_tab.container, text="🌟 Seedream V4")
                 logger.info("Seedream V4 tab added successfully")
             except ImportError:
                 logger.info("Seedream V4 tab not available")
@@ -318,7 +316,7 @@ class WaveSpeedAIApp:
         try:
             self.recent_results_panel = RecentResultsPanel(
                 self.right_panel, 
-                on_image_selected=self.handle_recent_result_selected
+                self  # Pass main app instance
             )
             logger.info("Recent results panel created")
         except Exception as e:
@@ -334,8 +332,42 @@ class WaveSpeedAIApp:
     
     def handle_recent_result_selected(self, image_path, metadata):
         """Handle selection of a recent result"""
-        # Implementation for handling recent result selection
-        pass
+        try:
+            # Get the current active tab
+            current_tab_index = self.get_current_tab_index()
+            
+            # Map tab indices to tab instances
+            tabs = [
+                self.editor_tab,
+                self.seededit_tab, 
+                self.upscaler_tab,
+                self.video_tab,
+                self.seeddance_tab
+            ]
+            
+            # Add Seedream V4 tab if it exists
+            if hasattr(self, 'seedream_tab') and self.seedream_tab:
+                tabs.insert(2, self.seedream_tab)  # Insert at index 2
+            
+            if 0 <= current_tab_index < len(tabs) and tabs[current_tab_index]:
+                current_tab = tabs[current_tab_index]
+                
+                # Load the image into the current tab
+                if hasattr(current_tab, 'load_image_from_path'):
+                    current_tab.load_image_from_path(image_path)
+                elif hasattr(current_tab, 'selected_image_path'):
+                    current_tab.selected_image_path = image_path
+                    # Trigger image loading if there's a method for it
+                    if hasattr(current_tab, 'load_selected_image'):
+                        current_tab.load_selected_image()
+                
+                logger.info(f"Loaded recent result into tab {current_tab_index}: {image_path}")
+            else:
+                logger.warning(f"Invalid tab index or tab not available: {current_tab_index}")
+                
+        except Exception as e:
+            logger.error(f"Error handling recent result selection: {e}")
+            show_error("Error", f"Failed to load recent result: {str(e)}")
     
     def setup_keyboard_shortcuts(self):
         """Setup keyboard shortcuts"""
