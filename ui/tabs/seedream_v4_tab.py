@@ -58,12 +58,9 @@ class SeedreamV4Tab(BaseTab):
     
     def setup_ui(self):
         """Setup the optimized Seedream V4 UI matching SeedEdit quality"""
-        # Hide the scrollable canvas components since we're using optimized layout
-        self.canvas.pack_forget()
-        self.scrollbar.pack_forget()
-        
+        # Keep the scrollable canvas components for proper scrolling
         # Use the same optimized layout as SeedEdit for consistency
-        self.optimized_layout = OptimizedImageLayout(self.container, "Seedream V4")
+        self.optimized_layout = OptimizedImageLayout(self.scrollable_frame, "Seedream V4")
         
         # Setup Seedream V4 specific settings
         self.setup_seedream_v4_settings()
@@ -95,6 +92,9 @@ class SeedreamV4Tab(BaseTab):
         
         # Setup progress section in the left panel
         self.setup_compact_progress_section()
+        
+        # Add AI chat interface to the optimized layout
+        self.optimized_layout.add_ai_chat_interface(self.prompt_text, 'seedream_v4', self)
     
     def setup_seedream_v4_settings(self):
         """Setup Seedream V4 specific settings"""

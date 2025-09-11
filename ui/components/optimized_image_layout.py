@@ -67,6 +67,7 @@ class OptimizedImageLayout:
         left_panel.rowconfigure(2, weight=1)  # Prompts - expandable
         left_panel.rowconfigure(3, weight=0)  # Action buttons - fixed size
         left_panel.rowconfigure(4, weight=0)  # Progress - fixed size
+        left_panel.rowconfigure(5, weight=0)  # AI Chat - fixed size
         
         # Compact image selection
         self.setup_compact_image_selector(left_panel)
@@ -89,6 +90,11 @@ class OptimizedImageLayout:
         self.status_container = ttk.LabelFrame(left_panel, text="📊 Status", padding="8")
         self.status_container.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         self.status_container.columnconfigure(0, weight=1)
+        
+        # AI Chat container (fixed size, positioned higher up)
+        self.ai_chat_container = ttk.LabelFrame(left_panel, text="🤖 AI Assistant", padding="8")
+        self.ai_chat_container.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.ai_chat_container.columnconfigure(0, weight=1)
         
         # Action buttons with spacer
         self.setup_action_buttons(left_panel)
@@ -140,11 +146,11 @@ class OptimizedImageLayout:
         """Setup action buttons with vertical spacer"""
         # Create a spacer that expands to push buttons to bottom
         spacer_frame = ttk.Frame(parent)
-        spacer_frame.grid(row=5, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        spacer_frame.grid(row=6, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Action buttons at the bottom of left panel
         self.button_frame = ttk.Frame(parent)
-        self.button_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.button_frame.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         self.button_frame.columnconfigure(0, weight=1)
         
         # Main action button (will be set by specific tab)
@@ -568,3 +574,52 @@ class OptimizedImageLayout:
             else:
                 # Fallback to direct update
                 self.update_input_image(file_path)
+    
+    def add_ai_chat_interface(self, prompt_widget, model_type, tab_instance):
+        """Add AI chat interface to the AI chat container"""
+        try:
+            from ui.components.ai_prompt_chat import AIPromptChat
+            
+            # Create callback to apply improved prompts
+            def apply_prompt_callback(improved_prompt: str):
+                prompt_widget.delete("1.0", tk.END)
+                prompt_widget.insert("1.0", improved_prompt)
+                logger.info("Applied improved prompt from AI chat")
+            
+            # Create AI chat interface
+            self.ai_chat = AIPromptChat(
+                parent=self.ai_chat_container,
+                on_prompt_updated=apply_prompt_callback
+            )
+            
+            # Pack the chat container
+            self.ai_chat.container.pack(fill=tk.BOTH, expand=True)
+            
+            # Add a toggle button to show/hide the chat
+            toggle_button = ttk.Button(
+                self.ai_chat_container,
+                text="💬 Toggle AI Chat",
+                command=self.toggle_ai_chat
+            )
+            toggle_button.pack(pady=(5, 0))
+            
+            # Initially hide the chat
+            self.ai_chat.container.pack_forget()
+            self.ai_chat_visible = False
+            
+            logger.info(f"Added AI chat interface to {model_type} tab")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error adding AI chat interface: {e}")
+            return False
+    
+    def toggle_ai_chat(self):
+        """Toggle AI chat visibility"""
+        if hasattr(self, 'ai_chat_visible'):
+            if self.ai_chat_visible:
+                self.ai_chat.container.pack_forget()
+                self.ai_chat_visible = False
+            else:
+                self.ai_chat.container.pack(fill=tk.BOTH, expand=True)
+                self.ai_chat_visible = True
