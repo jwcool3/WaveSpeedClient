@@ -15,6 +15,8 @@ from typing import Optional, Callable
 from core.logger import get_logger
 from core.auto_save import auto_save_manager
 from core.prompt_tracker import prompt_tracker
+from .unified_status_console import UnifiedStatusConsole
+from .keyboard_manager import KeyboardManager
 
 logger = get_logger()
 
@@ -42,6 +44,7 @@ class EnhancedSeedEditLayout:
         
         # UI Components
         self.setup_layout()
+        self.setup_enhanced_features()
         self.load_saved_prompts()
     
     def setup_layout(self):
@@ -69,9 +72,9 @@ class EnhancedSeedEditLayout:
         left_frame.columnconfigure(0, weight=1)
         
         # Configure rows
-        for i in range(6):
+        for i in range(7):
             left_frame.rowconfigure(i, weight=0)
-        left_frame.rowconfigure(6, weight=1, minsize=50)  # Spacer
+        left_frame.rowconfigure(7, weight=1, minsize=50)  # Spacer
         
         # 1. COMPACT IMAGE INPUT
         self.setup_compact_image_input(left_frame)
@@ -88,12 +91,15 @@ class EnhancedSeedEditLayout:
         # 5. AI INTEGRATION
         self.setup_ai_integration(left_frame)
         
-        # 6. SECONDARY ACTIONS
+        # 6. STATUS CONSOLE
+        self.setup_status_console(left_frame)
+        
+        # 7. SECONDARY ACTIONS
         self.setup_secondary_actions(left_frame)
         
-        # 7. SPACER
+        # 8. SPACER
         spacer = ttk.Frame(left_frame)
-        spacer.grid(row=6, column=0, sticky="nsew")
+        spacer.grid(row=7, column=0, sticky="nsew")
     
     def setup_compact_image_input(self, parent):
         """Enhanced image input section"""
@@ -329,10 +335,15 @@ class EnhancedSeedEditLayout:
             width=18
         ).grid(row=1, column=0, sticky="ew")
     
+    def setup_status_console(self, parent):
+        """Setup unified status console"""
+        self.status_console = UnifiedStatusConsole(parent, title="📊 Status", height=3)
+        self.status_console.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+    
     def setup_secondary_actions(self, parent):
         """Enhanced secondary actions"""
         secondary_frame = ttk.LabelFrame(parent, text="🔧 Tools", padding="8")
-        secondary_frame.grid(row=5, column=0, sticky="ew")
+        secondary_frame.grid(row=6, column=0, sticky="ew")
         secondary_frame.columnconfigure(0, weight=1)
         secondary_frame.columnconfigure(1, weight=1)
         
@@ -461,6 +472,36 @@ class EnhancedSeedEditLayout:
         
         # Default message
         self.show_default_message()
+    
+    def setup_enhanced_features(self):
+        """Setup status console and keyboard shortcuts integration"""
+        # Initialize keyboard manager for this layout
+        self.keyboard_manager = KeyboardManager(self.parent_frame, "SeedEdit")
+        
+        # Register primary action
+        self.keyboard_manager.register_primary_action(self.process_seededit, self.primary_btn)
+        
+        # Register file operations
+        self.keyboard_manager.register_file_actions(
+            open_callback=self.browse_image,
+            save_callback=self.save_result,
+            new_callback=self.clear_all
+        )
+        
+        # Register AI actions (if available)
+        self.keyboard_manager.register_ai_actions(
+            improve_callback=self.improve_prompt_with_ai,
+            filter_callback=self.open_filter_training
+        )
+        
+        # Register navigation widgets
+        self.keyboard_manager.register_navigation_widgets(
+            prompt_widgets=[self.prompt_text],
+            setting_widgets=[self.thumbnail_label]
+        )
+        
+        # Register help callback
+        self.keyboard_manager.register_action('show_help', self.keyboard_manager.show_shortcuts_help)
     
     def show_default_message(self):
         """Show default message when no image is loaded"""
@@ -680,6 +721,7 @@ class EnhancedSeedEditLayout:
             self.set_view_mode("original")
             
             # Update status
+            self.status_console.log_file_operation("Loaded input image", filename, success=True)
             self.update_status("Image loaded successfully", "success")
             
             # Notify parent
@@ -717,10 +759,15 @@ class EnhancedSeedEditLayout:
         
         # Show processing state
         self.is_processing = True
-        self.update_status("Processing with SeedEdit...", "info")
+        self.status_console.log_processing_start("SeedEdit processing", f"Guidance: {self.guidance_scale_var.get()}, Steps: {self.steps_var.get()}")
+        self.status_console.show_progress()
+        self.update_status("Processing with SeedEdit...", "processing")
         self.progress_bar.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         self.progress_bar.start()
         self.primary_btn.config(state='disabled', text="Processing...")
+        
+        # Update keyboard manager state
+        self.keyboard_manager.set_operation_in_progress(True)
         
         # Notify parent to handle processing
         if self.on_process_requested:
@@ -733,10 +780,15 @@ class EnhancedSeedEditLayout:
         # Hide progress
         self.progress_bar.stop()
         self.progress_bar.grid_remove()
+        self.status_console.hide_progress()
         self.primary_btn.config(state='normal', text="✨ Apply SeedEdit")
+        
+        # Update keyboard manager state
+        self.keyboard_manager.set_operation_in_progress(False)
         
         if success:
             self.result_url = result_url
+            self.status_console.log_processing_complete("SeedEdit processing", success=True)
             self.update_status("Processing complete!", "success")
             
             # Enable result view
@@ -746,6 +798,7 @@ class EnhancedSeedEditLayout:
             # Auto-save if enabled
             self.auto_save_result()
         else:
+            self.status_console.log_processing_complete("SeedEdit processing", success=False, details=error_message)
             self.update_status(f"Error: {error_message}", "error")
     
     def auto_save_result(self):
@@ -765,6 +818,7 @@ class EnhancedSeedEditLayout:
             )
             
             if success:
+                self.status_console.log_file_operation("Auto-saved result", os.path.basename(saved_path), success=True)
                 self.update_status(f"Auto-saved to: {os.path.basename(saved_path)}", "success")
                 
                 # Track successful prompt
