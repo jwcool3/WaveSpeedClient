@@ -586,40 +586,91 @@ class OptimizedImageLayout:
                 prompt_widget.insert("1.0", improved_prompt)
                 logger.info("Applied improved prompt from AI chat")
             
-            # Create AI chat interface
-            self.ai_chat = AIPromptChat(
+            # Create AI model chat interface (with system prompt for specific model)
+            self.ai_model_chat = AIPromptChat(
                 parent=self.ai_chat_container,
                 on_prompt_updated=apply_prompt_callback
             )
             
-            # Pack the chat container
-            self.ai_chat.container.pack(fill=tk.BOTH, expand=True)
-            
-            # Add a toggle button to show/hide the chat
-            toggle_button = ttk.Button(
-                self.ai_chat_container,
-                text="💬 Toggle AI Chat",
-                command=self.toggle_ai_chat
+            # Create filter training chat interface (for safety research)
+            self.filter_training_chat = AIPromptChat(
+                parent=self.ai_chat_container,
+                on_prompt_updated=apply_prompt_callback
             )
-            toggle_button.pack(pady=(5, 0))
             
-            # Initially hide the chat
-            self.ai_chat.container.pack_forget()
-            self.ai_chat_visible = False
+            # Set filter training mode for the second chat
+            self.filter_training_chat.filter_training = True
             
-            logger.info(f"Added AI chat interface to {model_type} tab")
+            # Store references for later use
+            self.prompt_widget = prompt_widget
+            self.model_type = model_type
+            self.tab_instance = tab_instance
+            
+            # Create button frame for the two different AI chat types
+            button_frame = ttk.Frame(self.ai_chat_container)
+            button_frame.pack(fill=tk.X, pady=(5, 0))
+            button_frame.columnconfigure(0, weight=1)
+            button_frame.columnconfigure(1, weight=1)
+            
+            # AI Model Chat button (uses system prompt for the specific model)
+            self.ai_model_button = ttk.Button(
+                button_frame,
+                text=f"🤖 {model_type.title()} AI Chat",
+                command=self.toggle_ai_model_chat
+            )
+            self.ai_model_button.grid(row=0, column=0, padx=(0, 2), sticky=(tk.W, tk.E))
+            
+            # Filter Training Chat button (for safety research)
+            self.filter_training_button = ttk.Button(
+                button_frame,
+                text="🛡️ Filter Training Chat",
+                command=self.toggle_filter_training_chat
+            )
+            self.filter_training_button.grid(row=0, column=1, padx=(2, 0), sticky=(tk.W, tk.E))
+            
+            # Initially hide both chats
+            self.ai_model_chat.container.pack_forget()
+            self.filter_training_chat.container.pack_forget()
+            self.ai_model_chat_visible = False
+            self.filter_training_chat_visible = False
+            
+            logger.info(f"Added dual AI chat interface to {model_type} tab")
             return True
             
         except Exception as e:
             logger.error(f"Error adding AI chat interface: {e}")
             return False
     
-    def toggle_ai_chat(self):
-        """Toggle AI chat visibility"""
-        if hasattr(self, 'ai_chat_visible'):
-            if self.ai_chat_visible:
-                self.ai_chat.container.pack_forget()
-                self.ai_chat_visible = False
+    def toggle_ai_model_chat(self):
+        """Toggle AI model chat visibility"""
+        if hasattr(self, 'ai_model_chat_visible'):
+            if self.ai_model_chat_visible:
+                self.ai_model_chat.container.pack_forget()
+                self.ai_model_chat_visible = False
             else:
-                self.ai_chat.container.pack(fill=tk.BOTH, expand=True)
-                self.ai_chat_visible = True
+                # Hide filter training chat if it's visible
+                if hasattr(self, 'filter_training_chat_visible') and self.filter_training_chat_visible:
+                    self.filter_training_chat.container.pack_forget()
+                    self.filter_training_chat_visible = False
+                
+                # Get current prompt and show AI model chat
+                current_prompt = self.prompt_widget.get("1.0", tk.END).strip()
+                self.ai_model_chat.show_chat(current_prompt, self.model_type)
+                self.ai_model_chat_visible = True
+    
+    def toggle_filter_training_chat(self):
+        """Toggle filter training chat visibility"""
+        if hasattr(self, 'filter_training_chat_visible'):
+            if self.filter_training_chat_visible:
+                self.filter_training_chat.container.pack_forget()
+                self.filter_training_chat_visible = False
+            else:
+                # Hide AI model chat if it's visible
+                if hasattr(self, 'ai_model_chat_visible') and self.ai_model_chat_visible:
+                    self.ai_model_chat.container.pack_forget()
+                    self.ai_model_chat_visible = False
+                
+                # Get current prompt and show filter training chat
+                current_prompt = self.prompt_widget.get("1.0", tk.END).strip()
+                self.filter_training_chat.show_chat(current_prompt, f"{self.model_type} - Filter Training")
+                self.filter_training_chat_visible = True

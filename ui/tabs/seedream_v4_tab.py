@@ -92,9 +92,6 @@ class SeedreamV4Tab(BaseTab):
         
         # Setup progress section in the left panel
         self.setup_compact_progress_section()
-        
-        # Add AI chat interface to the optimized layout
-        self.optimized_layout.add_ai_chat_interface(self.prompt_text, 'seedream_v4', self)
     
     def setup_seedream_v4_settings(self):
         """Setup Seedream V4 specific settings"""
