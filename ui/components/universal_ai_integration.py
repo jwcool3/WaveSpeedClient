@@ -251,7 +251,7 @@ class UniversalAIIntegrator:
         widget.bind("<Leave>", hide_tooltip)
     
     def _show_ai_suggestions(self, prompt_widget, model_type: str, tab_instance):
-        """Show AI suggestions dialog"""
+        """Show AI chat interface for prompt improvement"""
         try:
             from ui.components.fixed_ai_settings import check_and_show_ai_unavailable_message
             
@@ -264,15 +264,29 @@ class UniversalAIIntegrator:
                 tk.messagebox.showwarning("No Prompt", "Please enter a prompt first.")
                 return
             
-            # Show suggestions asynchronously
-            self._show_suggestions_async(prompt_widget, current_prompt, model_type, tab_instance)
+            # Import and show the new AI chat interface
+            from ui.components.ai_prompt_chat import show_ai_prompt_chat
+            
+            # Create callback to apply improved prompts
+            def apply_prompt_callback(improved_prompt: str):
+                prompt_widget.delete("1.0", tk.END)
+                prompt_widget.insert("1.0", improved_prompt)
+                logger.info("Applied improved prompt from AI chat")
+            
+            # Show the chat interface
+            show_ai_prompt_chat(
+                parent=tab_instance.frame.winfo_toplevel(),
+                current_prompt=current_prompt,
+                tab_name=model_type,
+                on_prompt_updated=apply_prompt_callback
+            )
             
         except Exception as e:
-            logger.error(f"Error showing AI suggestions: {e}")
-            tk.messagebox.showerror("Error", f"Failed to show AI suggestions: {str(e)}")
+            logger.error(f"Error showing AI chat: {e}")
+            tk.messagebox.showerror("Error", f"Failed to show AI chat: {str(e)}")
     
     def _show_filter_training(self, prompt_widget, model_type: str, tab_instance):
-        """Show filter training dialog"""
+        """Show filter training chat interface"""
         try:
             from ui.components.fixed_ai_settings import check_and_show_ai_unavailable_message
             
@@ -296,12 +310,27 @@ class UniversalAIIntegrator:
                 tk.messagebox.showwarning("No Prompt", "Please enter a prompt first.")
                 return
             
-            # Show filter training suggestions
-            self._show_filter_training_async(prompt_widget, current_prompt, model_type, tab_instance)
+            # Import and show the AI chat interface in filter training mode
+            from ui.components.ai_prompt_chat import AIPromptChat
+            
+            # Create callback to apply filter training results
+            def apply_prompt_callback(improved_prompt: str):
+                prompt_widget.delete("1.0", tk.END)
+                prompt_widget.insert("1.0", improved_prompt)
+                logger.info("Applied filter training prompt from AI chat")
+            
+            # Create chat interface in filter training mode
+            chat = AIPromptChat(
+                parent=tab_instance.frame.winfo_toplevel(),
+                on_prompt_updated=apply_prompt_callback
+            )
+            chat.show_chat(current_prompt, model_type)
+            # Set filter training mode
+            chat.filter_training = True
             
         except Exception as e:
-            logger.error(f"Error showing filter training: {e}")
-            tk.messagebox.showerror("Error", f"Failed to show filter training: {str(e)}")
+            logger.error(f"Error showing filter training chat: {e}")
+            tk.messagebox.showerror("Error", f"Failed to show filter training chat: {str(e)}")
     
     def _show_suggestions_async(self, prompt_widget, current_prompt: str, model_type: str, tab_instance):
         """Show AI suggestions asynchronously"""

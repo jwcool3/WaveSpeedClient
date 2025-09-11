@@ -114,7 +114,11 @@ class PromptSuggestionPanel:
                 logger.error(f"Error generating suggestions: {e}")
                 self.parent.after(0, lambda: self.show_error("Failed to generate suggestions"))
             finally:
-                loop.close()
+                # Properly close the event loop
+                try:
+                    loop.close()
+                except Exception as close_error:
+                    logger.warning(f"Error closing event loop: {close_error}")
         
         thread = threading.Thread(target=run_async, daemon=True)
         thread.start()
