@@ -57,7 +57,9 @@ class AutoSaveManager:
         # Add extra info if provided
         extra_part = ""
         if extra_info:
-            extra_part = f"_{extra_info}"
+            # Sanitize extra_info for filename compatibility
+            safe_extra_info = self.sanitize_filename_part(extra_info)
+            extra_part = f"_{safe_extra_info}"
         
         # Determine file extension
         extension = ".mp4" if file_type == "video" else ".png"
@@ -66,6 +68,18 @@ class AutoSaveManager:
         filename = f"{ai_model}_{timestamp}{prompt_part}{extra_part}{extension}"
         
         return filename
+    
+    def sanitize_filename_part(self, text):
+        """Sanitize a part of filename to remove invalid characters"""
+        import re
+        # Replace invalid characters with underscores
+        invalid_chars = r'[<>:"/\\|?*]'
+        sanitized = re.sub(invalid_chars, '_', text)
+        # Remove multiple consecutive underscores
+        sanitized = re.sub(r'_+', '_', sanitized)
+        # Remove leading/trailing underscores
+        sanitized = sanitized.strip('_')
+        return sanitized
     
     def save_result(self, ai_model, result_url, prompt=None, extra_info=None, file_type="image"):
         """

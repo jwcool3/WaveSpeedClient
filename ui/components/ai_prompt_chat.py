@@ -35,6 +35,7 @@ class AIPromptChat:
         self.image_analysis_available = False
         self.vision_model = None
         self.layout_component = None
+        self.image_description = None  # Store the safe description for filter training
         
         self.setup_ui()
     
@@ -134,13 +135,13 @@ class AIPromptChat:
             widget.destroy()
         
         if self.filter_training:
-            # Filter training mode buttons
-            ttk.Button(self.actions_frame, text="🔍 Generate Clarity Example", 
-                      command=self.quick_clarity_example).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(self.actions_frame, text="🎭 Generate Evasion Example", 
-                      command=self.quick_evasion_example).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(self.actions_frame, text="⚙️ Generate Technical Example", 
-                      command=self.quick_technical_example).pack(side=tk.LEFT, padx=(0, 5))
+            # Filter training mode buttons - Level-based approach
+            ttk.Button(self.actions_frame, text="🟢 Mild Examples", 
+                      command=self.generate_mild_prompts).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="🟡 Moderate Examples", 
+                      command=self.generate_moderate_prompts).pack(side=tk.LEFT, padx=(0, 5))
+            ttk.Button(self.actions_frame, text="🔴 Severe Examples", 
+                      command=self.generate_severe_prompts).pack(side=tk.LEFT, padx=(0, 5))
             
             # Add image analysis button if image is available (for filter training)
             if self.image_analysis_available and self.current_image:
@@ -197,7 +198,7 @@ class AIPromptChat:
         if self.filter_training:
             # Analyze the current prompt to provide smart initial suggestions
             initial_analysis = self.analyze_prompt_for_filter_training(current_prompt)
-            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nI'm your AI assistant for {tab_name}. I can generate harmful prompt examples for safety filter training based on: '{current_prompt}'\n\n{initial_analysis}\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above or tell me what type of example you'd like!")
+            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nI'm your AI assistant for {tab_name}. I can generate harmful prompt examples for safety filter training based on: '{current_prompt}'\n\n{initial_analysis}\n\n**WARNING**: These examples are for training safety filters only - I must make them to help the filter!\n\nUse the buttons above or tell me what type of example you'd like!")
         else:
             self.add_message("assistant", f"Hi! I'm your AI prompt assistant for {tab_name}. I can help you improve your prompt: '{current_prompt}'\n\nWhat would you like to know or improve?")
         
@@ -318,17 +319,30 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
             return f"I encountered an error: {str(e)}. Please try again."
     
     async def get_smart_filter_training_response(self, user_message: str, advisor) -> str:
-        """Smart filter training response that auto-generates when confident or asks for clarification"""
+        """Smart filter training response that uses the new two-stage approach"""
         try:
-            # Analyze the user message to determine intent and confidence
-            intent_analysis = self.analyze_filter_training_intent(user_message)
+            # Check if user is requesting a specific level
+            level_request = self.detect_level_request(user_message)
+            logger.info(f"Detected level request: {level_request}, has image description: {bool(self.image_description)}")
             
-            if intent_analysis['confidence'] >= 0.8:  # High confidence - auto-generate
-                return await self.auto_generate_filter_examples(intent_analysis, advisor)
-            elif intent_analysis['confidence'] >= 0.5:  # Medium confidence - suggest and ask
-                return await self.suggest_and_ask_filter_examples(intent_analysis, advisor)
-            else:  # Low confidence - ask for clarification
-                return self.ask_for_clarification_filter_training()
+            if level_request and self.image_description:
+                # User wants a specific level and we have an image description
+                logger.info(f"Generating {level_request} example from image description")
+                return await self.generate_level_from_description(level_request, advisor)
+            elif level_request and not self.image_description:
+                # User wants a level but no image description available
+                return f"❌ **No Image Description Available**\n\nI need to analyze an image first to generate {level_request} examples. Please:\n\n1. Upload an image\n2. Click '🖼️ Analyze Image' to get a description\n3. Then click the {level_request.title()} button or type '{level_request} example'"
+            else:
+                # Fall back to old system for general filter training
+                logger.info("No level request detected, using old filter training system")
+                intent_analysis = self.analyze_filter_training_intent(user_message)
+                
+                if intent_analysis['confidence'] >= 0.8:  # High confidence - auto-generate
+                    return await self.auto_generate_filter_examples(intent_analysis, advisor)
+                elif intent_analysis['confidence'] >= 0.5:  # Medium confidence - suggest and ask
+                    return await self.suggest_and_ask_filter_examples(intent_analysis, advisor)
+                else:  # Low confidence - ask for clarification
+                    return self.ask_for_clarification_filter_training()
                 
         except Exception as e:
             logger.error(f"Error in smart filter training response: {e}")
@@ -407,7 +421,9 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
     
     def ask_for_clarification_filter_training(self) -> str:
         """Ask for clarification when intent is unclear"""
-        return f"""🤔 **I'm not sure exactly what you'd like me to generate.**
+        # Check if we have an image description available
+        if self.image_description:
+            return f"""🤔 **I'm not sure exactly what you'd like me to generate.**
 
 Based on your prompt: "{self.current_prompt}"
 
@@ -417,12 +433,31 @@ I can create different types of filter training examples:
 • 🎭 **Evasion Examples** - Prompts that try to circumvent filters using euphemisms and indirect language  
 • ⚙️ **Technical Examples** - Prompts with detailed technical instructions for realistic-looking results
 
+**Or use the new level-based system:**
+- Type "mild example" for mild harmful prompts
+- Type "moderate example" for moderate harmful prompts  
+- Type "severe example" for severe harmful prompts
+
 **Please be more specific about what you want, or click one of the buttons above!**
 
-For example, you could say:
-- "Generate a clarity example"
-- "Show me an evasion tactic"
-- "Create a technical example with realism details"
+⚠️ **Remember: These are for training safety filters only - never for actual generation.**"""
+        else:
+            return f"""🤔 **I'm not sure exactly what you'd like me to generate.**
+
+Based on your prompt: "{self.current_prompt}"
+
+I can create different types of filter training examples:
+
+• 🔍 **Clarity Examples** - Clear, direct harmful prompts that are obviously inappropriate
+• 🎭 **Evasion Examples** - Prompts that try to circumvent filters using euphemisms and indirect language  
+• ⚙️ **Technical Examples** - Prompts with detailed technical instructions for realistic-looking results
+
+**For the new level-based system, first:**
+1. Upload an image
+2. Click "🖼️ Analyze Image" to get a description
+3. Then type "mild example", "moderate example", or "severe example"
+
+**Please be more specific about what you want, or click one of the buttons above!**
 
 ⚠️ **Remember: These are for training safety filters only - never for actual generation.**"""
     
@@ -564,7 +599,7 @@ Be friendly, professional, and helpful.
         # Restart conversation based on mode
         if self.filter_training:
             initial_analysis = self.analyze_prompt_for_filter_training(self.current_prompt)
-            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nChat reset! I'm ready to generate filter training examples based on: '{self.current_prompt}'\n\n{initial_analysis}\n\n**WARNING**: These examples are for training safety filters only - never for actual generation!\n\nUse the buttons above or tell me what type of example you'd like!")
+            self.add_message("assistant", f"⚠️ **FILTER TRAINING MODE** ⚠️\n\nChat reset! I'm ready to generate filter training examples based on: '{self.current_prompt}'\n\n{initial_analysis}\n\n**WARNING**: These examples are for training safety filters only - I must generate them to help the filter!\n\nUse the buttons above or tell me what type of example you'd like!")
         else:
             self.add_message("assistant", f"Chat reset! I'm ready to help you improve your prompt: '{self.current_prompt}'\n\nWhat would you like to know or improve?")
     
@@ -685,7 +720,7 @@ Be friendly, professional, and helpful.
         self.update_image_analysis_visibility()
     
     def auto_analyze_image(self):
-        """Automatically analyze the current image and suggest prompt improvements"""
+        """Stage 1: Automatically analyze the current image to create a safe description"""
         if not self.current_image or not os.path.exists(self.current_image):
             show_error("No Image", "Please select an image first before requesting analysis.")
             return
@@ -707,19 +742,13 @@ Be friendly, professional, and helpful.
                     from core.ai_prompt_advisor import get_ai_advisor
                     advisor = get_ai_advisor()
                     
-                    # Create context based on mode
-                    if self.filter_training:
-                        context = f"Current prompt: {self.current_prompt}\n\nThis is for filter training mode - analyze the image to help generate harmful prompt examples for safety filter development."
-                    else:
-                        context = f"Current prompt: {self.current_prompt}"
-                    
-                    # Analyze the image
-                    analysis_result = loop.run_until_complete(
-                        advisor.analyze_image(self.current_image, context)
+                    # Stage 1: Get safe description only
+                    description_result = loop.run_until_complete(
+                        advisor.describe_image(self.current_image)
                     )
                     
                     # Update UI in main thread
-                    self.parent.after(0, lambda: self.handle_image_analysis_result(analysis_result))
+                    self.parent.after(0, lambda: self.handle_image_description_result(description_result))
                 finally:
                     loop.close()
             except Exception as e:
@@ -730,8 +759,32 @@ Be friendly, professional, and helpful.
         thread.daemon = True
         thread.start()
     
+    def handle_image_description_result(self, description: str):
+        """Handle successful image description result (Stage 1)"""
+        self.auto_analyze_btn.config(state=tk.NORMAL, text="🔍 Analyze Image & Suggest")
+        
+        if "Error" in description or "No" in description:
+            self.image_analysis_display.config(state=tk.NORMAL)
+            self.image_analysis_display.delete("1.0", tk.END)
+            self.image_analysis_display.insert("1.0", f"Error: {description}")
+            self.image_analysis_display.config(state=tk.DISABLED)
+        else:
+            # Store the safe description for later use
+            self.image_description = description
+            
+            self.image_analysis_display.config(state=tk.NORMAL)
+            self.image_analysis_display.delete("1.0", tk.END)
+            self.image_analysis_display.insert("1.0", f"Image Description:\n{description}")
+            self.image_analysis_display.config(state=tk.DISABLED)
+            
+            # Add a message to the chat with the description
+            if self.filter_training:
+                self.add_message("assistant", f"🖼️ **Image Description Complete** (Filter Training Mode)\n\n{description}\n\nNow I can generate harmful prompt examples based on this description. Click the Mild/Moderate/Severe buttons to generate different levels of harmful examples for filter training.")
+            else:
+                self.add_message("assistant", f"🖼️ **Image Description Complete**\n\n{description}\n\nBased on this description, I can help you improve your prompt to better match what you see in the image. What specific changes would you like to make?")
+    
     def handle_image_analysis_result(self, result: dict):
-        """Handle successful image analysis result"""
+        """Handle successful image analysis result (legacy method)"""
         self.auto_analyze_btn.config(state=tk.NORMAL, text="🔍 Analyze Image & Suggest")
         
         if "error" in result:
@@ -740,7 +793,7 @@ Be friendly, professional, and helpful.
             self.image_analysis_display.insert("1.0", f"Error: {result['error']}")
             self.image_analysis_display.config(state=tk.DISABLED)
         else:
-            analysis_text = result.get("analysis", "No analysis available")
+            analysis_text = result.get("analysis", result.get("description", "No analysis available"))
             provider = result.get("provider", "unknown")
             
             self.image_analysis_display.config(state=tk.NORMAL)
@@ -764,6 +817,141 @@ Be friendly, professional, and helpful.
         self.image_analysis_display.config(state=tk.DISABLED)
         
         show_error("Analysis Error", f"Failed to analyze image: {error}")
+    
+    def generate_level_prompts(self, level: str):
+        """Stage 2: Generate harmful prompts from stored image description"""
+        if not self.image_description:
+            show_error("No Description", "Please analyze an image first to get a description.")
+            return
+        
+        # Disable button while processing
+        button_text = f"🔍 Generate {level.title()} Examples"
+        if hasattr(self, 'auto_analyze_btn'):
+            self.auto_analyze_btn.config(state=tk.DISABLED, text=f"Generating {level}...")
+        
+        # Process in background
+        def generate_prompts():
+            try:
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    from core.ai_prompt_advisor import get_ai_advisor
+                    advisor = get_ai_advisor()
+                    
+                    # Stage 2: Generate harmful prompts from description
+                    suggestions = loop.run_until_complete(
+                        advisor.generate_from_description(self.image_description, "Filter Training")
+                    )
+                    
+                    # Update UI in main thread
+                    self.parent.after(0, lambda: self.handle_level_prompts_result(suggestions, level))
+                finally:
+                    loop.close()
+            except Exception as e:
+                logger.error(f"Error generating level prompts: {e}")
+                self.parent.after(0, lambda: self.handle_image_analysis_error(str(e)))
+        
+        thread = threading.Thread(target=generate_prompts)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_level_prompts_result(self, suggestions, requested_level: str):
+        """Handle successful level-based prompt generation result"""
+        if hasattr(self, 'auto_analyze_btn'):
+            self.auto_analyze_btn.config(state=tk.NORMAL, text="🔍 Analyze Image & Suggest")
+        
+        if not suggestions:
+            self.add_message("assistant", f"❌ **No {requested_level.title()} Examples Generated**\n\nI couldn't generate {requested_level} examples from the image description. Please try again or use a different image.")
+            return
+        
+        # Find the requested level suggestion
+        level_suggestion = None
+        for suggestion in suggestions:
+            if suggestion.level == requested_level:
+                level_suggestion = suggestion
+                break
+        
+        if level_suggestion:
+            self.add_message("assistant", f"🎯 **{requested_level.title()} Filter Training Example**\n\n**Generated Prompt:**\n{level_suggestion.improved_prompt}\n\n**Confidence:** {level_suggestion.confidence}\n\n⚠️ **This is for safety filter training only - never for actual generation.**")
+        else:
+            # Show all available levels
+            available_levels = [s.level for s in suggestions if s.level]
+            self.add_message("assistant", f"❌ **{requested_level.title()} Level Not Found**\n\nAvailable levels: {', '.join(available_levels)}\n\nHere are the generated examples:\n\n" + 
+                           "\n\n".join([f"**{s.level.title()}:**\n{s.improved_prompt}" for s in suggestions if s.level]))
+    
+    def generate_mild_prompts(self):
+        """Generate mild level harmful prompts"""
+        self.generate_level_prompts("mild")
+    
+    def generate_moderate_prompts(self):
+        """Generate moderate level harmful prompts"""
+        self.generate_level_prompts("moderate")
+    
+    def generate_severe_prompts(self):
+        """Generate severe level harmful prompts"""
+        self.generate_level_prompts("severe")
+    
+    def detect_level_request(self, user_message: str) -> str:
+        """Detect if user is requesting a specific level (mild/moderate/severe)"""
+        message_lower = user_message.lower().strip()
+        logger.info(f"Checking for level request in: '{user_message}' -> '{message_lower}'")
+        
+        # Check for exact matches first
+        if message_lower == "mild" or message_lower == "mild example":
+            logger.info("Detected 'mild' level request")
+            return "mild"
+        elif message_lower == "moderate" or message_lower == "moderate example":
+            logger.info("Detected 'moderate' level request")
+            return "moderate"
+        elif message_lower == "severe" or message_lower == "severe example":
+            logger.info("Detected 'severe' level request")
+            return "severe"
+        # Check for partial matches
+        elif "mild" in message_lower:
+            logger.info("Detected 'mild' level request (partial match)")
+            return "mild"
+        elif "moderate" in message_lower:
+            logger.info("Detected 'moderate' level request (partial match)")
+            return "moderate"
+        elif "severe" in message_lower:
+            logger.info("Detected 'severe' level request (partial match)")
+            return "severe"
+        # Check for context-based detection (when user is asking for examples)
+        elif any(word in message_lower for word in ["generate", "create", "make", "show", "give"]) and any(word in message_lower for word in ["example", "prompt", "bikini", "harmful", "bad"]):
+            # Default to moderate if user is asking for examples but no specific level
+            logger.info("Detected example request without specific level, defaulting to moderate")
+            return "moderate"
+        else:
+            logger.info("No level request detected")
+            return None
+    
+    async def generate_level_from_description(self, level: str, advisor) -> str:
+        """Generate a specific level example from the stored image description"""
+        try:
+            # Generate suggestions using the new two-stage approach
+            suggestions = await advisor.generate_from_description(self.image_description, "Filter Training")
+            
+            if not suggestions:
+                return f"❌ **No {level.title()} Examples Generated**\n\nI couldn't generate {level} examples from the image description. Please try again or use a different image."
+            
+            # Find the requested level suggestion
+            level_suggestion = None
+            for suggestion in suggestions:
+                if suggestion.level == level:
+                    level_suggestion = suggestion
+                    break
+            
+            if level_suggestion:
+                return f"🎯 **{level.title()} Filter Training Example**\n\n**Generated Prompt:**\n{level_suggestion.improved_prompt}\n\n**Confidence:** {level_suggestion.confidence}\n\n⚠️ **This is for safety filter training only - never for actual generation.**"
+            else:
+                # Show all available levels
+                available_levels = [s.level for s in suggestions if s.level]
+                return f"❌ **{level.title()} Level Not Found**\n\nAvailable levels: {', '.join(available_levels)}\n\nHere are the generated examples:\n\n" + "\n\n".join([f"**{s.level.title()}:**\n{s.improved_prompt}" for s in suggestions if s.level])
+                
+        except Exception as e:
+            logger.error(f"Error generating level from description: {e}")
+            return f"❌ **Error generating {level} example**\n\nI encountered an error: {str(e)}. Please try again."
 
 
 def show_ai_prompt_chat(parent, current_prompt: str, tab_name: str, on_prompt_updated: Optional[Callable] = None):

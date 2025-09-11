@@ -316,10 +316,29 @@ def validate_seedream_v4_size(size: Optional[str]) -> Tuple[bool, Optional[str]]
     if not isinstance(size, str):
         return False, "Size must be a string"
     
-    if size not in SeedreamV4Sizes.SIZES:
-        return False, f"Size must be one of: {', '.join(SeedreamV4Sizes.SIZES)}"
+    # Check format: width*height
+    if not re.match(r'^\d+\*\d+$', size):
+        return False, "Size must be in format 'width*height' (e.g., '2048*2048')"
     
-    return True, None
+    try:
+        width_str, height_str = size.split('*')
+        width = int(width_str)
+        height = int(height_str)
+        
+        # Check if dimensions are within supported range (256-4096)
+        min_size = 256
+        max_size = 4096
+        
+        if not (min_size <= width <= max_size):
+            return False, f"Width must be between {min_size} and {max_size} pixels"
+        
+        if not (min_size <= height <= max_size):
+            return False, f"Height must be between {min_size} and {max_size} pixels"
+        
+        return True, None
+        
+    except ValueError:
+        return False, "Invalid size format"
 
 
 def validate_seeddance_version(version: Optional[str]) -> Tuple[bool, Optional[str]]:

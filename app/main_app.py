@@ -36,6 +36,7 @@ from core.auto_save import auto_save_manager
 # Import the new AI integration system
 from ui.components.universal_ai_integration import universal_ai_integrator, refresh_ai_button_states
 from ui.components.fixed_ai_settings import show_ai_settings, get_ai_status
+from ui.components.prompt_analytics import show_prompt_analytics
 
 logger = get_logger()
 resource_manager = get_resource_manager()
@@ -263,6 +264,8 @@ class WaveSpeedAIApp:
         tools_menu.add_command(label="Switch to Image Upscaler", command=lambda: self.switch_to_tab(2))
         tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(3))
         tools_menu.add_command(label="Switch to SeedDance Pro", command=lambda: self.switch_to_tab(4))
+        tools_menu.add_separator()
+        tools_menu.add_command(label="📊 Prompt Analytics", command=self.show_prompt_analytics)
         
         # AI Assistant menu (improved)
         ai_menu = tk.Menu(menubar, tearoff=0)
@@ -678,6 +681,14 @@ For additional support, refer to the main application documentation."""
             pady=5
         )
         close_btn.pack(pady=(0, 20))
+    
+    def show_prompt_analytics(self):
+        """Show prompt analytics window"""
+        try:
+            show_prompt_analytics(self.root)
+        except Exception as e:
+            logger.error(f"Error showing prompt analytics: {e}")
+            show_error("Error", f"Failed to open prompt analytics: {e}")
     
     def show_about(self):
         """Show about dialog"""
