@@ -751,6 +751,20 @@ class OptimizedSeedDanceLayout:
         if self.result_video_path:
             self.status_label.config(text="💾 Dance video downloaded", foreground="green")
     
+    def setup_enhanced_features(self):
+        """Setup status console and keyboard shortcuts integration"""
+        # Initialize keyboard manager for this layout
+        self.keyboard_manager = KeyboardManager(self.parent_frame, "SeedDance Pro")
+        
+        # Register primary action
+        self.keyboard_manager.register_primary_action(self.process_dance_generation, self.generate_btn)
+        
+        # Register file operations
+        self.keyboard_manager.register_file_actions(
+            self.browse_image,
+            self.clear_all
+        )
+    
     # Prompt management methods (placeholders)
     def improve_with_ai(self): pass
     def load_sample(self): pass

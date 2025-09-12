@@ -616,6 +616,20 @@ class OptimizedUpscalerLayout:
         """Handle mouse wheel for canvas scrolling"""
         self.result_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
+    def setup_enhanced_features(self):
+        """Setup status console and keyboard shortcuts integration"""
+        # Initialize keyboard manager for this layout
+        self.keyboard_manager = KeyboardManager(self.parent_frame, "Image Upscaler")
+        
+        # Register primary action
+        self.keyboard_manager.register_primary_action(self.process_upscale, self.upscale_btn)
+        
+        # Register file operations
+        self.keyboard_manager.register_file_actions(
+            self.browse_image,
+            self.clear_all
+        )
+    
     def clear_all(self):
         """Clear all data"""
         self.selected_image_path = None

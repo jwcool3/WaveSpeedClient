@@ -69,7 +69,7 @@ class ImprovedSeedreamLayout:
     
     def setup_left_column(self, parent):
         """Setup left column with logical flow and compact sections"""
-        left_frame = ttk.Frame(parent, relief='groove', borderwidth=1, padding="8")
+        left_frame = ttk.Frame(parent, padding="8")
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         left_frame.columnconfigure(0, weight=1)
         
@@ -291,13 +291,13 @@ class ImprovedSeedreamLayout:
         self.preset_combo.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         self.preset_combo.bind('<<ComboboxSelected>>', self.load_preset)
         
-        # Preset buttons (small)
-        preset_btn_frame = ttk.Frame(preset_frame)
-        preset_btn_frame.grid(row=0, column=1)
+        # Preset buttons (small) - AI integration target
+        self.ai_chat_container = ttk.Frame(preset_frame)
+        self.ai_chat_container.grid(row=0, column=1)
         
-        ttk.Button(preset_btn_frame, text="💾", width=3, command=self.save_preset).pack(side=tk.LEFT, padx=1)
-        ttk.Button(preset_btn_frame, text="🎲", width=3, command=self.load_sample).pack(side=tk.LEFT, padx=1)
-        ttk.Button(preset_btn_frame, text="🤖", width=3, command=self.improve_with_ai).pack(side=tk.LEFT, padx=1)
+        ttk.Button(self.ai_chat_container, text="💾", width=3, command=self.save_preset).pack(side=tk.LEFT, padx=1)
+        ttk.Button(self.ai_chat_container, text="🎲", width=3, command=self.load_sample).pack(side=tk.LEFT, padx=1)
+        ttk.Button(self.ai_chat_container, text="🤖", width=3, command=self.improve_with_ai).pack(side=tk.LEFT, padx=1)
         
         # Prompt text (compact)
         self.prompt_text = tk.Text(
@@ -545,7 +545,7 @@ class ImprovedSeedreamLayout:
     
     def setup_right_column(self, parent):
         """Setup right column with large dynamic image display"""
-        right_frame = ttk.Frame(parent, relief='groove', borderwidth=1, padding="4")
+        right_frame = ttk.Frame(parent, padding="4")
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         right_frame.columnconfigure(0, weight=1)
         right_frame.rowconfigure(1, weight=1)
@@ -892,60 +892,6 @@ class ImprovedSeedreamLayout:
     def load_result(self): pass
     def save_result(self): pass
 
-
-"""
-KEY IMPROVEMENTS FOR SEEDREAM V4:
-
-✅ 1. TWO-COLUMN STRUCTURE eliminates vertical scrolling
-   - Left: Controls (380px min) 
-   - Right: Large images (520px min, 2x weight)
-
-✅ 2. COMPACT SETTINGS PANEL (1/3 the height!)
-   - Width/Height sliders side by side with numeric inputs
-   - Size presets in 3x2 grid layout
-   - Seed + options in one horizontal row
-
-✅ 3. APPLY BUTTON directly under prompt
-   - "Apply Seedream V4" immediately follows transformation instructions
-   - Natural workflow: type → click → view result
-
-✅ 4. COLLAPSIBLE ADVANCED SECTIONS
-   - AI Assistant (collapsed by default)
-   - Advanced Options (sync mode, base64)
-   - Progress Log (collapsed by default)
-   - Saves massive vertical space!
-
-✅ 5. LARGE DYNAMIC PREVIEW with minimal margins
-   - 5px margins instead of large white space
-   - Proper scaling and zoom controls
-   - Side-by-side comparison mode
-
-✅ 6. NO WASTED HORIZONTAL SPACE
-   - Efficient 2-column grid layout
-   - Right column gets 2x space for images
-   - Every pixel serves a purpose
-
-✅ 7. LOGICAL FLOW in left column:
-   Input → Settings → Prompt → PRIMARY ACTION → Advanced (collapsed) → Tools
-
-✅ 8. SETTINGS IMPROVEMENTS:
-   - Size sliders with live numeric display
-   - Preset buttons in compact grid
-   - Auto-resolution from input image
-   - Aspect ratio lock toggle
-
-This layout eliminates the need for any scrolling while providing
-much more space for image display and putting the primary action
-exactly where users expect it after typing their prompt!
-
-The collapsible sections keep advanced features available but
-out of the way for typical usage.
-
-ENHANCED FEATURES:
-✅ 9. UNIFIED STATUS CONSOLE - Professional feedback with timestamps
-✅ 10. KEYBOARD SHORTCUTS - Ctrl+Enter to generate, F1 for help, etc.
-"""
-    
     # Helper methods for tab integration
     
     def log_status(self, message: str, status_type: str = "info"):
