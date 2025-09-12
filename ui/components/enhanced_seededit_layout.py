@@ -17,6 +17,7 @@ from core.auto_save import auto_save_manager
 from core.prompt_tracker import prompt_tracker
 from core.enhanced_prompt_tracker import enhanced_prompt_tracker, FailureReason
 from core.quality_rating_widget import QualityRatingWidget
+from core.learning_integration_manager import learning_integration_manager
 from .unified_status_console import UnifiedStatusConsole
 from .keyboard_manager import KeyboardManager
 
@@ -98,7 +99,10 @@ class EnhancedSeedEditLayout:
         # 5. AI INTEGRATION
         self.setup_ai_integration(left_frame)
         
-        # 6. STATUS CONSOLE
+        # 6. SMART LEARNING PANEL
+        self.setup_smart_learning_panel(left_frame)
+        
+        # 7. STATUS CONSOLE
         self.setup_status_console(left_frame)
         
         # 7. QUALITY RATING (hidden initially)
@@ -345,10 +349,29 @@ class EnhancedSeedEditLayout:
             width=18
         ).grid(row=1, column=0, sticky="ew")
     
+    def setup_smart_learning_panel(self, parent):
+        """Setup smart learning panel"""
+        try:
+            from ui.components.smart_learning_panel import create_smart_learning_panel
+            
+            self.learning_panel = create_smart_learning_panel(parent)
+            self.learning_panel.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+            
+            # Initially hide the panel - show it when filter training mode is detected
+            if not hasattr(self, 'filter_training_mode') or not self.filter_training_mode:
+                self.learning_panel.learning_frame.grid_remove()
+                
+        except ImportError as e:
+            logger.warning(f"Smart learning panel not available: {e}")
+            # Create placeholder frame
+            placeholder = ttk.LabelFrame(parent, text="🧠 Learning Panel (Not Available)")
+            placeholder.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+            ttk.Label(placeholder, text="Learning system not configured").pack(pady=5)
+
     def setup_status_console(self, parent):
         """Setup unified status console"""
         self.status_console = UnifiedStatusConsole(parent, title="📊 Status", height=3)
-        self.status_console.grid(row=5, column=0, sticky="ew", pady=(0, 4))
+        self.status_console.grid(row=6, column=0, sticky="ew", pady=(0, 4))
     
     def setup_quality_rating_section(self, parent):
         """Setup quality rating section (hidden by default)"""
@@ -529,17 +552,18 @@ class EnhancedSeedEditLayout:
             for widget in self.rating_container.winfo_children():
                 widget.destroy()
             
-            # Create new quality rating widget
+            # Create new quality rating widget with learning integration
             self.quality_rating_widget = QualityRatingWidget(
                 parent=self.rating_container,
                 prompt=self.current_prompt,
                 result_path=self.result_url,
-                prompt_hash=self.current_prompt_hash
+                prompt_hash=self.current_prompt_hash,
+                learning_callback=self._on_quality_rating_submitted
             )
             self.quality_rating_widget.pack(fill=tk.X)
             
             # Show the rating frame
-            self.rating_frame.grid(row=6, column=0, sticky="ew", pady=(0, 4))
+            self.rating_frame.grid(row=7, column=0, sticky="ew", pady=(0, 4))
     
     def _categorize_failure(self, error_message: str) -> FailureReason:
         """Categorize error message into failure reason"""
@@ -1165,3 +1189,49 @@ class EnhancedSeedEditLayout:
         current_text = self.prompt_text.get("1.0", tk.END).strip()
         if not current_text:
             self.prompt_text.insert("1.0", "Describe the changes you want to make to the image...")
+    
+    async def _on_quality_rating_submitted(self, quality_data):
+        """Callback when quality rating is submitted - integrate with learning system"""
+        try:
+            logger.info(f"Quality rating submitted: {quality_data}")
+            
+            # Prepare data for learning integration
+            prompt_data = {
+                "prompt": self.current_prompt,
+                "quality": quality_data.get("quality"),
+                "failure_reason": quality_data.get("failure_reason"),
+                "image_analysis": {"processing_type": "seededit"} if self.selected_image_path else {},
+                "notes": quality_data.get("notes", ""),
+                "result_path": self.result_url
+            }
+            
+            # Integrate with learning system
+            integration_result = await learning_integration_manager.integrate_with_prompt_tracking(prompt_data)
+            
+            if integration_result.get("learning_integrated"):
+                insights = integration_result.get("immediate_insights", [])
+                suggestions = integration_result.get("suggestions", [])
+                
+                # Show learning feedback in status console
+                feedback_message = "🧠 Learning system updated! "
+                if insights:
+                    feedback_message += f"Insights: {', '.join(insights[:2])}"
+                if suggestions:
+                    feedback_message += f" | Suggestions: {', '.join(suggestions[:2])}"
+                
+                self.update_status(feedback_message, "info")
+                
+                # Optionally trigger comprehensive analysis if we have enough data
+                try:
+                    analysis_result = await learning_integration_manager.trigger_comprehensive_analysis()
+                    if analysis_result and not analysis_result.get("error"):
+                        summary = analysis_result.get("summary", {})
+                        total_words = summary.get("total_words_analyzed", 0)
+                        if total_words > 10:  # Only show if we have meaningful analysis
+                            self.update_status(f"🔍 Analysis: {total_words} words analyzed, learning system improving!", "success")
+                except Exception as e:
+                    logger.error(f"Error in comprehensive analysis: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error in learning integration callback: {e}")
+            self.update_status(f"Learning integration error: {str(e)}", "warning")

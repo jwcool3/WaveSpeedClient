@@ -167,11 +167,12 @@ class QualityRatingWidget:
     """Compact widget for inline quality rating"""
     
     def __init__(self, parent, prompt: str, result_path: Optional[str] = None,
-                 prompt_hash: Optional[int] = None):
+                 prompt_hash: Optional[int] = None, learning_callback: Optional[Callable] = None):
         self.parent = parent
         self.prompt = prompt
         self.result_path = result_path
         self.prompt_hash = prompt_hash or hash(prompt)
+        self.learning_callback = learning_callback
         
         self.frame = None
         self.rating_var = tk.StringVar(value="0")
@@ -215,6 +216,17 @@ class QualityRatingWidget:
                 quality_rating=rating,
                 result_path=self.result_path
             )
+            
+            # Call learning callback if provided
+            if self.learning_callback:
+                import asyncio
+                quality_data = {
+                    "quality": rating,
+                    "failure_reason": None,
+                    "result_path": self.result_path,
+                    "notes": ""
+                }
+                asyncio.create_task(self.learning_callback(quality_data))
             
             # Enable feedback button
             self.feedback_btn.config(state="normal")

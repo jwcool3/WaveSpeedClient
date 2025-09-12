@@ -44,6 +44,12 @@ class AIPromptChat:
         self.filter_analyzer = enhanced_filter_analyzer
         self.detailed_analyzer = detailed_image_analyzer
         
+        # Adaptive learning system integration
+        from core.learning_integration_manager import learning_integration_manager
+        from core.enhanced_prompt_tracker import enhanced_prompt_tracker
+        self.learning_manager = learning_integration_manager
+        self.prompt_tracker = enhanced_prompt_tracker
+        
         self.setup_ui()
     
     def setup_ui(self):
@@ -116,9 +122,19 @@ class AIPromptChat:
         # Image analysis section (only for non-filter training mode)
         self.setup_image_analysis_section()
         
-        # Apply changes button
+        # Apply changes button and learning controls
         apply_frame = ttk.Frame(self.container)
         apply_frame.pack(fill=tk.X)
+        
+        # Learning feedback buttons (only for filter training)
+        if self.filter_training:
+            learning_frame = ttk.LabelFrame(apply_frame, text="🧠 Learning Feedback", padding=5)
+            learning_frame.pack(side=tk.LEFT, padx=(0, 10))
+            
+            ttk.Button(learning_frame, text="✅ Good Example", 
+                      command=self.save_as_good_example, width=12).pack(side=tk.LEFT, padx=2)
+            ttk.Button(learning_frame, text="❌ Bad Example", 
+                      command=self.save_as_bad_example, width=12).pack(side=tk.LEFT, padx=2)
         
         self.apply_btn = ttk.Button(
             apply_frame,
@@ -305,9 +321,13 @@ User message: {user_message}
 Please respond as a helpful AI assistant that specializes in prompt improvement. Be conversational, explain your reasoning, and provide actionable suggestions.
 """
             
+            # Get learning system feedback first
+            learning_feedback = await self.get_learning_enhanced_response(user_message, self.current_prompt)
+            
             # Use the AI advisor to get a response
             if self.filter_training:
-                return await self.get_smart_filter_training_response(user_message, advisor)
+                main_response = await self.get_smart_filter_training_response(user_message, advisor)
+                return learning_feedback + main_response
             elif "improve" in user_message.lower() or "better" in user_message.lower():
                 # Use prompt improvement
                 suggestions = await advisor.improve_prompt(self.current_prompt, self.current_tab_name)
@@ -325,6 +345,32 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
             logger.error(f"Error getting AI response: {e}")
             return f"I encountered an error: {str(e)}. Please try again."
     
+    async def get_learning_enhanced_response(self, user_message: str, prompt_text: str) -> str:
+        """Get learning-enhanced feedback before generating the main response"""
+        try:
+            if self.filter_training:
+                # Get real-time feedback from learning system
+                feedback = await self.learning_manager.get_real_time_feedback(prompt_text)
+                
+                if feedback and not feedback.get("error"):
+                    success_prob = feedback.get("success_probability", 0.5)
+                    risk_level = feedback.get("risk_assessment", "medium")
+                    suggestions = feedback.get("suggestions", [])
+                    
+                    feedback_text = f"🧠 **Learning System Feedback:**\n"
+                    feedback_text += f"• Success Probability: {success_prob:.1%}\n"
+                    feedback_text += f"• Risk Level: {risk_level.upper()}\n"
+                    
+                    if suggestions:
+                        feedback_text += f"• Smart Suggestions: {', '.join(suggestions[:2])}\n"
+                    
+                    return feedback_text + "\n"
+                    
+        except Exception as e:
+            logger.error(f"Error getting learning feedback: {e}")
+        
+        return ""
+
     async def get_smart_filter_training_response(self, user_message: str, advisor) -> str:
         """Smart filter training response that uses the new two-stage approach"""
         try:
@@ -959,6 +1005,74 @@ Be friendly, professional, and helpful.
         except Exception as e:
             logger.error(f"Error generating level from description: {e}")
             return f"❌ **Error generating {level} example**\n\nI encountered an error: {str(e)}. Please try again."
+
+    async def _save_as_good_example_async(self):
+        """Save the current prompt as a good example for learning"""
+        if not self.current_prompt:
+            show_error("No Prompt", "No current prompt to save.")
+            return
+            
+        try:
+            from core.enhanced_prompt_tracker import PromptQuality
+            
+            prompt_data = {
+                "prompt": self.current_prompt,
+                "quality": PromptQuality.GOOD,
+                "failure_reason": None,
+                "image_analysis": {"subjects": {"subject_type": "user_feedback"}} if self.image_description else {},
+                "notes": f"Marked as good example from chat - {self.current_tab_name}"
+            }
+            
+            # Integrate with learning system
+            integration_result = await self.learning_manager.integrate_with_prompt_tracking(prompt_data)
+            
+            if integration_result.get("learning_integrated"):
+                insights = integration_result.get("immediate_insights", [])
+                self.add_message("assistant", f"✅ **Saved as Good Example!**\n\nThis prompt has been added to the learning system as a successful example.\n\n🧠 **Learning Insights:**\n" + "\n".join([f"• {insight}" for insight in insights[:3]]))
+            else:
+                self.add_message("assistant", "✅ **Saved as Good Example!**\n\nThis prompt has been saved for learning analysis.")
+                
+        except Exception as e:
+            logger.error(f"Error saving good example: {e}")
+            show_error("Save Error", f"Failed to save example: {str(e)}")
+
+    async def _save_as_bad_example_async(self):
+        """Save the current prompt as a bad example for learning"""
+        if not self.current_prompt:
+            show_error("No Prompt", "No current prompt to save.")
+            return
+            
+        try:
+            from core.enhanced_prompt_tracker import PromptQuality, FailureReason
+            
+            prompt_data = {
+                "prompt": self.current_prompt,
+                "quality": PromptQuality.POOR,
+                "failure_reason": FailureReason.DETECTED_BY_FILTER,
+                "image_analysis": {"subjects": {"subject_type": "user_feedback"}} if self.image_description else {},
+                "notes": f"Marked as bad example from chat - {self.current_tab_name}"
+            }
+            
+            # Integrate with learning system
+            integration_result = await self.learning_manager.integrate_with_prompt_tracking(prompt_data)
+            
+            if integration_result.get("learning_integrated"):
+                suggestions = integration_result.get("suggestions", [])
+                self.add_message("assistant", f"❌ **Saved as Bad Example!**\n\nThis prompt has been added to the learning system as a failed example.\n\n💡 **Smart Suggestions:**\n" + "\n".join([f"• {suggestion}" for suggestion in suggestions[:3]]))
+            else:
+                self.add_message("assistant", "❌ **Saved as Bad Example!**\n\nThis prompt has been saved for learning analysis.")
+                
+        except Exception as e:
+            logger.error(f"Error saving bad example: {e}")
+            show_error("Save Error", f"Failed to save example: {str(e)}")
+
+    def save_as_good_example(self):
+        """Wrapper to run async _save_as_good_example_async"""
+        asyncio.create_task(self._save_as_good_example_async())
+    
+    def save_as_bad_example(self):
+        """Wrapper to run async _save_as_bad_example_async"""
+        asyncio.create_task(self._save_as_bad_example_async())
 
 
 def show_ai_prompt_chat(parent, current_prompt: str, tab_name: str, on_prompt_updated: Optional[Callable] = None):

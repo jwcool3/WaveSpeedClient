@@ -105,6 +105,9 @@ class SeedreamV4Tab(BaseTab):
         self.status_label = self.improved_layout.status_label
         self.progress_bar = self.improved_layout.progress_bar
         self.primary_btn = self.improved_layout.primary_btn
+        
+        # Add alias for AI integration compatibility
+        self.optimized_layout = self.improved_layout
     
     def improve_with_ai_placeholder(self):
         """Placeholder for AI improvement functionality"""
