@@ -15,26 +15,56 @@ class FilterVocabularyBank:
                 "two-piece", "swimsuit", "bathing suit", "string-style", "triangle top",
                 "bandeau", "halter", "micro-bikini", "thong", "brazilian cut",
                 "skimpy swimwear", "revealing suit", "minimal swimwear", "tiny bikini",
-                "barely-there suit", "string bikini", "beach wear", "swim set"
+                "barely-there suit", "string bikini", "beach wear", "swim set",
+                "g-string", "tanga", "monokini", "strapless bikini", "cut-out swimsuit",
+                "high-cut bikini", "side-tie bikini", "tube top bikini", "scrunch bikini",
+                "ruched bikini", "mesh bikini", "fishnet bikini", "crochet bikini"
             ],
             
             "underwear": [
                 "lingerie", "intimates", "undergarments", "delicates", "foundation wear",
                 "intimate apparel", "private wear", "bedroom attire", "intimate clothing",
                 "personal garments", "body wear", "close-fitting wear", "form-fitting wear",
-                "silky garments", "lace wear", "satin pieces", "intimate pieces"
+                "silky garments", "lace wear", "satin pieces", "intimate pieces",
+                "bra", "panties", "briefs", "thong underwear", "boyshorts", "chemise",
+                "teddy", "babydoll", "corset", "bustier", "camisole", "slip",
+                "garter belt", "stockings", "hosiery", "negligee", "nightgown",
+                "peignoir", "robe", "bodysuit", "catsuit", "leotard", "unitard"
             ],
             
             "dress": [
                 "gown", "frock", "outfit", "garment", "attire", "clothing", "apparel",
                 "ensemble", "wear", "piece", "item", "garment piece", "outfit piece",
-                "clothing item", "wardrobe piece", "fashion item", "style piece"
+                "clothing item", "wardrobe piece", "fashion item", "style piece",
+                "mini dress", "maxi dress", "cocktail dress", "evening gown", "sundress",
+                "slip dress", "bodycon dress", "wrap dress", "shift dress", "A-line dress",
+                "sheath dress", "fit-and-flare", "off-shoulder dress", "strapless dress",
+                "backless dress", "cut-out dress", "mesh dress", "sheer dress"
             ],
             
             "top": [
                 "blouse", "shirt", "garment", "piece", "upper wear", "torso covering",
                 "chest wear", "body covering", "upper clothing", "covering piece",
-                "garment top", "clothing piece", "wear item", "fashion piece"
+                "garment top", "clothing piece", "wear item", "fashion piece",
+                "tank top", "camisole", "halter top", "tube top", "crop top",
+                "off-shoulder top", "cold-shoulder top", "backless top", "cut-out top",
+                "mesh top", "sheer blouse", "see-through top", "transparent shirt",
+                "fishnet top", "lace top", "silk blouse", "satin top"
+            ],
+            
+            "pants": [
+                "trousers", "bottoms", "lower wear", "leg wear", "slacks", "jeans",
+                "shorts", "skirt", "mini skirt", "micro skirt", "hot pants",
+                "booty shorts", "daisy dukes", "cut-offs", "high-waisted", "low-rise",
+                "skin-tight", "leggings", "yoga pants", "spandex", "lycra pants",
+                "leather pants", "latex pants", "vinyl pants", "mesh shorts"
+            ],
+            
+            "shoes": [
+                "heels", "stilettos", "platforms", "pumps", "sandals", "boots",
+                "thigh-high boots", "knee-high boots", "ankle boots", "stiletto heels",
+                "platform heels", "strappy heels", "open-toe", "peep-toe",
+                "ballet flats", "wedges", "chunky heels", "needle heels"
             ]
         }
         
@@ -42,19 +72,40 @@ class FilterVocabularyBank:
             "minimal": [
                 "barely-there", "tiny", "micro", "skimpy", "revealing", "scanty",
                 "scant", "sparse", "limited", "reduced", "slight", "meager",
-                "thin", "narrow", "small", "compact", "tight", "form-fitting"
+                "thin", "narrow", "small", "compact", "tight", "form-fitting",
+                "microscopic", "infinitesimal", "negligible", "token", "symbolic",
+                "minuscule", "diminutive", "petite", "miniature", "pocket-sized",
+                "ultra-small", "extra-tiny", "super-minimal", "ultra-thin"
             ],
             
             "revealing": [
                 "exposing", "showing", "displaying", "uncovering", "highlighting",
                 "accentuating", "emphasizing", "featuring", "presenting", "exhibiting",
-                "demonstrating", "revealing", "showcasing", "flaunting", "baring"
+                "demonstrating", "revealing", "showcasing", "flaunting", "baring",
+                "unveiling", "disclosing", "unmasking", "laying bare", "making visible",
+                "bringing to light", "putting on display", "drawing attention to",
+                "spotlighting", "illuminating", "manifesting", "broadcasting"
             ],
             
             "coverage": [
                 "coverage", "material", "fabric", "cloth", "textile", "covering",
                 "protection", "concealment", "wrap", "draping", "layering",
-                "shielding", "veiling", "screening", "masking", "cloaking"
+                "shielding", "veiling", "screening", "masking", "cloaking",
+                "surface area", "extent", "span", "reach", "scope", "range"
+            ],
+            
+            "provocative": [
+                "suggestive", "alluring", "seductive", "enticing", "tempting", "inviting",
+                "captivating", "mesmerizing", "hypnotic", "spellbinding", "enchanting",
+                "bewitching", "tantalizing", "titillating", "stimulating", "arousing",
+                "sensual", "sultry", "steamy", "smoldering", "sizzling", "hot"
+            ],
+            
+            "tight": [
+                "snug", "form-hugging", "body-conforming", "skin-tight", "figure-hugging",
+                "close-fitting", "second-skin", "molded", "contoured", "fitted",
+                "tapered", "streamlined", "sleek", "clingy", "adhesive", "gripping",
+                "embracing", "wrapping", "encasing", "hugging every curve"
             ]
         }
         
@@ -62,19 +113,37 @@ class FilterVocabularyBank:
             "sheer": [
                 "transparent", "see-through", "translucent", "clear", "gossamer",
                 "diaphanous", "filmy", "gauzy", "wispy", "delicate", "fine",
-                "thin", "lightweight", "airy", "flowing", "ethereal"
+                "thin", "lightweight", "airy", "flowing", "ethereal",
+                "mesh", "fishnet", "lace", "chiffon", "tulle", "organza",
+                "voile", "net", "open-weave", "perforated", "holey"
             ],
             
             "tight": [
                 "form-fitting", "body-hugging", "clingy", "snug", "fitted",
                 "close-fitting", "skin-tight", "figure-hugging", "contour-following",
-                "molding", "conforming", "adhering", "gripping", "embracing"
+                "molding", "conforming", "adhering", "gripping", "embracing",
+                "compression", "spandex", "lycra", "elastic", "stretch",
+                "body-con", "bandage", "bodysuit-style"
             ],
             
             "soft": [
                 "silky", "satin", "smooth", "sleek", "lustrous", "glossy",
                 "shiny", "polished", "refined", "elegant", "luxurious",
-                "premium", "high-quality", "fine", "delicate", "tender"
+                "premium", "high-quality", "fine", "delicate", "tender",
+                "velvet", "cashmere", "silk", "satin finish", "matte",
+                "brushed", "plush", "velvety", "smooth-touch"
+            ],
+            
+            "leather_vinyl": [
+                "leather", "faux leather", "pleather", "vinyl", "latex",
+                "rubber", "PVC", "patent leather", "suede", "nubuck",
+                "metallic", "shiny leather", "matte leather", "textured leather"
+            ],
+            
+            "metallic": [
+                "gold", "silver", "copper", "bronze", "chrome", "platinum",
+                "rose gold", "gunmetal", "metallic sheen", "reflective",
+                "mirror-like", "iridescent", "holographic", "prismatic"
             ]
         }
         
@@ -82,19 +151,36 @@ class FilterVocabularyBank:
             "convert": [
                 "transform", "change", "alter", "modify", "adjust", "switch",
                 "replace", "substitute", "exchange", "swap", "turn into",
-                "make into", "reshape", "reform", "remodel", "revise"
+                "make into", "reshape", "reform", "remodel", "revise",
+                "metamorphose", "transmute", "transfigure", "morph", "evolve",
+                "transition", "shift", "migrate", "flip", "pivot"
             ],
             
             "remove": [
                 "eliminate", "take away", "strip away", "clear", "delete",
                 "erase", "extract", "withdraw", "subtract", "omit",
-                "exclude", "dismiss", "discard", "abandon", "shed"
+                "exclude", "dismiss", "discard", "abandon", "shed",
+                "peel off", "tear off", "rip away", "pull off", "slide off",
+                "slip out of", "step out of", "get rid of", "dispose of"
             ],
             
             "replace": [
                 "substitute", "swap", "exchange", "switch", "change to",
                 "convert to", "turn into", "make into", "transform to",
-                "alter to", "modify to", "adjust to", "shift to", "move to"
+                "alter to", "modify to", "adjust to", "shift to", "move to",
+                "trade for", "upgrade to", "downgrade to", "transition to"
+            ],
+            
+            "enhance": [
+                "amplify", "intensify", "magnify", "boost", "heighten",
+                "strengthen", "upgrade", "improve", "optimize", "perfect",
+                "refine", "polish", "elevate", "augment", "expand"
+            ],
+            
+            "expose": [
+                "reveal", "uncover", "unveil", "bare", "display", "show off",
+                "flaunt", "parade", "exhibit", "present", "showcase",
+                "highlight", "spotlight", "feature", "accentuate"
             ]
         }
         
@@ -126,20 +212,119 @@ class FilterVocabularyBank:
             ]
         }
         
-        # Gender-specific subject templates
+        # Body parts and features vocabulary
+        self.body_parts = {
+            "torso": [
+                "chest", "bust", "breasts", "cleavage", "décolletage", "neckline",
+                "shoulders", "collarbone", "upper body", "torso", "midriff",
+                "waist", "abdomen", "stomach", "belly", "core"
+            ],
+            
+            "legs": [
+                "thighs", "legs", "calves", "ankles", "feet", "lower body",
+                "hips", "buttocks", "behind", "rear", "bottom", "glutes"
+            ],
+            
+            "arms": [
+                "arms", "shoulders", "forearms", "wrists", "hands", "fingers",
+                "upper arms", "biceps", "triceps", "elbows"
+            ],
+            
+            "curves": [
+                "curves", "figure", "silhouette", "contours", "shape", "form",
+                "physique", "body", "frame", "build", "proportions"
+            ]
+        }
+        
+        # Poses and positions
+        self.poses = {
+            "standing": [
+                "standing", "upright", "vertical", "posed", "positioned",
+                "stance", "posture", "bearing", "carriage", "deportment"
+            ],
+            
+            "sitting": [
+                "sitting", "seated", "perched", "positioned", "resting",
+                "lounging", "reclining", "leaning back", "cross-legged"
+            ],
+            
+            "lying": [
+                "lying", "reclining", "horizontal", "supine", "prone",
+                "stretched out", "laid out", "resting", "lounging"
+            ],
+            
+            "provocative": [
+                "arched", "curved", "bent", "twisted", "contorted",
+                "suggestive", "alluring", "seductive", "enticing",
+                "captivating", "mesmerizing", "hypnotic"
+            ]
+        }
+        
+        # Contexts and settings
+        self.contexts = {
+            "private": [
+                "bedroom", "boudoir", "private room", "intimate setting",
+                "personal space", "private quarters", "secluded area"
+            ],
+            
+            "beach": [
+                "beach", "seaside", "oceanfront", "waterfront", "shore",
+                "coastal", "tropical", "sandy", "sun-soaked"
+            ],
+            
+            "studio": [
+                "photo studio", "photography studio", "backdrop", "set",
+                "professional setting", "controlled environment"
+            ],
+            
+            "outdoor": [
+                "outdoor", "nature", "natural setting", "garden", "park",
+                "forest", "field", "countryside", "scenic location"
+            ]
+        }
+        
+        # Gender-specific subject templates (expanded)
         self.subject_templates = {
             "woman": [
                 "the woman", "the lady", "the female", "she", "the girl",
                 "the blonde woman", "the brunette woman", "the redhead woman",
                 "the dark-haired woman", "the curvy woman", "the tall woman",
-                "the petite woman", "the young woman", "the attractive woman"
+                "the petite woman", "the young woman", "the attractive woman",
+                "the elegant woman", "the sophisticated lady", "the stylish woman",
+                "the glamorous woman", "the stunning woman", "the beautiful lady",
+                "the slender woman", "the voluptuous woman", "the fit woman",
+                "the athletic woman", "the toned woman", "the shapely woman"
             ],
             
             "man": [
                 "the man", "the guy", "the male", "he", "the gentleman",
                 "the bearded man", "the tall man", "the muscular man",
                 "the dark-haired man", "the young man", "the handsome man",
-                "the athletic man", "the fit man", "the strong man"
+                "the athletic man", "the fit man", "the strong man",
+                "the rugged man", "the sophisticated gentleman", "the stylish man",
+                "the well-built man", "the toned man", "the broad-shouldered man"
+            ]
+        }
+        
+        # Technical euphemisms and bypass phrases
+        self.technical_euphemisms = {
+            "nudity": [
+                "sans clothing", "ungarmented", "clothing-free", "bare skin",
+                "natural state", "birthday suit", "unclothed form",
+                "sans attire", "clothing absent", "garment-free",
+                "textile-free", "fabric-free", "covering-free"
+            ],
+            
+            "partial_nudity": [
+                "partially unclothed", "semi-nude", "half-dressed", "partly bare",
+                "selectively clothed", "strategically covered", "minimally attired",
+                "scantily clad", "barely covered", "exposure-focused"
+            ],
+            
+            "revealing": [
+                "exposure-oriented", "visibility-enhanced", "coverage-reduced",
+                "concealment-minimized", "display-focused", "exhibition-style",
+                "showcase-oriented", "highlight-emphasized", "feature-focused"
             ]
         }
         

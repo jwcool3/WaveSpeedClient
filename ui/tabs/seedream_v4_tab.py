@@ -122,16 +122,12 @@ class SeedreamV4Tab(BaseTab):
             # Set the result image
             self.result_image = result_path
             
-            # Auto-save if enabled
-            from app.config import Config
-            if Config.AUTO_SAVE_ENABLED:
-                saved_path = auto_save_manager.save_result(
-                    "seedream_v4",
-                    result_path,
-                    prompt=self.prompt_text.get("1.0", tk.END).strip(),
-                    extra_info=f"{self.width_var.get()}x{self.height_var.get()}_seed{self.seed_var.get()}"
-                )
-                logger.info(f"Auto-saved result to: {saved_path}")
+            # Store the result URL for auto-save if available
+            if result_url:
+                self.last_result_url = result_url
+            
+            # Note: Auto-save is handled in handle_success() method with the proper URL
+            # Don't duplicate auto-save here since result_path is a local temp file
             
             # Track the prompt if successful
             if hasattr(prompt_tracker, 'track_success'):
@@ -1018,99 +1014,77 @@ class SeedreamV4Tab(BaseTab):
             return "https://example.com/sample-image.png"
     
     def start_polling(self, task_id, duration):
-        """Start polling for task results"""
-        # Stop any existing polling to prevent multiple threads
-        if hasattr(self, '_polling_active') and self._polling_active:
-            logger.info("Stopping existing polling thread")
-            self._polling_active = False
+        """Start polling for task results with proper thread safety"""
+        # Thread-safe stopping of existing polling
+        with threading.Lock():
+            if hasattr(self, '_polling_active') and self._polling_active:
+                logger.info("Stopping existing polling thread")
+                self._polling_active = False
+                # Wait for existing thread to finish
+                if hasattr(self, '_polling_thread') and self._polling_thread.is_alive():
+                    self._polling_thread.join(timeout=1.0)
+            
+            self._polling_active = True
+            self._polling_task_id = task_id
+            logger.info(f"Starting polling for task: {task_id}")
         
-        # Wait a moment for existing thread to stop
-        import time
-        time.sleep(0.1)
-        
-        self._polling_active = True
-        logger.info(f"Starting polling for task: {task_id}")
+        # Add timeout protection (5 minutes maximum)
+        self._polling_start_time = time.time()
+        self._polling_timeout = 300  # 5 minutes
         
         def poll_for_results():
             try:
-                if not self._polling_active:
-                    return
-                    
-                result = self.api_client.get_seedream_v4_result(task_id)
-                
-                if result['success']:
-                    status = result.get('status')
-                    
-                    if status == 'completed':
+                while self._polling_active:
+                    # Check timeout
+                    if time.time() - self._polling_start_time > self._polling_timeout:
                         self._polling_active = False
-                        logger.info(f"Task completed, stopping polling for task: {task_id}")
-                        output_url = result.get('output_url')
-                        if output_url:
-                            self.frame.after(0, lambda: self.handle_success(output_url, duration))
+                        logger.warning(f"Polling timeout reached for task: {task_id}")
+                        self.frame.after(0, lambda: self.handle_error("Processing timeout - maximum wait time exceeded"))
+                        return
+                    
+                    # Check if we should continue polling for this specific task
+                    if not hasattr(self, '_polling_task_id') or self._polling_task_id != task_id:
+                        logger.info(f"Stopping polling for task {task_id} - newer task started")
+                        return
+                    
+                    result = self.api_client.get_seedream_v4_result(task_id)
+                    
+                    if result['success']:
+                        status = result.get('status')
+                        
+                        if status == 'completed':
+                            self._polling_active = False
+                            logger.info(f"Task completed, stopping polling for task: {task_id}")
+                            output_url = result.get('output_url')
+                            if output_url:
+                                self.frame.after(0, lambda: self.handle_success(output_url, duration))
+                            else:
+                                self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
+                            return
+                        elif status == 'failed':
+                            self._polling_active = False
+                            error_msg = result.get('error', 'Task failed')
+                            self.frame.after(0, lambda: self.handle_error(error_msg))
+                            return
                         else:
-                            self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
-                    elif status == 'failed':
-                        self._polling_active = False
-                        error_msg = result.get('error', 'Task failed')
-                        self.frame.after(0, lambda: self.handle_error(error_msg))
+                            # Still processing, wait before next poll
+                            time.sleep(2)
                     else:
-                        # Still processing, schedule next poll in 2 seconds
-                        if self._polling_active:
-                            self.frame.after(2000, lambda: self._poll_once(task_id, duration))
-                else:
-                    self._polling_active = False
-                    error_msg = result.get('error', 'Failed to get task status')
-                    self.frame.after(0, lambda: self.handle_error(error_msg))
-                    
+                        self._polling_active = False
+                        error_msg = result.get('error', 'Failed to get task status')
+                        self.frame.after(0, lambda: self.handle_error(error_msg))
+                        return
+                        
             except Exception as e:
                 self._polling_active = False
                 logger.error(f"Error polling for results: {e}")
                 self.frame.after(0, lambda: self.handle_error(f"Error checking task status: {str(e)}"))
         
-        # Start polling in background thread
-        import threading
-        thread = threading.Thread(target=poll_for_results)
-        thread.daemon = True
-        thread.start()
-    
-    def _poll_once(self, task_id, duration):
-        """Single poll attempt - prevents recursive thread creation"""
-        if not hasattr(self, '_polling_active') or not self._polling_active:
-            return
-            
-        try:
-            result = self.api_client.get_seedream_v4_result(task_id)
-            
-            if result['success']:
-                status = result.get('status')
-                
-                if status == 'completed':
-                    self._polling_active = False
-                    logger.info(f"Task completed, stopping polling for task: {task_id}")
-                    output_url = result.get('output_url')
-                    if output_url:
-                        self.frame.after(0, lambda: self.handle_success(output_url, duration))
-                    else:
-                        self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
-                    return  # Exit immediately after completion
-                elif status == 'failed':
-                    self._polling_active = False
-                    error_msg = result.get('error', 'Task failed')
-                    self.frame.after(0, lambda: self.handle_error(error_msg))
-                    return  # Exit immediately after failure
-                else:
-                    # Still processing, schedule next poll in 2 seconds
-                    if self._polling_active:
-                        self.frame.after(2000, lambda: self._poll_once(task_id, duration))
-            else:
-                self._polling_active = False
-                error_msg = result.get('error', 'Failed to get task status')
-                self.frame.after(0, lambda: self.handle_error(error_msg))
-                
-        except Exception as e:
-            self._polling_active = False
-            logger.error(f"Error polling for results: {e}")
-            self.frame.after(0, lambda: self.handle_error(f"Error checking task status: {str(e)}"))
+        # Start polling in background thread with proper reference tracking
+        import threading, time
+        self._polling_thread = threading.Thread(target=poll_for_results, name=f"SeedreamPolling-{task_id}")
+        self._polling_thread.daemon = True
+        self._polling_thread.start()
     
     def submit_seedream_v4_task(self, image_url, prompt):
         """Submit Seedream V4 task with detailed logging"""
@@ -1179,18 +1153,27 @@ class SeedreamV4Tab(BaseTab):
             logger.error(f"Error logging request submission details: {e}")
     
     def handle_success(self, output_url, duration):
-        """Handle successful completion"""
+        """Handle successful completion with proper backend integration"""
         # Hide progress
         self.hide_progress()
+        
+        # Get current prompt and settings for logging
+        prompt = self.prompt_text.get("1.0", tk.END).strip()
+        width = int(self.width_var.get())
+        height = int(self.height_var.get())
+        seed = self.seed_var.get()
+        
+        # Use the stored result URL if available, otherwise use the output_url parameter
+        result_url = getattr(self, 'last_result_url', None) or output_url
         
         # Download and display result in improved layout
         if hasattr(self, 'improved_layout'):
             # Use the proper download and display method
-            self.improved_layout.download_and_display_result(output_url)
+            self.improved_layout.download_and_display_result(result_url)
             success = True
         else:
             # Fallback to old layout
-            success = self.optimized_layout.update_result_image(output_url)
+            success = self.optimized_layout.update_result_image(result_url)
             if success:
                 self.result_image = self.optimized_layout.result_image
         
@@ -1198,62 +1181,89 @@ class SeedreamV4Tab(BaseTab):
             # Show completion status
             self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}!")
             
-            # If auto-save failed, try to save the result image directly
-            if not success and self.result_image:
-                logger.warning(f"Auto-save from URL failed, attempting to save result image directly: {error}")
-                try:
-                    # Try to save the result image directly
-                    fallback_success, fallback_path = self.save_result_image_directly(prompt, extra_info)
-                    if fallback_success:
-                        success = True
-                        saved_path = fallback_path
-                        error = None
-                        logger.info(f"Fallback auto-save successful: {saved_path}")
-                    else:
-                        logger.error(f"Fallback auto-save also failed: {fallback_path}")
-                except Exception as e:
-                    logger.error(f"Fallback auto-save error: {e}")
+            # Attempt auto-save if enabled
+            auto_save_success = False
+            saved_path = None
+            auto_save_error = None
             
-            # Log auto-save result
-            if success:
-                logger.info(f"Seedream V4 result auto-saved successfully to: {saved_path}")
-                
-                # Track successful prompt for auto-saved results
-                additional_context = {
-                    "width": width,
-                    "height": height,
-                    "seed": seed,
-                    "sync_mode": self.sync_mode_var.get(),
-                    "base64_output": self.base64_output_var.get(),
-                    "auto_size": self.auto_size_var.get(),
-                    "aspect_ratio_locked": self.aspect_ratio_lock_var.get(),
-                    "auto_saved": True
-                }
-                
-                prompt_tracker.log_successful_prompt(
-                    prompt=prompt,
-                    ai_model="seedream_v4",
-                    result_url=output_url,
-                    save_path=saved_path,
-                    additional_context=additional_context
-                )
-            else:
-                logger.error(f"Seedream V4 auto-save failed: {error}")
+            try:
+                from app.config import Config
+                if Config.AUTO_SAVE_ENABLED:
+                    # Check if we have a URL or a local file path
+                    if result_url and (result_url.startswith('http://') or result_url.startswith('https://')):
+                        # Use URL-based auto-save
+                        result = auto_save_manager.save_result(
+                            "seedream_v4",
+                            result_url,
+                            prompt=prompt,
+                            extra_info=f"{width}x{height}_seed{seed}"
+                        )
+                    elif hasattr(self, 'result_image') and self.result_image:
+                        # Use local file-based auto-save
+                        result = auto_save_manager.save_local_file(
+                            "seedream_v4",
+                            self.result_image,
+                            prompt=prompt,
+                            extra_info=f"{width}x{height}_seed{seed}"
+                        )
+                    else:
+                        auto_save_error = "No result URL or local file available for auto-save"
+                        result = (False, None, auto_save_error)
+                    
+                    if isinstance(result, tuple) and len(result) == 3:
+                        auto_save_success, saved_path, auto_save_error = result
+                        if auto_save_success and saved_path:
+                            logger.info(f"Auto-saved Seedream V4 result to: {saved_path}")
+                        else:
+                            logger.error(f"Auto-save failed: {auto_save_error}")
+                    else:
+                        # Handle legacy return format
+                        saved_path = result
+                        auto_save_success = bool(saved_path)
+                        if auto_save_success:
+                            logger.info(f"Auto-saved Seedream V4 result to: {saved_path}")
+                        else:
+                            auto_save_error = "Auto-save returned empty path"
+            except Exception as e:
+                auto_save_error = str(e)
+                logger.error(f"Auto-save failed: {e}")
+            
+            # Track successful prompt
+            additional_context = {
+                "width": width,
+                "height": height,
+                "seed": seed,
+                "sync_mode": self.sync_mode_var.get(),
+                "base64_output": self.base64_output_var.get(),
+                "auto_size": getattr(self, 'auto_size_var', tk.BooleanVar()).get(),
+                "aspect_ratio_locked": getattr(self, 'aspect_ratio_lock_var', tk.BooleanVar()).get(),
+                "auto_saved": auto_save_success
+            }
+            
+            prompt_tracker.log_successful_prompt(
+                prompt=prompt,
+                ai_model="seedream_v4",
+                result_url=result_url,
+                save_path=saved_path,
+                save_method="auto" if auto_save_success else "manual",
+                additional_context=additional_context
+            )
             
             # Update status with auto-save information
-            if success and saved_path:
+            if auto_save_success and saved_path:
                 self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}! Auto-saved to: {os.path.basename(saved_path)}")
             else:
                 self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}! (Auto-save failed)")
             
+            # Create success message
             success_msg = f"Seedream V4 completed successfully in {format_duration(duration)}!"
-            if success and saved_path:
+            if auto_save_success and saved_path:
                 success_msg += f"\n\nResult auto-saved to:\n{saved_path}"
-            elif not success:
-                success_msg += f"\n\nAuto-save failed: {error}"
+            elif not auto_save_success and auto_save_error:
+                success_msg += f"\n\nAuto-save failed: {auto_save_error}"
                 # Show warning about auto-save failure
                 from utils.utils import show_warning
-                show_warning("Auto-Save Failed", f"Result generated successfully but auto-save failed:\n{error}\n\nYou can still save the result manually using the Save button.")
+                show_warning("Auto-Save Failed", f"Result generated successfully but auto-save failed:\n{auto_save_error}\n\nYou can still save the result manually using the Save button.")
             
             show_success("Seedream V4 Complete", success_msg)
         else:
@@ -1283,23 +1293,33 @@ class SeedreamV4Tab(BaseTab):
             "aspect_ratio_locked": self.aspect_ratio_lock_var.get()
         }
         
-        # Determine error type from message
-        error_type = "api_error"
-        if "denied" in error_message.lower():
-            error_type = "request_denied"
+        # Determine failure reason from message
+        from core.enhanced_prompt_tracker import FailureReason
+        
+        failure_reason = FailureReason.OTHER
+        if "denied" in error_message.lower() or "content policy" in error_message.lower():
+            failure_reason = FailureReason.CONTENT_FILTER
         elif "timeout" in error_message.lower():
-            error_type = "timeout"
-        elif "invalid" in error_message.lower():
-            error_type = "invalid_parameters"
+            failure_reason = FailureReason.TIMEOUT
+        elif "invalid" in error_message.lower() or "parameter" in error_message.lower():
+            failure_reason = FailureReason.INVALID_PARAMETERS
         elif "quota" in error_message.lower() or "limit" in error_message.lower():
-            error_type = "quota_exceeded"
+            failure_reason = FailureReason.QUOTA_EXCEEDED
+        elif "network" in error_message.lower() or "connection" in error_message.lower():
+            failure_reason = FailureReason.NETWORK_ERROR
+        elif "server" in error_message.lower() or "500" in error_message or "503" in error_message:
+            failure_reason = FailureReason.SERVER_ERROR
+        elif "nsfw" in error_message.lower() or "adult content" in error_message.lower():
+            failure_reason = FailureReason.NSFW_CONTENT
+        elif "api" in error_message.lower() or "401" in error_message or "403" in error_message:
+            failure_reason = FailureReason.API_ERROR
         
         prompt_tracker.log_failed_prompt(
             prompt=prompt,
             ai_model="seedream_v4",
             error_message=error_message,
-            error_type=error_type,
-            additional_context=additional_context
+            failure_reason=failure_reason,
+            model_parameters=additional_context
         )
         
         show_error("Seedream V4 Error", error_message)
