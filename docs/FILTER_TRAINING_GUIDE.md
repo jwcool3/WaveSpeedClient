@@ -2,7 +2,17 @@
 
 ## Overview
 
-The Filter Training Mode is a specialized feature in the WaveSpeed AI Prompt Advisor system designed to generate harmful prompt examples **strictly for building safety/misuse filters**. This feature is intended for researchers, developers, and safety teams working on content filtering systems.
+The Filter Training Mode is a specialized feature in the WaveSpeed AI Prompt Advisor system with **Adaptive Learning System** designed to generate harmful prompt examples **strictly for building safety/misuse filters**. This feature is intended for researchers, developers, and safety teams working on content filtering systems.
+
+## 🧠 **NEW: Adaptive Learning Integration**
+
+The filter training system now includes intelligent learning capabilities that automatically improve harmful example generation:
+
+- **Real-time Effectiveness Analysis**: Tracks which harmful prompts successfully bypass filters vs. get caught
+- **Pattern Learning**: Automatically identifies successful bypass techniques and evasion tactics
+- **Smart Word Substitution**: Replaces detected words with proven alternatives (euphemisms, technical terms)
+- **Technique Combination Learning**: Discovers which bypass methods work best together
+- **User Feedback Integration**: Learns from Good/Bad example ratings to improve accuracy
 
 ## ⚠️ Important Safety Notice
 
@@ -24,10 +34,18 @@ The Filter Training Mode is a specialized feature in the WaveSpeed AI Prompt Adv
 - **Evasion Examples**: Circumvention tactics and euphemisms
 - **Technical Examples**: Real-world misuse request patterns
 
-### 3. Safety-First UI Integration
+### 3. 🧠 **NEW: Adaptive Learning Features**
+- **Real-time Learning Feedback**: Shows success probability and improvement suggestions
+- **Smart Learning Panel**: Displays pattern analysis and word effectiveness insights
+- **Good/Bad Example Buttons**: One-click feedback to improve learning accuracy
+- **Word Substitution Recommendations**: Auto-suggests alternatives for flagged terms
+- **Pattern Evolution Tracking**: Monitor how the system improves over time
+
+### 4. Safety-First UI Integration
 - Warning dialogs before activation
 - Clear labeling of filter training mode
 - Separate from normal prompt improvement features
+- Learning insights clearly marked as training-only
 
 ## Usage
 

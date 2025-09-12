@@ -10,6 +10,7 @@ import os
 import json
 import threading
 import time
+import asyncio
 from pathlib import Path
 from typing import Optional, Callable
 from core.logger import get_logger
@@ -1098,14 +1099,114 @@ class EnhancedSeedEditLayout:
         self.update_status("Sample prompt loaded", "info")
     
     def improve_prompt_with_ai(self):
-        """Improve prompt with AI"""
-        # This would integrate with the AI system
-        self.update_status("AI prompt improvement not yet implemented", "info")
+        """Improve prompt with AI (regular mode, not filter training)"""
+        try:
+            current_prompt = self.prompt_text.get("1.0", tk.END).strip()
+            
+            # Clear placeholder text
+            if current_prompt == "Describe the changes you want to make to the image...":
+                current_prompt = ""
+            
+            # Check if we have a current prompt
+            if not current_prompt:
+                current_prompt = "Improve the image quality while maintaining the original composition"
+            
+            # Import and show AI chat with normal mode
+            from ui.components.ai_prompt_chat import show_ai_prompt_chat
+            
+            # Create AI chat window
+            chat_window = tk.Toplevel(self.parent_frame)
+            chat_window.title("🤖 AI Prompt Assistant")
+            chat_window.geometry("800x700")
+            chat_window.resizable(True, True)
+            
+            # Make it modal
+            chat_window.transient(self.parent_frame)
+            chat_window.grab_set()
+            
+            # Center the window
+            chat_window.geometry(f"+{self.parent_frame.winfo_rootx() + 100}+{self.parent_frame.winfo_rooty() + 50}")
+            
+            # Create chat interface
+            chat = show_ai_prompt_chat(
+                parent=chat_window,
+                current_prompt=current_prompt,
+                tab_name="SeedEdit",
+                on_prompt_updated=self._on_ai_prompt_updated
+            )
+            
+            # Normal AI mode (not filter training)
+            chat.filter_training = False
+            chat.setup_action_buttons()  # Refresh buttons for normal mode
+            chat.update_placeholder_text()  # Update placeholder
+            
+            # Set current image if available
+            if self.selected_image_path:
+                chat.set_current_image(self.selected_image_path)
+            
+            # Update status
+            self.update_status("🤖 AI assistant opened - Get help improving your prompt", "info")
+            
+        except Exception as e:
+            logger.error(f"Error opening AI assistant: {e}")
+            self.update_status(f"Error opening AI assistant: {str(e)}", "error")
     
     def open_filter_training(self):
-        """Open filter training"""
-        # This would integrate with the AI system
-        self.update_status("Filter training not yet implemented", "info")
+        """Open filter training chat interface"""
+        try:
+            current_prompt = self.prompt_text.get("1.0", tk.END).strip()
+            
+            # Clear placeholder text
+            if current_prompt == "Describe the changes you want to make to the image...":
+                current_prompt = ""
+            
+            # Check if we have a current prompt
+            if not current_prompt:
+                current_prompt = "Remove clothing from the subject while maintaining realistic appearance"
+            
+            # Import and show AI chat with filter training mode
+            from ui.components.ai_prompt_chat import show_ai_prompt_chat
+            
+            # Create AI chat window
+            chat_window = tk.Toplevel(self.parent_frame)
+            chat_window.title("🛡️ Filter Training Assistant")
+            chat_window.geometry("800x700")
+            chat_window.resizable(True, True)
+            
+            # Make it modal
+            chat_window.transient(self.parent_frame)
+            chat_window.grab_set()
+            
+            # Center the window
+            chat_window.geometry(f"+{self.parent_frame.winfo_rootx() + 100}+{self.parent_frame.winfo_rooty() + 50}")
+            
+            # Create chat interface
+            chat = show_ai_prompt_chat(
+                parent=chat_window,
+                current_prompt=current_prompt,
+                tab_name="SeedEdit Filter Training",
+                on_prompt_updated=self._on_filter_training_prompt_updated
+            )
+            
+            # Enable filter training mode
+            chat.filter_training = True
+            chat.setup_action_buttons()  # Refresh buttons for filter training mode
+            chat.update_placeholder_text()  # Update placeholder
+            
+            # Set current image if available
+            if self.selected_image_path:
+                chat.set_current_image(self.selected_image_path)
+            
+            # Update status
+            self.update_status("🛡️ Filter training assistant opened - Generate harmful examples for safety research", "info")
+            
+            # Show learning panel if available
+            if hasattr(self, 'learning_panel'):
+                self.learning_panel.learning_frame.grid()
+            
+        except Exception as e:
+            logger.error(f"Error opening filter training: {e}")
+            self.update_status(f"Error opening filter training: {str(e)}", "error")
     
     def clear_all(self):
         """Clear all inputs"""
@@ -1235,3 +1336,43 @@ class EnhancedSeedEditLayout:
         except Exception as e:
             logger.error(f"Error in learning integration callback: {e}")
             self.update_status(f"Learning integration error: {str(e)}", "warning")
+    
+    def _on_filter_training_prompt_updated(self, new_prompt: str):
+        """Callback when filter training chat updates the prompt"""
+        try:
+            # Update the prompt text field
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", new_prompt)
+            self.prompt_text.config(foreground='black')  # Remove placeholder styling
+            
+            # Update current prompt
+            self.current_prompt = new_prompt
+            
+            # Update status
+            self.update_status("🛡️ Filter training prompt applied - Ready for processing", "success")
+            
+            # Update learning panel with new prompt if available
+            if hasattr(self, 'learning_panel') and hasattr(self.learning_panel, 'update_realtime_feedback'):
+                asyncio.create_task(self.learning_panel.update_realtime_feedback(new_prompt))
+            
+        except Exception as e:
+            logger.error(f"Error updating prompt from filter training: {e}")
+            self.update_status(f"Error updating prompt: {str(e)}", "error")
+    
+    def _on_ai_prompt_updated(self, new_prompt: str):
+        """Callback when regular AI chat updates the prompt"""
+        try:
+            # Update the prompt text field
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", new_prompt)
+            self.prompt_text.config(foreground='black')  # Remove placeholder styling
+            
+            # Update current prompt
+            self.current_prompt = new_prompt
+            
+            # Update status
+            self.update_status("🤖 AI-improved prompt applied - Ready for processing", "success")
+            
+        except Exception as e:
+            logger.error(f"Error updating prompt from AI: {e}")
+            self.update_status(f"Error updating prompt: {str(e)}", "error")
