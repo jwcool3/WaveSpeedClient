@@ -63,7 +63,7 @@ class EnhancedCompactLayout(AIChatMixin):
     
     def setup_left_controls(self, parent):
         """Setup enhanced left control panel"""
-        left_panel = ttk.Frame(parent, relief='groove', borderwidth=1, padding="8")
+        left_panel = ttk.Frame(parent, padding="8")
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         left_panel.columnconfigure(0, weight=1)
         
@@ -366,7 +366,7 @@ class EnhancedCompactLayout(AIChatMixin):
     
     def setup_center_image_display(self, parent):
         """Enhanced center image display"""
-        image_panel = ttk.Frame(parent, relief='groove', borderwidth=1)
+        image_panel = ttk.Frame(parent)
         image_panel.grid(row=0, column=1, sticky="nsew", padx=5)
         image_panel.columnconfigure(0, weight=1)
         image_panel.rowconfigure(1, weight=1)
@@ -426,7 +426,7 @@ class EnhancedCompactLayout(AIChatMixin):
     
     def setup_right_actions(self, parent):
         """Enhanced right actions panel"""
-        actions_panel = ttk.Frame(parent, relief='groove', borderwidth=1, padding="8")
+        actions_panel = ttk.Frame(parent, padding="8")
         actions_panel.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
         actions_panel.columnconfigure(0, weight=1)
         

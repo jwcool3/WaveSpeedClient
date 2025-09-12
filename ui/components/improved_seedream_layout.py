@@ -25,10 +25,14 @@ logger = get_logger()
 class ImprovedSeedreamLayout(AIChatMixin):
     """Improved Seedream V4 layout with efficient space usage and better UX"""
     
-    def __init__(self, parent_frame):
+    def __init__(self, parent_frame, api_client=None, tab_instance=None):
         self.parent_frame = parent_frame
+        self.api_client = api_client
+        self.tab_instance = tab_instance
         self.selected_image_path = None
         self.result_image_path = None
+        self.result_url = None
+        self.current_task_id = None
         self.tab_name = "Seedream V4"  # For AI integration
         
         # Settings variables
@@ -785,17 +789,18 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.current_view_mode = mode
         
         if mode == "original":
-            self.view_original_btn.config(relief='sunken')
-            self.view_result_btn.config(relief='raised')
+            # ttk.Button doesn't support relief, use state instead
+            self.view_original_btn.state(['pressed'])
+            self.view_result_btn.state(['!pressed'])
             if self.selected_image_path:
                 self.display_image(self.selected_image_path)
         elif mode == "result":
-            self.view_result_btn.config(relief='sunken')
-            self.view_original_btn.config(relief='raised')
+            self.view_result_btn.state(['pressed'])
+            self.view_original_btn.state(['!pressed'])
             if self.result_image_path:
                 self.display_image(self.result_image_path)
         
-        self.comparison_btn.config(relief='raised')
+        self.comparison_btn.state(['!pressed'])
     
     def toggle_comparison_mode(self):
         """Toggle comparison mode"""
@@ -803,9 +808,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.status_label.config(text="Need both images for comparison", foreground="orange")
             return
         
-        self.comparison_btn.config(relief='sunken')
-        self.view_original_btn.config(relief='raised')
-        self.view_result_btn.config(relief='raised')
+        self.comparison_btn.state(['pressed'])
+        self.view_original_btn.state(['!pressed'])
+        self.view_result_btn.state(['!pressed'])
         
         self.display_comparison()
     

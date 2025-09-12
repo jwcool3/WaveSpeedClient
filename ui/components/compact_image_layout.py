@@ -49,7 +49,7 @@ class CompactImageLayout:
     
     def setup_left_controls(self, parent):
         """Setup compact left control panel"""
-        left_panel = ttk.Frame(parent, relief='groove', borderwidth=1, padding="5")
+        left_panel = ttk.Frame(parent, padding="5")
         left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
         left_panel.columnconfigure(0, weight=1)
         
@@ -194,7 +194,7 @@ class CompactImageLayout:
     
     def setup_center_image_display(self, parent):
         """Large, efficient image display in center"""
-        image_panel = ttk.Frame(parent, relief='groove', borderwidth=1)
+        image_panel = ttk.Frame(parent)
         image_panel.grid(row=0, column=1, sticky="nsew", padx=5)
         image_panel.columnconfigure(0, weight=1)
         image_panel.rowconfigure(1, weight=1)
@@ -250,7 +250,7 @@ class CompactImageLayout:
     
     def setup_right_actions(self, parent):
         """Right panel for actions and status - always visible"""
-        actions_panel = ttk.Frame(parent, relief='groove', borderwidth=1, padding="5")
+        actions_panel = ttk.Frame(parent, padding="5")
         actions_panel.grid(row=0, column=2, sticky="nsew", padx=(5, 0))
         actions_panel.columnconfigure(0, weight=1)
         
