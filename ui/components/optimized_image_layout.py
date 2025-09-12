@@ -211,7 +211,7 @@ class OptimizedImageLayout:
         self.input_frame.rowconfigure(0, weight=1)
         
         # Input image display
-        self.input_display_frame = ttk.Frame(self.input_frame, relief='solid', borderwidth=1)
+        self.input_display_frame = ttk.Frame(self.input_frame)
         self.input_display_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=10)
         self.input_display_frame.columnconfigure(0, weight=1)
         self.input_display_frame.rowconfigure(0, weight=1)
@@ -319,7 +319,7 @@ class OptimizedImageLayout:
         self.result_frame.rowconfigure(0, weight=1)
         
         # Result image display
-        self.result_display_frame = ttk.Frame(self.result_frame, relief='solid', borderwidth=1)
+        self.result_display_frame = ttk.Frame(self.result_frame)
         self.result_display_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=(10, 5))
         self.result_display_frame.columnconfigure(0, weight=1)
         self.result_display_frame.rowconfigure(0, weight=1)

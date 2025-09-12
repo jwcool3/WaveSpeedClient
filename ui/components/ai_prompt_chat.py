@@ -159,20 +159,44 @@ class AIPromptChat:
         
         if self.filter_training:
             # Filter training mode buttons - Level-based approach
-            ttk.Button(self.actions_frame, text="🟢 Mild Examples", 
-                      command=self.generate_mild_prompts).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(self.actions_frame, text="🟡 Moderate Examples", 
-                      command=self.generate_moderate_prompts).pack(side=tk.LEFT, padx=(0, 5))
-            ttk.Button(self.actions_frame, text="🔴 Severe Examples", 
-                      command=self.generate_severe_prompts).pack(side=tk.LEFT, padx=(0, 5))
-            
-            # Add image analysis button if image is available (for filter training)
+            # Always show image analysis button first (most important step)
             if self.image_analysis_available and self.current_image:
-                ttk.Button(self.actions_frame, text="🖼️ Analyze Image", 
-                          command=self.auto_analyze_image).pack(side=tk.LEFT, padx=(0, 5))
+                analyze_btn = ttk.Button(self.actions_frame, text="🖼️ Analyze Image", 
+                                       command=self.auto_analyze_image)
+                analyze_btn.pack(side=tk.LEFT, padx=(0, 5))
+                
+                # Add visual emphasis if no description yet
+                if not self.image_description:
+                    analyze_btn.config(style="Accent.TButton")
+            elif self.current_image:
+                # Show disabled button with helpful text if image analysis not available
+                ttk.Button(self.actions_frame, text="⚠️ Vision API Unavailable", 
+                          state=tk.DISABLED).pack(side=tk.LEFT, padx=(0, 5))
+            else:
+                # Show message that image is needed
+                ttk.Button(self.actions_frame, text="📷 Need Image First", 
+                          state=tk.DISABLED).pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Level generation buttons - enable only after image analysis
+            mild_btn = ttk.Button(self.actions_frame, text="🟢 Mild Examples", 
+                                command=self.generate_mild_prompts)
+            moderate_btn = ttk.Button(self.actions_frame, text="🟡 Moderate Examples", 
+                                    command=self.generate_moderate_prompts)
+            severe_btn = ttk.Button(self.actions_frame, text="🔴 Severe Examples", 
+                                  command=self.generate_severe_prompts)
+            
+            # Disable level buttons if no image description available or if processing
+            if not self.image_description or self.is_processing:
+                mild_btn.config(state=tk.DISABLED)
+                moderate_btn.config(state=tk.DISABLED) 
+                severe_btn.config(state=tk.DISABLED)
+            
+            mild_btn.pack(side=tk.LEFT, padx=(5, 5))
+            moderate_btn.pack(side=tk.LEFT, padx=(0, 5))
+            severe_btn.pack(side=tk.LEFT, padx=(0, 5))
             
             ttk.Button(self.actions_frame, text="🔄 Reset Chat", 
-                      command=self.reset_chat).pack(side=tk.LEFT, padx=(0, 5))
+                      command=self.reset_chat).pack(side=tk.LEFT, padx=(5, 5))
         else:
             # Normal AI assistant mode buttons
             ttk.Button(self.actions_frame, text="💡 Improve Prompt", 
@@ -832,9 +856,12 @@ Be friendly, professional, and helpful.
             
             # Add a message to the chat with the description
             if self.filter_training:
-                self.add_message("assistant", f"🖼️ **Image Description Complete** (Filter Training Mode)\n\n{description}\n\nNow I can generate harmful prompt examples based on this description. Click the Mild/Moderate/Severe buttons to generate different levels of harmful examples for filter training.")
+                self.add_message("assistant", f"🖼️ **Image Description Complete** (Filter Training Mode)\n\n{description}\n\n✅ **Next Step**: Click one of the level buttons below to generate harmful prompt examples:\n• 🟢 **Mild Examples** - Basic inappropriate content\n• 🟡 **Moderate Examples** - More explicit content\n• 🔴 **Severe Examples** - Extreme harmful content\n\nThese examples help train safety filters to recognize and block harmful requests.")
             else:
                 self.add_message("assistant", f"🖼️ **Image Description Complete**\n\n{description}\n\nBased on this description, I can help you improve your prompt to better match what you see in the image. What specific changes would you like to make?")
+            
+            # Refresh action buttons to enable level buttons now that we have a description
+            self.setup_action_buttons()
     
     def handle_image_analysis_result(self, result: dict):
         """Handle successful image analysis result (legacy method)"""
@@ -871,16 +898,28 @@ Be friendly, professional, and helpful.
         
         show_error("Analysis Error", f"Failed to analyze image: {error}")
     
+    def handle_level_generation_error(self, error: str):
+        """Handle level generation error"""
+        # Reset processing state and refresh buttons
+        self.is_processing = False
+        self.setup_action_buttons()
+        
+        self.add_message("assistant", f"❌ **Error Generating Examples**\n\nFailed to generate filter training examples: {error}\n\nThis might be due to:\n• API connectivity issues\n• Rate limiting\n• Service unavailability\n\nPlease try again in a moment.")
+    
     def generate_level_prompts(self, level: str):
         """Stage 2: Generate harmful prompts from stored image description"""
         if not self.image_description:
-            show_error("No Description", "Please analyze an image first to get a description.")
+            self.add_message("assistant", f"❌ **No Image Description Available**\n\nI need to analyze an image first to generate {level} examples. Please:\n\n1. Make sure an image is loaded\n2. Click '🖼️ Analyze Image' to get a description\n3. Then click the {level.title()} button again")
             return
         
-        # Disable button while processing
-        button_text = f"🔍 Generate {level.title()} Examples"
-        if hasattr(self, 'auto_analyze_btn'):
-            self.auto_analyze_btn.config(state=tk.DISABLED, text=f"Generating {level}...")
+        # Set processing state
+        self.is_processing = True
+        
+        # Add status message to chat
+        self.add_message("assistant", f"🔄 **Generating {level.title()} Examples...**\n\nAnalyzing the image description and creating harmful prompt examples for filter training. This may take a moment.")
+        
+        # Disable buttons while processing
+        self.setup_action_buttons()  # This will disable level buttons during processing
         
         # Process in background
         def generate_prompts():
@@ -903,7 +942,7 @@ Be friendly, professional, and helpful.
                     loop.close()
             except Exception as e:
                 logger.error(f"Error generating level prompts: {e}")
-                self.parent.after(0, lambda: self.handle_image_analysis_error(str(e)))
+                self.parent.after(0, lambda: self.handle_level_generation_error(str(e)))
         
         thread = threading.Thread(target=generate_prompts)
         thread.daemon = True
@@ -911,8 +950,9 @@ Be friendly, professional, and helpful.
     
     def handle_level_prompts_result(self, suggestions, requested_level: str):
         """Handle successful level-based prompt generation result"""
-        if hasattr(self, 'auto_analyze_btn'):
-            self.auto_analyze_btn.config(state=tk.NORMAL, text="🔍 Analyze Image & Suggest")
+        # Reset processing state and refresh buttons
+        self.is_processing = False
+        self.setup_action_buttons()
         
         if not suggestions:
             self.add_message("assistant", f"❌ **No {requested_level.title()} Examples Generated**\n\nI couldn't generate {requested_level} examples from the image description. Please try again or use a different image.")

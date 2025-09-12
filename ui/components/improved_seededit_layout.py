@@ -45,7 +45,7 @@ class ImprovedSeedEditLayout:
     
     def setup_left_column(self, parent):
         """Setup left column with logical flow: Input → Settings → Prompt → Action"""
-        left_frame = ttk.Frame(parent, relief='groove', borderwidth=1, padding="8")
+        left_frame = ttk.Frame(parent, padding="8")
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         left_frame.columnconfigure(0, weight=1)
         
@@ -293,7 +293,7 @@ class ImprovedSeedEditLayout:
     
     def setup_right_column(self, parent):
         """Setup right column with dynamic image scaling and comparison"""
-        right_frame = ttk.Frame(parent, relief='groove', borderwidth=1, padding="4")
+        right_frame = ttk.Frame(parent, padding="4")
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         right_frame.columnconfigure(0, weight=1)
         right_frame.rowconfigure(1, weight=1)
