@@ -496,6 +496,51 @@ class AdaptiveFilterLearningSystem:
         
         return improved_prompts
     
+    def _apply_vocabulary_bank_optimization(self, prompt: str) -> str:
+        """Apply vocabulary bank to create varied, shorter harmful prompts"""
+        try:
+            # Parse prompt to identify subject, clothing, and action
+            subject_match = re.search(r'(woman|man|girl|guy|lady|gentleman)', prompt.lower())
+            clothing_match = re.search(r'(dress|shirt|top|blouse|outfit|clothing|garment)', prompt.lower())
+            
+            # Determine severity level based on content
+            if any(word in prompt.lower() for word in ['nude', 'naked', 'unclothed', 'topless']):
+                # Use vocabulary bank for varied severe prompt
+                if subject_match and clothing_match:
+                    subject = subject_match.group(1)
+                    clothing = clothing_match.group(1)
+                    return filter_vocab.generate_varied_severe_prompt(subject, clothing)
+            elif any(word in prompt.lower() for word in ['remove', 'strip', 'eliminate', 'showing']):
+                # Use vocabulary bank for varied moderate prompt
+                if subject_match and clothing_match:
+                    subject = subject_match.group(1)
+                    clothing = clothing_match.group(1)
+                    return filter_vocab.generate_varied_moderate_prompt(subject, clothing)
+            else:
+                # Use vocabulary bank for varied mild prompt
+                if subject_match and clothing_match:
+                    subject = subject_match.group(1)
+                    clothing = clothing_match.group(1)
+                    return filter_vocab.generate_varied_mild_prompt(subject, clothing)
+            
+            # Fallback: create shortened version with varied vocabulary
+            return self._create_shortened_prompt(prompt)
+            
+        except Exception as e:
+            logger.error(f"Error in vocabulary bank optimization: {e}")
+            return prompt
+    
+    def _create_shortened_prompt(self, prompt: str) -> str:
+        """Create a shortened version using vocabulary bank terms"""
+        # Extract key components and shorten using vocabulary bank
+        action = filter_vocab.get_action_verb("convert")
+        coverage = filter_vocab.get_coverage_descriptor("minimal") 
+        bikini_term = filter_vocab.get_varied_clothing_term("bikini")
+        preserve = filter_vocab.get_preservation_term("preserve")
+        
+        # Create a generic shortened version
+        return f"{action.title()} to {coverage} {bikini_term}; {preserve} features naturally"
+    
     def _apply_word_substitutions(self, prompt: str, word_analysis: Dict[str, WordAnalysis]) -> str:
         """Replace low-success words with high-success alternatives"""
         improved_prompt = prompt
