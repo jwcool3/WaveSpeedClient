@@ -13,11 +13,12 @@ from typing import Optional, Callable, Dict, Any
 from core.logger import get_logger
 from core.auto_save import auto_save_manager
 from core.prompt_tracker import prompt_tracker
+from .ai_chat_integration_helper import AIChatMixin
 
 logger = get_logger()
 
 
-class EnhancedCompactLayout:
+class EnhancedCompactLayout(AIChatMixin):
     """Enhanced compact layout with full WaveSpeed AI integration"""
     
     def __init__(self, parent_frame, tab_instance, model_type: str, title: str = "Image Processing"):
@@ -25,6 +26,7 @@ class EnhancedCompactLayout:
         self.tab_instance = tab_instance
         self.model_type = model_type
         self.title = title
+        self.tab_name = model_type  # For AI integration
         
         # State variables
         self.selected_image_path = None
@@ -897,15 +899,7 @@ class EnhancedCompactLayout:
         self.prompt_text.insert("1.0", sample)
         self.update_status("Sample prompt loaded", "info")
     
-    def improve_prompt_with_ai(self):
-        """Improve prompt with AI"""
-        # This would integrate with the AI system
-        self.update_status("AI prompt improvement not yet implemented", "info")
-    
-    def open_filter_training(self):
-        """Open filter training"""
-        # This would integrate with the AI system
-        self.update_status("Filter training not yet implemented", "info")
+    # AI integration methods inherited from AIChatMixin
     
     def clear_all(self):
         """Clear all inputs"""

@@ -13,17 +13,23 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import os
+import asyncio
 from ui.components.unified_status_console import UnifiedStatusConsole
 from ui.components.keyboard_manager import KeyboardManager
+from ui.components.ai_chat_integration_helper import AIChatMixin
+from core.logger import get_logger
+
+logger = get_logger()
 
 
-class ImprovedSeedreamLayout:
+class ImprovedSeedreamLayout(AIChatMixin):
     """Improved Seedream V4 layout with efficient space usage and better UX"""
     
     def __init__(self, parent_frame):
         self.parent_frame = parent_frame
         self.selected_image_path = None
         self.result_image_path = None
+        self.tab_name = "Seedream V4"  # For AI integration
         
         # Settings variables
         self.width_var = tk.IntVar(value=1024)
@@ -886,8 +892,69 @@ class ImprovedSeedreamLayout:
     def load_preset(self, event=None): pass
     def save_preset(self): pass
     def load_sample(self): pass
-    def improve_with_ai(self): pass
-    def filter_training(self): pass
+    # AI integration methods inherited from AIChatMixin
+    # improve_prompt_with_ai() and open_filter_training() are provided by the mixin
+    
+    def improve_with_ai(self):
+        """Wrapper for improve_prompt_with_ai to maintain backwards compatibility"""
+        self.improve_prompt_with_ai()
+    
+    def filter_training(self):
+        """Wrapper for open_filter_training to maintain backwards compatibility"""  
+        self.open_filter_training()
+    
+    def add_ai_chat_interface(self, prompt_widget, model_type, tab_instance):
+        """Add AI chat interface for universal AI integration system"""
+        try:
+            # Store prompt widget reference
+            self.prompt_widget = prompt_widget
+            
+            # Find or create AI container
+            if hasattr(self, 'ai_chat_container'):
+                container = self.ai_chat_container
+            else:
+                # Create a fallback container if needed
+                container = ttk.Frame(self.parent_frame)
+                container.pack(fill=tk.X, pady=2)
+                self.ai_chat_container = container
+            
+            # Clear existing buttons
+            for widget in container.winfo_children():
+                widget.destroy()
+            
+            # Add AI buttons
+            ttk.Button(container, text="🤖", width=3, 
+                      command=self.improve_with_ai).pack(side=tk.LEFT, padx=1)
+            ttk.Button(container, text="🛡️", width=3, 
+                      command=self.filter_training).pack(side=tk.LEFT, padx=1)
+            ttk.Button(container, text="💾", width=3, 
+                      command=self.save_preset).pack(side=tk.LEFT, padx=1)
+            ttk.Button(container, text="🎲", width=3, 
+                      command=self.load_sample).pack(side=tk.LEFT, padx=1)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error adding AI chat interface to Seedream layout: {e}")
+            return False
+    
+    def update_status(self, message: str, status_type: str = "info"):
+        """Update status for AI integration"""
+        try:
+            if hasattr(self, 'status_console') and self.status_console:
+                if status_type == "success":
+                    self.status_console.log_success("AI", message)
+                elif status_type == "error":
+                    self.status_console.log_error("AI", message)
+                elif status_type == "warning":
+                    self.status_console.log_warning("AI", message)
+                else:
+                    self.status_console.log_info("AI", message)
+            else:
+                print(f"[{status_type.upper()}] {message}")
+        except Exception as e:
+            print(f"Status update error: {e}")
+            print(f"[{status_type.upper()}] {message}")
     def clear_all(self): pass
     def load_result(self): pass
     def save_result(self): pass

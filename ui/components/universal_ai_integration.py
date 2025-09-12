@@ -123,20 +123,27 @@ class UniversalAIIntegrator:
     def _add_ai_buttons(self, parent_frame, prompt_widget, model_type: str, tab_instance):
         """Add AI improvement buttons to the parent frame"""
         try:
-            # Check if this is an optimized layout with AI chat container
-            if (hasattr(tab_instance, 'optimized_layout') and 
-                hasattr(tab_instance.optimized_layout, 'ai_chat_container') and
-                parent_frame == tab_instance.optimized_layout.ai_chat_container):
-                
+            # Check if this is an optimized layout with add_ai_chat_interface method
+            layout = None
+            if hasattr(tab_instance, 'optimized_layout'):
+                layout = tab_instance.optimized_layout
+            elif hasattr(tab_instance, 'layout'):
+                layout = tab_instance.layout
+            
+            if layout and hasattr(layout, 'add_ai_chat_interface'):
                 # Use the new AI chat interface
-                success = tab_instance.optimized_layout.add_ai_chat_interface(
-                    prompt_widget, model_type, tab_instance
-                )
+                success = layout.add_ai_chat_interface(prompt_widget, model_type, tab_instance)
                 if success:
                     logger.info(f"Added AI chat interface to {model_type} tab")
                     return
                 else:
                     logger.warning(f"Failed to add AI chat interface to {model_type} tab, falling back to buttons")
+            
+            # Check if layout uses AIChatMixin (has the methods but no add_ai_chat_interface)
+            if layout and hasattr(layout, 'improve_prompt_with_ai') and hasattr(layout, 'open_filter_training'):
+                # Layout already has AI integration via mixin, don't add duplicate buttons
+                logger.info(f"Layout for {model_type} already has AI integration via AIChatMixin")
+                return
             
             # Fallback to traditional buttons
             # Create AI improve button
