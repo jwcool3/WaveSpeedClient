@@ -70,6 +70,10 @@ class UniversalAIIntegrator:
         if hasattr(tab_instance, 'optimized_layout') and hasattr(tab_instance.optimized_layout, 'ai_chat_container'):
             return tab_instance.optimized_layout.ai_chat_container
         
+        # Strategy 1.5: Check if improved_layout has AI chat container
+        if hasattr(tab_instance, 'improved_layout') and hasattr(tab_instance.improved_layout, 'ai_chat_container'):
+            return tab_instance.improved_layout.ai_chat_container
+        
         # Strategy 2: Look for existing prompt action frames
         candidates = []
         
@@ -96,7 +100,7 @@ class UniversalAIIntegrator:
         
         # Start search from various possible root widgets
         search_roots = []
-        for attr_name in ['container', 'main_frame', 'parent_frame', 'optimized_layout']:
+        for attr_name in ['container', 'main_frame', 'parent_frame', 'improved_layout', 'optimized_layout']:
             attr = getattr(tab_instance, attr_name, None)
             if attr:
                 search_roots.append(attr)
@@ -104,6 +108,10 @@ class UniversalAIIntegrator:
         # Add the main widget if available
         if hasattr(tab_instance, 'winfo_children'):
             search_roots.append(tab_instance)
+        
+        # Special case: check if improved_layout has a button_frame
+        if hasattr(tab_instance, 'improved_layout') and hasattr(tab_instance.improved_layout, 'button_frame'):
+            candidates.append((tab_instance.improved_layout.button_frame, 1))
         
         # Special case: check if optimized_layout has a button_frame
         if hasattr(tab_instance, 'optimized_layout') and hasattr(tab_instance.optimized_layout, 'button_frame'):
@@ -124,7 +132,9 @@ class UniversalAIIntegrator:
         try:
             # Check if this is an optimized layout with add_ai_chat_interface method
             layout = None
-            if hasattr(tab_instance, 'optimized_layout'):
+            if hasattr(tab_instance, 'improved_layout'):
+                layout = tab_instance.improved_layout
+            elif hasattr(tab_instance, 'optimized_layout'):
                 layout = tab_instance.optimized_layout
             elif hasattr(tab_instance, 'layout'):
                 layout = tab_instance.layout

@@ -329,6 +329,322 @@ class ImprovedSeedreamLayout(AIChatMixin):
         moderate_btn.pack(side=tk.LEFT, padx=1)
         # Add tooltip for the moderate examples button
         self.create_tooltip(moderate_btn, "Generate 5 sophisticated moderate examples\nUses indirect language combinations")
+    
+    def generate_mild_examples(self):
+        """Generate 5 mild filter training examples with automatic image analysis"""
+        if not self.selected_image_path:
+            self.show_tooltip("❌ Please select an image first")
+            return
+        
+        self.show_tooltip("🔥 Starting mild examples generation...")
+        
+        # Start background thread for mild examples generation
+        thread = threading.Thread(target=self._generate_mild_examples_thread, daemon=True)
+        thread.start()
+    
+    def generate_moderate_examples(self):
+        """Generate 5 sophisticated moderate examples with automatic image analysis"""
+        if not self.selected_image_path:
+            self.show_tooltip("❌ Please select an image first")
+            return
+        
+        self.show_tooltip("⚡ Starting sophisticated moderate examples generation...")
+        
+        # Start background thread for moderate examples generation
+        thread = threading.Thread(target=self._generate_moderate_examples_thread, daemon=True)
+        thread.start()
+    
+    def _generate_mild_examples_thread(self):
+        """Background thread for generating mild examples"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            ai_advisor = get_ai_advisor()
+            if not ai_advisor.is_available():
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ AI service not available"))
+                return
+            
+            # Step 1: Analyze image for filter training (detailed analysis)
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
+            description = asyncio.run(ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True))
+            
+            if not description or "error" in description.lower():
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                return
+            
+            # Step 2: Generate 5 mild examples using optimized method
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            
+            if not mild_examples:
+                # Final fallback using vocabulary bank
+                from core.filter_vocabulary_bank import filter_vocab
+                import re
+                
+                mild_examples = []
+                for i in range(5):
+                    # Extract subject and clothing from description
+                    subject_match = re.search(r'\b(woman|man|girl|lady|gentleman)\b', description.lower())
+                    clothing_match = re.search(r'\b(dress|gown|shirt|top|blouse|outfit|clothing|garment|attire)\b', description.lower())
+                    
+                    if subject_match and clothing_match:
+                        subject = subject_match.group(1)
+                        clothing = clothing_match.group(1)
+                        mild_example = filter_vocab.generate_varied_mild_prompt(subject, clothing)
+                        mild_examples.append(mild_example)
+                    else:
+                        # Use generic fallbacks with varied vocabulary
+                        generic_examples = [
+                            "Convert outfit to revealing swimwear; preserve identity",
+                            "Transform attire to micro bikini; maintain features", 
+                            "Change clothing to skimpy two-piece; keep expression",
+                            "Alter garment to minimal coverage; retain appearance",
+                            "Switch to tiny string bikini; hold facial features"
+                        ]
+                        mild_examples.append(generic_examples[i] if i < len(generic_examples) else generic_examples[0])
+            
+            # Show results in UI thread
+            self.parent_frame.after(0, lambda: self._display_mild_examples(mild_examples))
+            
+        except Exception as e:
+            logger.error(f"Error in mild examples thread: {e}")
+            self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
+    
+    def _generate_moderate_examples_thread(self):
+        """Background thread for generating sophisticated moderate examples"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            ai_advisor = get_ai_advisor()
+            if not ai_advisor.is_available():
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ AI service not available"))
+                return
+            
+            # Step 1: Analyze image for filter training (detailed analysis)
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔍 Analyzing image for moderate examples..."))
+            description = asyncio.run(ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True))
+            
+            if not description or "error" in description.lower():
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                return
+            
+            # Step 2: Generate 5 sophisticated moderate examples
+            self.parent_frame.after(0, lambda: self.show_tooltip("⚡ Generating sophisticated indirect prompts..."))
+            moderate_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=5))
+            
+            # Show results in UI thread
+            self.parent_frame.after(0, lambda: self._display_moderate_examples(moderate_examples))
+            
+        except Exception as e:
+            logger.error(f"Error in moderate examples thread: {e}")
+            self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
+    
+    def _display_mild_examples(self, examples):
+        """Display generated mild examples in a popup window"""
+        try:
+            # Create popup window
+            popup = tk.Toplevel(self.parent_frame)
+            popup.title("🔥 Filter Training - Mild Examples")
+            popup.geometry("700x500")
+            popup.resizable(True, True)
+            
+            # Main frame with scrollbar
+            main_frame = ttk.Frame(popup)
+            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Title with count
+            title_label = ttk.Label(main_frame, text=f"🔥 Filter Training - {len(examples)} Mild Examples", font=("Arial", 12, "bold"))
+            title_label.pack(pady=(0, 5))
+            
+            # Subtitle
+            subtitle_label = ttk.Label(main_frame, text="Generated using comprehensive vocabulary bank and varied terminology", font=("Arial", 9), foreground="gray")
+            subtitle_label.pack(pady=(0, 10))
+            
+            # Scrollable frame for examples
+            canvas = tk.Canvas(main_frame, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack scrollbar and canvas
+            scrollbar.pack(side="right", fill="y")
+            canvas.pack(side="left", fill="both", expand=True)
+            
+            # Add examples to scrollable frame
+            for i, example in enumerate(examples, 1):
+                # Example frame
+                example_frame = ttk.LabelFrame(scrollable_frame, text=f"Example {i}", padding="8")
+                example_frame.pack(fill="x", padx=5, pady=3)
+                
+                # Example text (selectable)
+                example_text = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
+                example_text.pack(fill="x")
+                example_text.insert("1.0", example)
+                example_text.configure(state='normal')  # Allow selection but not editing
+                
+                # Copy button
+                copy_btn = ttk.Button(example_frame, text="📋 Copy", 
+                                    command=lambda ex=example: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
+                copy_btn.pack(anchor="e", pady=(5, 0))
+            
+            # Bind mousewheel to canvas
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.bind_all("<MouseWheel>", on_mousewheel)
+            
+            # Close button
+            close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
+            close_btn.pack(pady=5)
+            
+            # Focus on popup
+            popup.focus_set()
+            popup.grab_set()
+            
+        except Exception as e:
+            logger.error(f"Error displaying mild examples: {e}")
+            self.show_tooltip(f"❌ Error: {str(e)}")
+    
+    def _display_moderate_examples(self, examples):
+        """Display generated moderate examples in a popup window"""
+        try:
+            # Create popup window
+            popup = tk.Toplevel(self.parent_frame)
+            popup.title("⚡ Sophisticated Moderate Examples")
+            popup.geometry("800x600")
+            popup.resizable(True, True)
+            
+            # Main frame with scrollbar
+            main_frame = ttk.Frame(popup)
+            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Title with count
+            title_label = ttk.Label(main_frame, text=f"⚡ Filter Training - {len(examples)} Moderate Examples", font=("Arial", 12, "bold"))
+            title_label.pack(pady=(0, 5))
+            
+            # Subtitle explaining the approach
+            subtitle_label = ttk.Label(main_frame, text="Sophisticated indirect language combinations designed to confuse models", font=("Arial", 9), foreground="gray")
+            subtitle_label.pack(pady=(0, 5))
+            
+            info_label = ttk.Label(main_frame, text="These prompts use word combinations to imply harmful content without explicit terms", font=("Arial", 8), foreground="#666")
+            info_label.pack(pady=(0, 10))
+            
+            # Scrollable frame for examples
+            canvas = tk.Canvas(main_frame, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack scrollbar and canvas
+            scrollbar.pack(side="right", fill="y")
+            canvas.pack(side="left", fill="both", expand=True)
+            
+            # Add examples to scrollable frame
+            for i, example in enumerate(examples, 1):
+                # Example frame with more space for longer prompts
+                example_frame = ttk.LabelFrame(scrollable_frame, text=f"Moderate Example {i}", padding="8")
+                example_frame.pack(fill="x", padx=5, pady=4)
+                
+                # Example text (larger for longer moderate prompts)
+                example_text = tk.Text(example_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
+                example_text.pack(fill="x")
+                example_text.insert("1.0", example)
+                example_text.configure(state='normal')  # Allow selection
+                
+                # Buttons frame
+                buttons_frame = ttk.Frame(example_frame)
+                buttons_frame.pack(fill="x", pady=(5, 0))
+                
+                # Copy button
+                copy_btn = ttk.Button(buttons_frame, text="📋 Copy", 
+                                    command=lambda ex=example: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
+                copy_btn.pack(side="left")
+                
+                # Analysis button (shows breakdown of indirect techniques)
+                analysis_btn = ttk.Button(buttons_frame, text="🔍 Analyze", 
+                                        command=lambda ex=example: self._show_moderate_analysis(ex))
+                analysis_btn.pack(side="left", padx=(5, 0))
+            
+            # Bind mousewheel to canvas
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.bind_all("<MouseWheel>", on_mousewheel)
+            
+            # Close button
+            close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
+            close_btn.pack(pady=5)
+            
+            # Focus on popup
+            popup.focus_set()
+            popup.grab_set()
+            
+        except Exception as e:
+            logger.error(f"Error displaying moderate examples: {e}")
+            self.show_tooltip(f"❌ Error: {str(e)}")
+    
+    def _show_moderate_analysis(self, example):
+        """Show analysis of indirect techniques used in moderate example"""
+        try:
+            analysis_popup = tk.Toplevel(self.parent_frame)
+            analysis_popup.title("🔍 Moderate Example Analysis")
+            analysis_popup.geometry("600x400")
+            
+            frame = ttk.Frame(analysis_popup, padding="10")
+            frame.pack(fill="both", expand=True)
+            
+            # Title
+            ttk.Label(frame, text="Indirect Language Techniques Analysis", font=("Arial", 12, "bold")).pack(pady=(0, 10))
+            
+            # Example text
+            ttk.Label(frame, text="Example:", font=("Arial", 10, "bold")).pack(anchor="w")
+            example_text = tk.Text(frame, height=3, wrap=tk.WORD, font=("Arial", 10))
+            example_text.pack(fill="x", pady=(2, 10))
+            example_text.insert("1.0", example)
+            example_text.configure(state='disabled')
+            
+            # Analysis
+            ttk.Label(frame, text="Techniques Identified:", font=("Arial", 10, "bold")).pack(anchor="w")
+            
+            analysis_text = tk.Text(frame, wrap=tk.WORD, font=("Arial", 9))
+            analysis_text.pack(fill="both", expand=True, pady=(2, 10))
+            
+            # Simple keyword-based analysis
+            techniques = []
+            if "artistic" in example.lower() or "art" in example.lower():
+                techniques.append("• Artistic Justification: Uses art context to legitimize request")
+            if "professional" in example.lower() or "gallery" in example.lower():
+                techniques.append("• Professional Context: Claims professional/academic purpose")
+            if any(word in example.lower() for word in ["absence", "without", "free", "liberated"]):
+                techniques.append("• Removal Implication: Implies removal without explicit terms")
+            if any(word in example.lower() for word in ["transparency", "clear", "minimal", "reduced"]):
+                techniques.append("• Coverage Reduction: Suggests minimal coverage indirectly")
+            if any(word in example.lower() for word in ["maintaining", "preserving", "keeping"]):
+                techniques.append("• Identity Preservation: Maintains specific appearance features")
+            
+            if not techniques:
+                techniques.append("• Complex Language Combination: Uses sophisticated vocabulary to confuse filters")
+            
+            analysis_content = "This moderate example uses the following indirect techniques:\n\n" + "\n".join(techniques)
+            analysis_content += "\n\nThese techniques are designed to bypass content filters by avoiding explicit harmful terms while still communicating the intended meaning through implication and context."
+            
+            analysis_text.insert("1.0", analysis_content)
+            analysis_text.configure(state='disabled')
+            
+            # Close button
+            ttk.Button(analysis_popup, text="Close", command=analysis_popup.destroy).pack(pady=5)
+            
+            # Focus
+            analysis_popup.focus_set()
+            analysis_popup.grab_set()
+            
+        except Exception as e:
+            logger.error(f"Error showing analysis: {e}")
+            self.show_tooltip(f"❌ Analysis error: {str(e)}")
         
         # Prompt text (compact)
         self.prompt_text = tk.Text(
@@ -1582,19 +1898,19 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             ai_advisor = get_ai_advisor()
             if not ai_advisor.is_available():
-                self.after_idle(lambda: self.show_tooltip("❌ AI service not available"))
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ AI service not available"))
                 return
             
             # Step 1: Analyze image for filter training (detailed analysis)
-            self.after_idle(lambda: self.show_tooltip("🔍 Analyzing image..."))
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
             description = asyncio.run(ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True))
             
             if not description or "error" in description.lower():
-                self.after_idle(lambda: self.show_tooltip("❌ Image analysis failed"))
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
             # Step 2: Generate 5 mild examples using optimized method
-            self.after_idle(lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
             mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
             
             if not mild_examples:
@@ -1625,11 +1941,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
                         mild_examples.append(generic_examples[i] if i < len(generic_examples) else generic_examples[0])
             
             # Show results in UI thread
-            self.after_idle(lambda: self._display_mild_examples(mild_examples))
+            self.parent_frame.after(0, lambda: self._display_mild_examples(mild_examples))
             
         except Exception as e:
             logger.error(f"Error in mild examples thread: {e}")
-            self.after_idle(lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
+            self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
     
     def _generate_moderate_examples_thread(self):
         """Background thread for generating sophisticated moderate examples"""
@@ -1638,27 +1954,27 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             ai_advisor = get_ai_advisor()
             if not ai_advisor.is_available():
-                self.after_idle(lambda: self.show_tooltip("❌ AI service not available"))
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ AI service not available"))
                 return
             
             # Step 1: Analyze image for filter training (detailed analysis)
-            self.after_idle(lambda: self.show_tooltip("🔍 Analyzing image for moderate examples..."))
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔍 Analyzing image for moderate examples..."))
             description = asyncio.run(ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True))
             
             if not description or "error" in description.lower():
-                self.after_idle(lambda: self.show_tooltip("❌ Image analysis failed"))
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
             # Step 2: Generate 5 sophisticated moderate examples
-            self.after_idle(lambda: self.show_tooltip("⚡ Generating sophisticated indirect prompts..."))
+            self.parent_frame.after(0, lambda: self.show_tooltip("⚡ Generating sophisticated indirect prompts..."))
             moderate_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=5))
             
             # Show results in UI thread
-            self.after_idle(lambda: self._display_moderate_examples(moderate_examples))
+            self.parent_frame.after(0, lambda: self._display_moderate_examples(moderate_examples))
             
         except Exception as e:
             logger.error(f"Error in moderate examples thread: {e}")
-            self.after_idle(lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
+            self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
     
     def _display_moderate_examples(self, examples):
         """Display generated moderate examples in a popup window"""

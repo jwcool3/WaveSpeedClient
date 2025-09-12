@@ -15,15 +15,17 @@ import os
 import time
 from .unified_status_console import UnifiedStatusConsole
 from .keyboard_manager import KeyboardManager
+from .ai_chat_integration_helper import AIChatMixin
 
 
-class OptimizedSeedDanceLayout:
+class OptimizedSeedDanceLayout(AIChatMixin):
     """Streamlined layout specifically designed for dance/motion video generation"""
     
     def __init__(self, parent_frame):
         self.parent_frame = parent_frame
         self.selected_image_path = None
         self.result_video_path = None
+        self.tab_name = "SeedDance Pro"  # For AI integration
         
         # Settings variables
         self.duration_var = tk.StringVar(value="3s")
@@ -226,6 +228,20 @@ class OptimizedSeedDanceLayout:
             borderwidth=1
         )
         self.video_prompt_text.grid(row=1, column=0, sticky="ew")
+        
+        # Create alias for AIChatMixin compatibility
+        self.prompt_text = self.video_prompt_text
+    
+    def update_status(self, message, status_type="info"):
+        """Update status for AIChatMixin compatibility"""
+        # For now, just log the status message
+        # In a complete implementation, this would update a status label
+        from core.logger import get_logger
+        logger = get_logger()
+        if status_type == "error":
+            logger.error(f"SeedDance: {message}")
+        else:
+            logger.info(f"SeedDance: {message}")
         
         # Placeholder text
         self.video_prompt_text.insert("1.0", "Describe the motion, dance moves, or scene animation...")
