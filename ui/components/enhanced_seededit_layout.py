@@ -10,7 +10,6 @@ import os
 import json
 import threading
 import time
-import asyncio
 from pathlib import Path
 from typing import Optional, Callable
 from core.logger import get_logger

@@ -219,7 +219,6 @@ class QualityRatingWidget:
             
             # Call learning callback if provided
             if self.learning_callback:
-                import asyncio
                 quality_data = {
                     "quality": rating,
                     "failure_reason": None,

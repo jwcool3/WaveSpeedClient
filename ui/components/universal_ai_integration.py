@@ -8,7 +8,6 @@ This system automatically adds AI improvement buttons to all tabs and fixes inte
 import tkinter as tk
 from tkinter import ttk
 from typing import Optional, Callable, List, Dict, Any
-import asyncio
 import threading
 from core.logger import get_logger
 

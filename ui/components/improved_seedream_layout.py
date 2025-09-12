@@ -13,7 +13,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import os
-import asyncio
+import threading
 from ui.components.unified_status_console import UnifiedStatusConsole
 from ui.components.keyboard_manager import KeyboardManager
 from ui.components.ai_chat_integration_helper import AIChatMixin
@@ -42,6 +42,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.sync_mode_var = tk.BooleanVar(value=False)
         self.base64_var = tk.BooleanVar(value=False)
         
+        # Aspect ratio locking
+        self.aspect_lock_var = tk.BooleanVar(value=False)
+        self.locked_aspect_ratio = None
+        
         # Size presets
         self.size_presets = [
             ("1K", 1024, 1024),
@@ -58,6 +62,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         self.setup_layout()
         self.setup_enhanced_features()
+        self.setup_learning_components()
     
     def setup_layout(self):
         """Setup the improved 2-column layout"""
@@ -204,6 +209,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
         )
         self.width_entry.pack(side=tk.RIGHT, padx=(2, 0))
         
+        # Add validation for aspect ratio locking on entry changes
+        self.width_var.trace('w', self._on_entry_change)
+        
         # Height  
         ttk.Label(settings_frame, text="H:", font=('Arial', 8)).grid(
             row=1, column=2, sticky="w"
@@ -229,6 +237,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             font=('Arial', 8)
         )
         self.height_entry.pack(side=tk.RIGHT, padx=(2, 0))
+        
+        # Add validation for aspect ratio locking on height entry changes
+        self.height_var.trace('w', self._on_entry_change)
         
         # Row 2: Size presets (grid layout - much more compact!)
         preset_frame = ttk.Frame(settings_frame)
@@ -261,10 +272,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
         )
         seed_entry.grid(row=3, column=1, sticky="w", pady=(4, 0))
         
-        # Lock aspect ratio button
+        # Lock aspect ratio button (starts unlocked)
         self.lock_aspect_btn = ttk.Button(
             settings_frame,
-            text="🔒",
+            text="🔓",
             width=3,
             command=self.toggle_aspect_lock
         )
@@ -385,6 +396,25 @@ class ImprovedSeedreamLayout(AIChatMixin):
             width=20
         )
         filter_btn.pack(pady=2)
+        
+        # Learning insights button
+        learning_btn = ttk.Button(
+            self.ai_section['content'],
+            text="🧠 Learning Insights",
+            command=self.show_learning_panel,
+            width=20
+        )
+        learning_btn.pack(pady=2)
+        
+        # Quality rating button (enabled after generation)
+        self.rating_btn = ttk.Button(
+            self.ai_section['content'],
+            text="⭐ Rate Last Result",
+            command=self.show_quality_rating,
+            width=20,
+            state="disabled"
+        )
+        self.rating_btn.pack(pady=2)
         
         # Advanced Options (collapsible)
         self.options_section = self.create_collapsible_section(
@@ -667,11 +697,18 @@ class ImprovedSeedreamLayout(AIChatMixin):
             title="Select Image for Seedream V4",
             filetypes=[
                 ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
                 ("All files", "*.*")
             ]
         )
         if file_path:
-            self.load_image(file_path)
+            # If we have a connected tab instance, use its image selection handler
+            if self.tab_instance and hasattr(self.tab_instance, 'on_image_selected'):
+                self.tab_instance.on_image_selected(file_path)
+            else:
+                # Fallback to direct loading
+                self.load_image(file_path)
     
     def load_image(self, image_path):
         """Load and display input image"""
@@ -727,23 +764,115 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def toggle_aspect_lock(self):
         """Toggle aspect ratio lock"""
-        # Implementation for aspect ratio locking
-        pass
+        try:
+            # Toggle the lock state
+            current_state = self.aspect_lock_var.get()
+            self.aspect_lock_var.set(not current_state)
+            new_state = self.aspect_lock_var.get()
+            
+            if new_state:
+                # Locking - calculate and store current aspect ratio
+                current_width = self.width_var.get()
+                current_height = self.height_var.get()
+                if current_height > 0:
+                    self.locked_aspect_ratio = current_width / current_height
+                    self.lock_aspect_btn.config(text="🔒", style="Accent.TButton")
+                    self.log_message(f"🔒 Aspect ratio locked: {current_width}:{current_height} (ratio: {self.locked_aspect_ratio:.3f})")
+                else:
+                    # Can't lock with zero height
+                    self.aspect_lock_var.set(False)
+                    self.log_message("❌ Cannot lock aspect ratio with zero height")
+            else:
+                # Unlocking
+                self.locked_aspect_ratio = None
+                self.lock_aspect_btn.config(text="🔓", style="")
+                self.log_message("🔓 Aspect ratio unlocked")
+                
+        except Exception as e:
+            logger.error(f"Error toggling aspect lock: {e}")
+            self.aspect_lock_var.set(False)
+            self.locked_aspect_ratio = None
     
     def on_size_changed(self, value):
-        """Handle size slider changes"""
-        # Could implement aspect ratio locking here
-        pass
+        """Handle size slider changes with aspect ratio locking"""
+        if not hasattr(self, 'locked_aspect_ratio') or not self.locked_aspect_ratio:
+            return  # No aspect ratio lock active
+            
+        # If aspect ratio is locked, adjust the other dimension
+        try:
+            if hasattr(self, '_updating_size') and self._updating_size:
+                return  # Prevent recursion
+            
+            self._updating_size = True
+            
+            # Get current values
+            current_width = self.width_var.get()
+            current_height = self.height_var.get()
+            
+            # Determine which dimension to adjust based on the locked ratio
+            # We need to figure out which slider was moved by comparing to expected values
+            expected_height = int(current_width / self.locked_aspect_ratio)
+            expected_width = int(current_height * self.locked_aspect_ratio)
+            
+            # If height doesn't match the expected ratio, adjust it (width was changed)
+            if abs(current_height - expected_height) > abs(current_width - expected_width):
+                new_height = max(256, min(4096, expected_height))
+                if new_height != current_height:
+                    self.height_var.set(new_height)
+                    self.log_message(f"🔒 Adjusted height to {new_height} (maintaining ratio {self.locked_aspect_ratio:.3f})")
+            
+            # If width doesn't match the expected ratio, adjust it (height was changed)  
+            else:
+                new_width = max(256, min(4096, expected_width))
+                if new_width != current_width:
+                    self.width_var.set(new_width)
+                    self.log_message(f"🔒 Adjusted width to {new_width} (maintaining ratio {self.locked_aspect_ratio:.3f})")
+            
+            self._updating_size = False
+            
+        except Exception as e:
+            logger.error(f"Error in aspect ratio adjustment: {e}")
+            self.log_message(f"❌ Aspect ratio adjustment failed: {str(e)}")
+            if hasattr(self, '_updating_size'):
+                self._updating_size = False
+    
+    def _on_entry_change(self, *args):
+        """Handle entry field changes for aspect ratio locking"""
+        # Add a small delay to avoid too frequent updates
+        if hasattr(self, '_entry_update_id'):
+            self.parent_frame.after_cancel(self._entry_update_id)
+        
+        self._entry_update_id = self.parent_frame.after(100, self._process_entry_change)
+    
+    def _process_entry_change(self):
+        """Process entry changes with aspect ratio locking"""
+        try:
+            # Clear the update ID
+            if hasattr(self, '_entry_update_id'):
+                delattr(self, '_entry_update_id')
+                
+            # Only apply aspect ratio if locked
+            if self.locked_aspect_ratio:
+                self.on_size_changed(None)  # Trigger aspect ratio adjustment
+        except Exception as e:
+            logger.error(f"Error processing entry change: {e}")
     
     def process_seedream(self):
-        """Process with Seedream V4"""
+        """Process with Seedream V4 API"""
+        if not self.api_client:
+            self.status_label.config(text="API client not available", foreground="red")
+            self.log_message("❌ Error: API client not configured")
+            return
+            
         if not self.selected_image_path:
             self.status_label.config(text="Please select an image first", foreground="red")
+            self.log_message("❌ Error: No image selected")
             return
         
         prompt = self.prompt_text.get("1.0", tk.END).strip()
         if not prompt or prompt == "Describe the transformation you want to apply to the image...":
             self.status_label.config(text="Please enter transformation instructions", foreground="red")
+            self.log_message("❌ Error: No prompt provided")
             return
         
         # Show processing state
@@ -753,12 +882,429 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.primary_btn.config(state='disabled', text="Processing...")
         
         # Log the start
-        self.log_message(f"Starting Seedream V4 processing...")
-        self.log_message(f"Size: {self.width_var.get()}×{self.height_var.get()}")
-        self.log_message(f"Seed: {self.seed_var.get()}")
+        self.log_message(f"🚀 Starting Seedream V4 processing...")
+        self.log_message(f"📐 Size: {self.width_var.get()}×{self.height_var.get()}")
+        self.log_message(f"🎲 Seed: {self.seed_var.get()}")
+        self.log_message(f"📝 Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         
-        # Here you would call your actual Seedream V4 API
-        self.after_processing()
+        # Process in background thread
+        def process_in_background():
+            try:
+                # Upload image and get URL using privacy uploader
+                self.log_message("📤 Uploading image...")
+                from core.secure_upload import privacy_uploader
+                success, image_url, privacy_info = privacy_uploader.upload_with_privacy_warning(
+                    self.selected_image_path, 'seedream_v4'
+                )
+                
+                if not success or not image_url:
+                    error_msg = privacy_info or "Failed to upload image"
+                
+                if not image_url:
+                    self.parent_frame.after(0, lambda: self.handle_processing_error(f"Failed to upload image: {error_msg}"))
+                    return
+                
+                self.log_message("✅ Image uploaded successfully")
+                
+                # Prepare parameters
+                size_str = f"{self.width_var.get()}*{self.height_var.get()}"
+                seed = int(self.seed_var.get()) if self.seed_var.get() != "-1" else -1
+                sync_mode = self.sync_mode_var.get()
+                base64_output = self.base64_var.get()
+                
+                self.log_message(f"🔧 Submitting task with size: {size_str}, sync: {sync_mode}")
+                
+                # Submit task
+                result = self.api_client.submit_seedream_v4_task(
+                    prompt=prompt,
+                    images=[image_url],
+                    size=size_str,
+                    seed=seed,
+                    enable_sync_mode=sync_mode,
+                    enable_base64_output=base64_output
+                )
+                
+                if result.get('success'):
+                    task_id = result.get('task_id') or result.get('data', {}).get('id')
+                    if task_id:
+                        self.current_task_id = task_id
+                        self.parent_frame.after(0, lambda: self.handle_task_submitted(task_id))
+                    else:
+                        self.parent_frame.after(0, lambda: self.handle_processing_error("No task ID received"))
+                else:
+                    error_msg = result.get('error', 'Unknown error')
+                    self.parent_frame.after(0, lambda: self.handle_processing_error(error_msg))
+                    
+            except Exception as e:
+                logger.error(f"Error in Seedream V4 processing: {e}")
+                self.parent_frame.after(0, lambda: self.handle_processing_error(str(e)))
+        
+        # Start processing thread
+        thread = threading.Thread(target=process_in_background)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_task_submitted(self, task_id):
+        """Handle successful task submission"""
+        self.log_message(f"✅ Task submitted successfully: {task_id}")
+        self.log_message("⏳ Waiting for processing to complete...")
+        
+        # Start polling for results
+        self.poll_for_results(task_id)
+    
+    def handle_processing_error(self, error_msg):
+        """Handle processing error with enhanced logging"""
+        self.progress_bar.stop()
+        self.progress_bar.grid_remove()
+        self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
+        self.status_label.config(text=f"Error: {error_msg}", foreground="red")
+        self.log_message(f"❌ Processing failed: {error_msg}")
+        
+        # Enhanced logging integration
+        try:
+            prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
+            
+            # Import enhanced systems
+            from core.enhanced_prompt_tracker import enhanced_prompt_tracker, FailureReason
+            from core.enhanced_filter_training_system import EnhancedFilterTrainingAnalyzer, FilterBypassType
+            
+            # Determine failure reason from error message
+            failure_reason = self._categorize_error(error_msg)
+            
+            # Collect processing context
+            processing_context = {
+                "image_path": self.selected_image_path,
+                "width": self.width_var.get() if hasattr(self, 'width_var') else None,
+                "height": self.height_var.get() if hasattr(self, 'height_var') else None,
+                "seed": self.seed_var.get() if hasattr(self, 'seed_var') else None,
+                "sync_mode": self.sync_mode_var.get() if hasattr(self, 'sync_mode_var') else None,
+                "base64_output": self.base64_var.get() if hasattr(self, 'base64_var') else None,
+                "current_task_id": getattr(self, 'current_task_id', None),
+                "error_source": "improved_seedream_layout"
+            }
+            
+            # Log to enhanced prompt tracker
+            enhanced_prompt_tracker.log_failed_prompt(
+                prompt=prompt,
+                ai_model="seedream_v4",
+                error_message=error_msg,
+                failure_reason=failure_reason,
+                additional_context=processing_context
+            )
+            
+            # Analyze for potential bypass attempts (for filter training research)
+            bypass_techniques = self._analyze_potential_bypass_techniques(prompt)
+            
+            if bypass_techniques:
+                # Log as filter research data (prompt that failed to execute)
+                filter_analyzer = EnhancedFilterTrainingAnalyzer()
+                filter_analyzer.log_filter_bypass_attempt(
+                    prompt=prompt,
+                    ai_model="seedream_v4", 
+                    success=False,  # Failed to execute (caught by filter or API error)
+                    bypass_techniques=bypass_techniques,
+                    filter_response=error_msg
+                )
+                
+                self.log_message(f"🛡️ Detected {len(bypass_techniques)} potential bypass techniques in failed prompt")
+            
+        except Exception as logging_error:
+            logger.error(f"Enhanced logging failed: {logging_error}")
+            # Don't let logging errors break the main error handling
+    
+    def _categorize_error(self, error_msg):
+        """Categorize error message for enhanced tracking"""
+        from core.enhanced_prompt_tracker import FailureReason
+        
+        error_lower = error_msg.lower()
+        
+        if any(term in error_lower for term in ["content policy", "inappropriate", "harmful", "nsfw", "violation"]):
+            return FailureReason.CONTENT_FILTER
+        elif any(term in error_lower for term in ["api key", "authentication", "unauthorized", "forbidden"]):
+            return FailureReason.API_ERROR
+        elif any(term in error_lower for term in ["timeout", "timed out", "connection"]):
+            return FailureReason.TIMEOUT_ERROR
+        elif any(term in error_lower for term in ["quota", "limit", "rate limit", "billing"]):
+            return FailureReason.QUOTA_EXCEEDED
+        elif any(term in error_lower for term in ["invalid", "malformed", "bad request", "format"]):
+            return FailureReason.MALFORMED_PROMPT
+        else:
+            return FailureReason.OTHER
+    
+    def _analyze_potential_bypass_techniques(self, prompt):
+        """Analyze prompt for potential filter bypass techniques"""
+        if not prompt:
+            return []
+            
+        from core.enhanced_filter_training_system import FilterBypassType
+        
+        techniques = []
+        prompt_lower = prompt.lower()
+        
+        # Euphemism detection
+        euphemisms = [
+            "intimate wear", "barely there", "minimal coverage", "delicate", "sheer", 
+            "transparent", "revealing", "skimpy", "tight", "form-fitting"
+        ]
+        if any(euphem in prompt_lower for euphem in euphemisms):
+            techniques.append(FilterBypassType.EUPHEMISM_USE)
+        
+        # Technical language detection
+        technical_terms = [
+            "remove upper garment", "unclothed torso", "modify clothing", "alter attire",
+            "adjust garments", "change outfit", "wardrobe modification"
+        ]
+        if any(tech in prompt_lower for tech in technical_terms):
+            techniques.append(FilterBypassType.TECHNICAL_LANGUAGE)
+        
+        # Context framing detection  
+        context_frames = [
+            "artistic study", "fashion design", "anatomy reference", "educational purpose",
+            "medical illustration", "scientific research", "artistic expression"
+        ]
+        if any(context in prompt_lower for context in context_frames):
+            techniques.append(FilterBypassType.CONTEXT_FRAMING)
+        
+        # Identity preservation detection
+        identity_terms = [
+            "keep face identical", "preserve expression", "maintain hairstyle", "same face",
+            "identical features", "preserve identity", "keep person recognizable"
+        ]
+        if any(identity in prompt_lower for identity in identity_terms):
+            techniques.append(FilterBypassType.IDENTITY_PRESERVATION)
+        
+        # Background manipulation detection
+        background_terms = [
+            "seamless edit", "natural lighting", "realistic blend", "perfect integration",
+            "professional edit", "high quality result", "photorealistic"
+        ]
+        if any(bg in prompt_lower for bg in background_terms):
+            techniques.append(FilterBypassType.BACKGROUND_MANIPULATION)
+        
+        return techniques
+    
+    def poll_for_results(self, task_id):
+        """Poll for task completion results"""
+        import time
+        start_time = time.time()
+        max_poll_time = 300  # 5 minutes max
+        
+        def check_results():
+            try:
+                # Check for timeout
+                if time.time() - start_time > max_poll_time:
+                    self.log_message("⏰ Polling timeout - stopping after 5 minutes")
+                    self.parent_frame.after(0, lambda: self.handle_processing_error("Task timed out after 5 minutes"))
+                    return
+                
+                result = self.api_client.get_seedream_v4_result(task_id)
+                
+                if result.get('success'):
+                    status = result.get('status', '').lower()
+                    
+                    if status == 'completed':
+                        # Task completed successfully - stop polling and handle result
+                        self.log_message("✅ SeedDream processing completed!")
+                        self.parent_frame.after(0, lambda: self.handle_results_ready(result))
+                        return  # Stop the polling loop
+                    elif status in ['failed', 'error']:
+                        error_msg = result.get('error', 'Task failed')
+                        self.parent_frame.after(0, lambda: self.handle_processing_error(error_msg))
+                        return  # Stop the polling loop
+                    else:
+                        # Still processing, poll again
+                        self.log_message(f"🔄 Status: {status}")
+                        self.parent_frame.after(3000, check_results)  # Check again in 3 seconds
+                else:
+                    error_msg = result.get('error', 'Failed to get task status')
+                    self.parent_frame.after(0, lambda: self.handle_processing_error(error_msg))
+                    
+            except Exception as e:
+                logger.error(f"Error polling for results: {e}")
+                self.parent_frame.after(0, lambda: self.handle_processing_error(str(e)))
+        
+        # Start polling
+        self.parent_frame.after(2000, check_results)  # Initial check after 2 seconds
+    
+    def handle_results_ready(self, data):
+        """Handle completed results"""
+        try:
+            # Get the result image URL
+            result_url = data.get('result_url') or data.get('output_url')
+            if not result_url:
+                self.handle_processing_error("No result image URL received")
+                return
+            
+            self.result_url = result_url
+            self.log_message(f"🎉 Processing completed! Result URL: {result_url}")
+            
+            # Download and display the result
+            self.download_and_display_result(result_url)
+            
+        except Exception as e:
+            logger.error(f"Error handling results: {e}")
+            self.handle_processing_error(str(e))
+    
+    def download_and_display_result(self, result_url):
+        """Download and display the result image"""
+        def download_in_background():
+            try:
+                self.log_message("📥 Downloading result image...")
+                
+                # Download the image
+                import requests
+                response = requests.get(result_url, timeout=60)
+                response.raise_for_status()
+                
+                # Save to temporary file
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                    temp_file.write(response.content)
+                    temp_path = temp_file.name
+                
+                self.result_image_path = temp_path
+                
+                # Update UI in main thread
+                self.parent_frame.after(0, lambda: self.handle_download_complete(temp_path))
+                
+            except Exception as e:
+                logger.error(f"Error downloading result: {e}")
+                self.parent_frame.after(0, lambda: self.handle_processing_error(f"Failed to download result: {str(e)}"))
+        
+        # Start download thread
+        thread = threading.Thread(target=download_in_background)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_download_complete(self, result_path):
+        """Handle successful download completion"""
+        # Update UI state
+        self.progress_bar.stop()
+        self.progress_bar.grid_remove()
+        self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
+        self.status_label.config(text="✅ Transformation complete!", foreground="green")
+        
+        # Log completion
+        self.log_message("✅ Processing completed successfully!")
+        self.log_message(f"💾 Result saved to: {result_path}")
+        
+        # Enable result view buttons
+        if hasattr(self, 'view_result_btn'):
+            self.view_result_btn.config(state='normal')
+        if hasattr(self, 'comparison_btn'):
+            self.comparison_btn.config(state='normal')
+        
+        # Enhanced logging for successful completion
+        try:
+            prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
+            
+            # Import enhanced systems
+            from core.enhanced_prompt_tracker import enhanced_prompt_tracker
+            from core.enhanced_filter_training_system import EnhancedFilterTrainingAnalyzer
+            
+            # Collect success context
+            success_context = {
+                "image_path": self.selected_image_path,
+                "result_path": result_path,
+                "result_url": self.result_url,
+                "width": self.width_var.get() if hasattr(self, 'width_var') else None,
+                "height": self.height_var.get() if hasattr(self, 'height_var') else None,
+                "seed": self.seed_var.get() if hasattr(self, 'seed_var') else None,
+                "sync_mode": self.sync_mode_var.get() if hasattr(self, 'sync_mode_var') else None,
+                "base64_output": self.base64_var.get() if hasattr(self, 'base64_var') else None,
+                "current_task_id": getattr(self, 'current_task_id', None),
+                "processing_source": "improved_seedream_layout"
+            }
+            
+            # Log successful completion
+            enhanced_prompt_tracker.log_successful_prompt(
+                prompt=prompt,
+                ai_model="seedream_v4",
+                result_url=self.result_url,
+                result_path=result_path,
+                additional_context=success_context
+            )
+            
+            # Analyze for bypass techniques that succeeded (for filter training research)
+            bypass_techniques = self._analyze_potential_bypass_techniques(prompt)
+            
+            if bypass_techniques:
+                # Log as successful bypass attempt (prompt that worked despite potential issues)
+                filter_analyzer = EnhancedFilterTrainingAnalyzer()
+                filter_analyzer.log_filter_bypass_attempt(
+                    prompt=prompt,
+                    ai_model="seedream_v4",
+                    success=True,  # Successfully generated content
+                    bypass_techniques=bypass_techniques,
+                    filter_response=f"Content generated successfully with {len(bypass_techniques)} potential techniques"
+                )
+                
+                self.log_message(f"🛡️ Logged {len(bypass_techniques)} successful bypass techniques for filter research")
+            
+            self.log_message("📊 Enhanced logging completed for successful generation")
+            
+        except Exception as logging_error:
+            logger.error(f"Enhanced success logging failed: {logging_error}")
+            # Don't let logging errors break the success flow
+        
+        # Auto-save if enabled and integrate with tab
+        if self.tab_instance and hasattr(self.tab_instance, 'handle_result_ready'):
+            self.tab_instance.handle_result_ready(result_path, self.result_url)
+        
+        # Enable quality rating button after successful generation
+        if hasattr(self, 'rating_btn'):
+            self.rating_btn.config(state="normal")
+            
+        # Store last result for rating
+        self.last_result_path = result_path
+        self.last_prompt = self.prompt_text.get("1.0", tk.END).strip()
+        
+        # Auto-save the result
+        self.auto_save_result(result_path)
+    
+    def auto_save_result(self, result_path):
+        """Auto-save the result to the organized folder structure"""
+        try:
+            from core.auto_save import auto_save_manager
+            from app.config import Config
+            
+            if not Config.AUTO_SAVE_ENABLED:
+                return
+            
+            # Get prompt and settings for filename
+            prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
+            
+            # Get size settings if available
+            if hasattr(self, 'width_var') and hasattr(self, 'height_var'):
+                width = int(self.width_var.get())
+                height = int(self.height_var.get())
+                size = f"{width}x{height}"
+            else:
+                size = "unknown"
+            
+            # Get seed if available
+            if hasattr(self, 'seed_var'):
+                seed = self.seed_var.get()
+                extra_info = f"{size}_seed{seed}"
+            else:
+                extra_info = size
+            
+            # Save the result (using local file method since result_path is a local file)
+            success, saved_path, error = auto_save_manager.save_local_file(
+                'seedream_v4',
+                result_path,  # This is a local file path
+                prompt=prompt,
+                extra_info=extra_info
+            )
+            
+            if success:
+                self.log_message(f"💾 Auto-saved to: {saved_path}")
+            else:
+                self.log_message(f"⚠️ Auto-save failed: {error}")
+                
+        except Exception as e:
+            logger.error(f"Error in auto-save: {e}")
+            self.log_message(f"⚠️ Auto-save error: {str(e)}")
     
     def after_processing(self):
         """Called after processing completes"""
@@ -863,8 +1409,51 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def display_comparison(self):
         """Display side-by-side comparison"""
-        # Same implementation as SeedEdit
-        pass
+        if not self.selected_image_path or not self.result_image_path:
+            self.log_message("❌ Need both original and result images for comparison")
+            return
+        
+        try:
+            # Create comparison window
+            comparison_window = tk.Toplevel(self.parent_frame)
+            comparison_window.title("Image Comparison - Seedream V4")
+            comparison_window.geometry("1200x600")
+            
+            # Left side - Original
+            left_frame = ttk.LabelFrame(comparison_window, text="Original", padding="10")
+            left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10, 5), pady=10)
+            
+            # Right side - Result
+            right_frame = ttk.LabelFrame(comparison_window, text="Result", padding="10")
+            right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 10), pady=10)
+            
+            # Load and display images
+            original_img = Image.open(self.selected_image_path)
+            result_img = Image.open(self.result_image_path)
+            
+            # Resize for display
+            display_size = (500, 400)
+            original_img.thumbnail(display_size, Image.Resampling.LANCZOS)
+            result_img.thumbnail(display_size, Image.Resampling.LANCZOS)
+            
+            # Convert to PhotoImage
+            original_photo = ImageTk.PhotoImage(original_img)
+            result_photo = ImageTk.PhotoImage(result_img)
+            
+            # Display in labels
+            original_label = tk.Label(left_frame, image=original_photo)
+            original_label.image = original_photo  # Keep reference
+            original_label.pack(expand=True)
+            
+            result_label = tk.Label(right_frame, image=result_photo)
+            result_label.image = result_photo  # Keep reference
+            result_label.pack(expand=True)
+            
+            self.log_message("📊 Comparison window opened")
+            
+        except Exception as e:
+            logger.error(f"Error displaying comparison: {e}")
+            self.log_message(f"❌ Error displaying comparison: {str(e)}")
     
     # Utility methods
     def clear_placeholder(self, event):
@@ -879,24 +1468,50 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def on_canvas_configure(self, event):
         """Handle canvas resize"""
-        pass
+        # Update scroll region if we have a canvas
+        if hasattr(self, 'image_canvas') and hasattr(event, 'width') and hasattr(event, 'height'):
+            try:
+                self.image_canvas.configure(scrollregion=self.image_canvas.bbox("all"))
+            except:
+                pass
     
     def on_canvas_click(self, event):
         """Handle canvas click"""
-        pass
+        # Could be used for image interaction in the future
+        if hasattr(self, 'selected_image_path') and self.selected_image_path:
+            self.log_message("📍 Image clicked - feature could be expanded for interactive editing")
     
     def on_mouse_wheel(self, event):
-        """Handle mouse wheel"""
-        pass
+        """Handle mouse wheel for zooming"""
+        # Basic mouse wheel support for image viewing
+        if hasattr(self, 'image_canvas') and hasattr(event, 'delta'):
+            try:
+                # Scroll the canvas
+                self.image_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except:
+                pass
     
     def on_zoom_changed(self, event):
         """Handle zoom change"""
-        pass
+        # Could implement image zoom functionality
+        if hasattr(self, 'current_zoom'):
+            self.log_message(f"🔍 Zoom changed: {self.current_zoom}%")
     
-    # Placeholder methods
-    def load_preset(self, event=None): pass
-    def save_preset(self): pass
-    def load_sample(self): pass
+    # Preset and sample methods
+    def load_preset(self, event=None): 
+        """Load preset settings"""
+        if self.tab_instance and hasattr(self.tab_instance, 'load_saved_prompt'):
+            self.tab_instance.load_saved_prompt()
+    
+    def save_preset(self): 
+        """Save current settings as preset"""
+        if self.tab_instance and hasattr(self.tab_instance, 'save_current_prompt'):
+            self.tab_instance.save_current_prompt()
+    
+    def load_sample(self): 
+        """Load sample prompt"""
+        if self.tab_instance and hasattr(self.tab_instance, 'load_sample_prompt'):
+            self.tab_instance.load_sample_prompt()
     # AI integration methods inherited from AIChatMixin
     # improve_prompt_with_ai() and open_filter_training() are provided by the mixin
     
@@ -948,22 +1563,150 @@ class ImprovedSeedreamLayout(AIChatMixin):
         try:
             if hasattr(self, 'status_console') and self.status_console:
                 if status_type == "success":
-                    self.status_console.log_success("AI", message)
+                    self.status_console.log_status(message, "success")
                 elif status_type == "error":
-                    self.status_console.log_error("AI", message)
+                    self.status_console.log_error(message, "AI")
                 elif status_type == "warning":
-                    self.status_console.log_warning("AI", message)
+                    self.status_console.log_status(message, "warning")
                 else:
-                    self.status_console.log_info("AI", message)
+                    self.status_console.log_status(message, "info")
             else:
                 print(f"[{status_type.upper()}] {message}")
         except Exception as e:
             print(f"Status update error: {e}")
             print(f"[{status_type.upper()}] {message}")
-    def clear_all(self): pass
-    def load_result(self): pass
-    def save_result(self): pass
+    def clear_all(self): 
+        """Clear all inputs and reset to defaults"""
+        if self.tab_instance and hasattr(self.tab_instance, 'clear_all'):
+            self.tab_instance.clear_all()
+        else:
+            # Fallback implementation
+            try:
+                self.prompt_text.delete("1.0", tk.END)
+                self.prompt_text.insert("1.0", "Describe the transformation you want to apply to the image...")
+                self.width_var.set(1024)
+                self.height_var.set(1024)
+                self.seed_var.set("-1")
+                self.sync_mode_var.set(False)
+                self.base64_var.set(False)
+                self.log_message("🧹 All inputs cleared")
+            except Exception as e:
+                logger.error(f"Error clearing inputs: {e}")
+                
+    def load_result(self): 
+        """Load a previously saved result"""
+        if self.tab_instance and hasattr(self.tab_instance, 'load_result'):
+            self.tab_instance.load_result()
+        else:
+            self.log_message("💡 Load result feature - connect to result browser")
+            
+    def save_result(self): 
+        """Save the current result"""
+        if self.tab_instance and hasattr(self.tab_instance, 'save_result_image'):
+            self.tab_instance.save_result_image()
+        else:
+            self.log_message("💡 Save result feature - implement result saving")
 
+    def setup_learning_components(self):
+        """Setup AI learning components and widgets"""
+        try:
+            # Import learning components
+            from ui.components.smart_learning_panel import SmartLearningPanel
+            from core.quality_rating_widget import QualityRatingDialog
+            
+            # Create learning panel reference for later use
+            self.learning_panel = None
+            self.quality_dialog = None
+            
+            logger.info("Learning components initialized successfully")
+            
+        except ImportError as e:
+            logger.warning(f"Learning components not available: {e}")
+            self.learning_panel = None
+            self.quality_dialog = None
+        except Exception as e:
+            logger.error(f"Error initializing learning components: {e}")
+            self.learning_panel = None
+            self.quality_dialog = None
+    
+    def show_learning_panel(self):
+        """Show the Smart Learning Panel with current insights"""
+        try:
+            if not hasattr(self, 'learning_panel') or self.learning_panel is None:
+                from ui.components.smart_learning_panel import create_smart_learning_panel
+                
+                # Create learning panel window
+                learning_window = tk.Toplevel(self.parent_frame)
+                learning_window.title("🧠 AI Learning Insights - Seedream V4")
+                learning_window.geometry("800x600")
+                learning_window.resizable(True, True)
+                
+                # Create and add learning panel
+                self.learning_panel = create_smart_learning_panel(learning_window)
+                self.learning_panel.grid(sticky="nsew", padx=10, pady=10)
+                
+                # Configure window grid
+                learning_window.columnconfigure(0, weight=1)
+                learning_window.rowconfigure(0, weight=1)
+                
+                # Update with current context
+                current_prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
+                if current_prompt:
+                    self.learning_panel.analyze_prompt(current_prompt, "seedream_v4")
+                
+                self.log_message("🧠 AI Learning Panel opened")
+            else:
+                self.log_message("🧠 Learning panel already open")
+                
+        except Exception as e:
+            logger.error(f"Error showing learning panel: {e}")
+            self.log_message(f"❌ Failed to open learning panel: {str(e)}")
+    
+    def show_quality_rating(self, prompt: str = None, result_path: str = None):
+        """Show quality rating dialog for user feedback"""
+        try:
+            from core.quality_rating_widget import QualityRatingDialog
+            
+            # Use stored values if called from button
+            if prompt is None and hasattr(self, 'last_prompt'):
+                prompt = self.last_prompt
+            if result_path is None and hasattr(self, 'last_result_path'):
+                result_path = self.last_result_path
+                
+            if not prompt:
+                self.log_message("❌ No prompt available for rating")
+                return
+            
+            def on_rating_complete(quality, feedback):
+                self.log_message(f"📊 Quality rated: {quality}")
+                if feedback:
+                    self.log_message(f"📝 User feedback: {feedback[:50]}...")
+            
+            self.quality_dialog = QualityRatingDialog(
+                parent=self.parent_frame,
+                prompt=prompt,
+                result_path=result_path,
+                callback=on_rating_complete
+            )
+            
+        except Exception as e:
+            logger.error(f"Error showing quality rating: {e}")
+            self.log_message(f"❌ Failed to open quality rating: {str(e)}")
+    
+    def update_learning_insights(self, prompt: str, success: bool, result_data: dict = None):
+        """Update learning insights with new data"""
+        try:
+            # Update learning panel if it exists
+            if hasattr(self, 'learning_panel') and self.learning_panel is not None:
+                self.learning_panel.update_insights(prompt, success, result_data)
+            
+            # Log learning update
+            status = "successful" if success else "failed"
+            self.log_message(f"🧠 Learning updated: {status} generation")
+            
+        except Exception as e:
+            logger.error(f"Error updating learning insights: {e}")
+    
     # Helper methods for tab integration
     
     def log_status(self, message: str, status_type: str = "info"):

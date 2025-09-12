@@ -16,6 +16,7 @@ import openai
 
 from core.enhanced_prompt_tracker import enhanced_prompt_tracker
 from core.enhanced_filter_training_system import enhanced_filter_analyzer
+from core.filter_vocabulary_bank import filter_vocab
 from core.logger import get_logger
 
 logger = get_logger()
@@ -477,15 +478,19 @@ class AdaptiveFilterLearningSystem:
         """Generate improved versions of a prompt based on learning analysis"""
         improved_prompts = []
         
-        # Version 1: Word substitution based on analysis
+        # Version 1: Vocabulary bank optimization (NEW - highest priority)
+        vocab_optimized = self._apply_vocabulary_bank_optimization(base_prompt)
+        improved_prompts.append(vocab_optimized)
+        
+        # Version 2: Word substitution based on analysis
         word_substituted = self._apply_word_substitutions(base_prompt, analysis_data.get("word_patterns", {}))
         improved_prompts.append(word_substituted)
         
-        # Version 2: Structure optimization
+        # Version 3: Structure optimization with length reduction (UPDATED)
         structure_optimized = self._apply_structure_optimizations(base_prompt, analysis_data.get("structure_patterns", {}))
         improved_prompts.append(structure_optimized)
         
-        # Version 3: Technique combination enhancement
+        # Version 4: Technique combination enhancement
         technique_enhanced = self._apply_technique_enhancements(base_prompt, analysis_data.get("technique_patterns", {}))
         improved_prompts.append(technique_enhanced)
         

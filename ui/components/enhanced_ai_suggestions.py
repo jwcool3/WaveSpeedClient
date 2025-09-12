@@ -7,7 +7,6 @@ It extends the existing implementation with richer features and better user expe
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import asyncio
 import threading
 from typing import List, Optional, Callable
 from core.ai_prompt_advisor import get_ai_advisor, PromptSuggestion
