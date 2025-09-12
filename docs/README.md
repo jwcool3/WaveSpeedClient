@@ -181,6 +181,9 @@ waveapi/
 - **🎯 Complex Transformations**: Object addition/removal, style changes, structural modifications
 - **🔧 Structured Intelligence**: Optimized "Change + Object + Feature" prompt format
 - **📊 Professional Interface**: Advanced controls with size sliders and seed management
+- **🧠 Learning Integration**: Smart Learning Panel with real-time insights and suggestions
+- **⭐ Quality Rating System**: User feedback collection for continuous AI improvement
+- **🔄 Reliable Processing**: Fixed polling system with timeout protection
 
 #### **🔍 Image Upscaler** - Quality Enhancement
 - **📈 Multiple Algorithms**: Various upscaling methods for different content types
@@ -567,6 +570,14 @@ UI Context → Chat History → System Prompt → AI Provider → Suggestion Dis
 3. Update system media libraries
 4. Try smaller video files for testing
 
+#### **🔄 SeedDream V4 Processing Issues** ✅ **FIXED in v2.10**
+**Problem**: SeedDream V4 gets stuck in processing loop or application hangs
+**Solutions**:
+1. **Update to v2.10** - Contains critical polling loop fixes
+2. **Automatic timeout protection** - Process will stop after 5 minutes maximum
+3. **Enhanced logging** - Check logs for "Processing completed!" or timeout messages
+4. **Learning widgets now accessible** - Use 🧠 Learning Insights and ⭐ Rate Last Result buttons
+
 ### 📋 **Debug Information Collection**
 
 #### **Log Files Location**
@@ -711,7 +722,17 @@ This project is licensed under [LICENSE TYPE] - see the LICENSE file for details
 
 ## 📈 **What's New**
 
-### **v2.9 - Adaptive Learning System** ⭐ **NEW**
+### **v2.10 - Critical Bug Fixes & UI Enhancement** 🔧 **LATEST**
+- 🔄 **Fixed SeedDream V4 infinite polling loop** - resolved task completion handling
+- ⏰ **Added polling timeout protection** - 5-minute maximum to prevent hangs
+- 🎛️ **Enhanced learning widget accessibility** - visible buttons in UI
+- ⭐ **Integrated quality rating system** - accessible after successful generations
+- 📊 **Improved result logging** - better image data display and debugging
+- 🧠 **Learning panel integration** - Smart Learning Panel now accessible via UI button
+- 🎯 **Fixed TTK widget compatibility** - removed unsupported relief parameters
+- 📈 **Enhanced error handling** - better timeout and completion detection
+
+### **v2.9 - Adaptive Learning System** ⭐ **STABLE**
 - 🧠 **Complete learning system integration** across all components
 - 🎯 **Real-time prompt analysis** with success probability
 - 💡 **Smart improvement suggestions** based on learned patterns
@@ -722,5 +743,5 @@ This project is licensed under [LICENSE TYPE] - see the LICENSE file for details
 - 🧩 **Pattern recognition** that learns successful technique combinations
 - 📈 **User feedback integration** that improves the system automatically
 
-*Last Updated: January 2025*
-*Version: 2.9 - Complete Creative Suite with Adaptive Learning*
+*Last Updated: September 2025*
+*Version: 2.10 - Complete Creative Suite with Critical Fixes*

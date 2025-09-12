@@ -2,7 +2,232 @@
   "metadata": {
     "created": "2025-09-11T20:23:33.680213",
     "description": "Enhanced failed prompt tracking with categorized errors",
-    "version": "2.0"
+    "version": "2.0",
+    "last_updated": "2025-09-11T22:54:48.848990",
+    "total_failures": 8
   },
-  "prompts": []
+  "prompts": [
+    {
+      "timestamp": "2025-09-11T21:00:54.112392",
+      "prompt": "replace clothing with bikini",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:/Users/JacksonWeed/Desktop/New folder/1 (5).jpeg",
+        "width": 2292,
+        "height": 2865,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": "71c121ac432c42fea92e3e8e559f60cc",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 28,
+      "word_count": 4,
+      "prompt_hash": 243037638243372242,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.0,
+      "has_multiple_sentences": false,
+      "avg_word_length": 6.25
+    },
+    {
+      "timestamp": "2025-09-11T21:03:33.085591",
+      "prompt": "replace clothing with bikini",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:/Users/JacksonWeed/Desktop/New folder/1 (5).jpeg",
+        "width": 2136,
+        "height": 2670,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": "3c4fae2ac0ef462dac01b69bdeaba1a1",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 28,
+      "word_count": 4,
+      "prompt_hash": -3397859827162106540,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.0,
+      "has_multiple_sentences": false,
+      "avg_word_length": 6.25
+    },
+    {
+      "timestamp": "2025-09-11T21:08:33.466096",
+      "prompt": "Change the person's black satin dress to a barely-there intimate wear with minimal coverage, keep her face identical and her blonde wavy hair the same,",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:/Users/JacksonWeed/Desktop/New folder/1 (5).jpeg",
+        "width": 1440,
+        "height": 1800,
+        "seed": "-1",
+        "sync_mode": true,
+        "base64_output": false,
+        "current_task_id": "e40d20e8177142f191035e72f8db6226",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 151,
+      "word_count": 25,
+      "prompt_hash": -8589788727259532068,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.006622516556291391,
+      "has_multiple_sentences": false,
+      "avg_word_length": 5.08
+    },
+    {
+      "timestamp": "2025-09-11T21:08:33.484668",
+      "prompt": "Change the person's black satin dress to a barely-there intimate wear with minimal coverage, keep her face identical and her blonde wavy hair the same,",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "content_filter",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "filter_training": true,
+        "bypass_techniques": [
+          "euphemism_use",
+          "identity_preservation",
+          "euphemism_use"
+        ],
+        "filter_caught": true
+      },
+      "prompt_length": 151,
+      "word_count": 25,
+      "prompt_hash": -8589788727259532068,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.006622516556291391,
+      "has_multiple_sentences": false,
+      "avg_word_length": 5.08
+    },
+    {
+      "timestamp": "2025-09-11T21:09:06.330138",
+      "prompt": "replace clothing with barely there bikini",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:/Users/JacksonWeed/Desktop/New folder/1 (5).jpeg",
+        "width": 1440,
+        "height": 1800,
+        "seed": "-1",
+        "sync_mode": true,
+        "base64_output": false,
+        "current_task_id": "b32f7f5005bd4cc58ea6ce169eb1c9c1",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 41,
+      "word_count": 6,
+      "prompt_hash": 3139482798252817661,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.0,
+      "has_multiple_sentences": false,
+      "avg_word_length": 6.0
+    },
+    {
+      "timestamp": "2025-09-11T21:09:06.346301",
+      "prompt": "replace clothing with barely there bikini",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "content_filter",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "filter_training": true,
+        "bypass_techniques": [
+          "euphemism_use",
+          "euphemism_use"
+        ],
+        "filter_caught": true
+      },
+      "prompt_length": 41,
+      "word_count": 6,
+      "prompt_hash": 3139482798252817661,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.0,
+      "has_multiple_sentences": false,
+      "avg_word_length": 6.0
+    },
+    {
+      "timestamp": "2025-09-11T22:54:48.838217",
+      "prompt": "Alter the platinum blonde woman's form-fitting pink strapless dress to become a barely-there intimate wear. Maintain her long wavy hairstyle and expression, with seamless blending against the elegant interior space.",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:/Users/JacksonWeed/Downloads/(5) Instagram/imgi_12_443541929_2366263873564287_5991737937290434543_n.jpg",
+        "width": 1440,
+        "height": 1440,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": "b66dba1e3de845ad9898f54d0278f948",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 215,
+      "word_count": 30,
+      "prompt_hash": 3423693728867225615,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.009302325581395349,
+      "has_multiple_sentences": true,
+      "avg_word_length": 6.2
+    },
+    {
+      "timestamp": "2025-09-11T22:54:48.848990",
+      "prompt": "Alter the platinum blonde woman's form-fitting pink strapless dress to become a barely-there intimate wear. Maintain her long wavy hairstyle and expression, with seamless blending against the elegant interior space.",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "content_filter",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "filter_training": true,
+        "bypass_techniques": [
+          "euphemism_use",
+          "technical_language",
+          "identity_preservation",
+          "background_manipulation",
+          "euphemism_use"
+        ],
+        "filter_caught": true
+      },
+      "prompt_length": 215,
+      "word_count": 30,
+      "prompt_hash": 3423693728867225615,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.009302325581395349,
+      "has_multiple_sentences": true,
+      "avg_word_length": 6.2
+    }
+  ]
 }

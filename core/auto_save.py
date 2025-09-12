@@ -127,6 +127,50 @@ class AutoSaveManager:
             logger.error(error_msg)
             return False, None, error_msg
     
+    def save_local_file(self, ai_model, local_file_path, prompt=None, extra_info=None, file_type="image"):
+        """
+        Save a local file to the organized folder structure
+        
+        Args:
+            ai_model: The AI model used ('image_editor', 'seededit', etc.)
+            local_file_path: Path to the local file to copy
+            prompt: Optional prompt used for generation (for filename)
+            extra_info: Optional extra info for filename (e.g., "upscaled_4k")
+            file_type: 'image' or 'video'
+        
+        Returns:
+            tuple: (success: bool, saved_path: str or None, error: str or None)
+        """
+        if not Config.AUTO_SAVE_ENABLED:
+            return True, None, "Auto-save is disabled"
+            
+        try:
+            import shutil
+            from pathlib import Path
+            
+            # Get the appropriate subfolder
+            subfolder = self.subfolders.get(ai_model, 'Other')
+            save_dir = Path(self.base_folder) / subfolder
+            
+            # Generate filename
+            filename = self.generate_filename(ai_model, file_type, prompt, extra_info)
+            save_path = save_dir / filename
+            
+            # Copy the local file to the save location
+            logger.info(f"Auto-saving {ai_model} result: {filename}")
+            shutil.copy2(local_file_path, save_path)
+            
+            # Create metadata file
+            self.save_metadata(save_path, ai_model, f"local_file:{local_file_path}", prompt, extra_info)
+            
+            logger.info(f"Auto-saved result to: {save_path}")
+            return True, str(save_path), None
+            
+        except Exception as e:
+            error_msg = f"Auto-save failed: {str(e)}"
+            logger.error(error_msg)
+            return False, None, error_msg
+    
     def save_metadata(self, file_path, ai_model, result_url, prompt=None, extra_info=None):
         """Save metadata alongside the result file"""
         try:

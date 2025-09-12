@@ -57,7 +57,7 @@ class SeedreamV4Tab(BaseTab):
         """Setup the improved Seedream V4 UI with new compact layout"""
         # Use the new improved layout instead of the old optimized layout
         from ui.components.improved_seedream_layout import ImprovedSeedreamLayout
-        self.improved_layout = ImprovedSeedreamLayout(self.scrollable_frame)
+        self.improved_layout = ImprovedSeedreamLayout(self.scrollable_frame, self.api_client, self)
         
         # Connect the improved layout methods to our existing functionality
         self.connect_improved_layout()
@@ -76,8 +76,8 @@ class SeedreamV4Tab(BaseTab):
         # Connect image browsing
         self.improved_layout.browse_image = self.browse_image
         
-        # Connect processing
-        self.improved_layout.process_seedream = self.process_task
+        # Don't override the layout's process_seedream method - it has the real implementation
+        # self.improved_layout.process_seedream = self.process_task
         
         # Connect result actions
         self.improved_layout.save_result = self.save_result_image
@@ -101,36 +101,119 @@ class SeedreamV4Tab(BaseTab):
         self.height_var = self.improved_layout.height_var
         self.seed_var = self.improved_layout.seed_var
         self.sync_mode_var = self.improved_layout.sync_mode_var
-        self.base64_output_var = self.improved_layout.base64_var
-        self.status_label = self.improved_layout.status_label
-        self.progress_bar = self.improved_layout.progress_bar
-        self.primary_btn = self.improved_layout.primary_btn
+        
+        # Add missing variables that other methods expect
+        self.size_display_var = tk.StringVar()
+        self.aspect_ratio_lock_var = tk.BooleanVar()
+    
+    def update_size_display(self):
+        """Update size display when dimensions change"""
+        try:
+            width = self.width_var.get()
+            height = self.height_var.get()
+            self.size_display_var.set(f"{width} x {height}")
+            logger.debug(f"Size display updated: {width}x{height}")
+        except Exception as e:
+            logger.error(f"Error updating size display: {e}")
+    
+    def handle_result_ready(self, result_path, result_url=None):
+        """Handle when processing result is ready"""
+        try:
+            # Set the result image
+            self.result_image = result_path
+            
+            # Auto-save if enabled
+            from app.config import Config
+            if Config.AUTO_SAVE_ENABLED:
+                saved_path = auto_save_manager.save_result(
+                    "seedream_v4",
+                    result_path,
+                    prompt=self.prompt_text.get("1.0", tk.END).strip(),
+                    extra_info=f"{self.width_var.get()}x{self.height_var.get()}_seed{self.seed_var.get()}"
+                )
+                logger.info(f"Auto-saved result to: {saved_path}")
+            
+            # Track the prompt if successful
+            if hasattr(prompt_tracker, 'track_success'):
+                prompt_tracker.track_success(
+                    self.prompt_text.get("1.0", tk.END).strip(),
+                    "seedream_v4"
+                )
+                
+            logger.info(f"Seedream V4 processing completed successfully: {result_path}")
+            
+        except Exception as e:
+            logger.error(f"Error handling result: {e}")
         
         # Add alias for AI integration compatibility
         self.optimized_layout = self.improved_layout
     
     def improve_with_ai_placeholder(self):
-        """Placeholder for AI improvement functionality"""
-        # This would connect to your existing AI improvement system
-        pass
+        """Improve prompt with AI assistance"""
+        current_prompt = self.prompt_text.get("1.0", tk.END).strip()
+        
+        # Clear placeholder text
+        if current_prompt == "Describe the transformation you want to apply to the image...":
+            current_prompt = ""
+        
+        # Use the AIChatMixin functionality (inherited by the layout)
+        if hasattr(self.improved_layout, 'improve_prompt_with_ai'):
+            self.improved_layout.improve_prompt_with_ai()
+        else:
+            # Fallback: open AI chat directly
+            try:
+                from ui.components.ai_prompt_chat import show_ai_prompt_chat
+                
+                def on_prompt_updated(new_prompt):
+                    self.apply_ai_suggestion(new_prompt)
+                
+                show_ai_prompt_chat(
+                    parent=self.parent_frame,
+                    current_prompt=current_prompt,
+                    tab_name="Seedream V4",
+                    on_prompt_updated=on_prompt_updated
+                )
+            except Exception as e:
+                logger.error(f"Error opening AI chat: {e}")
+                from utils.utils import show_error
+                show_error("AI Error", f"Failed to open AI assistant: {str(e)}")
     
     def setup_seedream_v4_settings_improved(self):
         """Setup Seedream V4 specific settings in the improved layout"""
-        # The improved layout already has compact settings built-in
-        # We just need to connect our existing functionality
-        pass
+        # The improved layout already has all settings built-in
+        # Load saved values into the layout's controls
+        try:
+            # Set default values if not already set
+            if self.improved_layout.width_var.get() == 1024 and self.improved_layout.height_var.get() == 1024:
+                # Auto-set resolution if we have an image
+                if hasattr(self, 'selected_image_path') and self.selected_image_path:
+                    self.auto_set_resolution()
+        except Exception as e:
+            logger.error(f"Error setting up improved settings: {e}")
     
     def setup_compact_prompt_section_improved(self):
         """Setup compact prompt section in the improved layout"""
         # The improved layout already has the prompt section built-in
-        # We just need to connect our existing functionality
-        pass
+        # Just ensure our saved prompts are loaded
+        try:
+            # Load any default or saved prompts if needed
+            if hasattr(self, 'saved_seedream_v4_prompts'):
+                logger.info(f"Loaded {len(self.saved_seedream_v4_prompts)} saved prompts")
+        except Exception as e:
+            logger.error(f"Error setting up improved prompt section: {e}")
     
     def setup_compact_progress_section_improved(self):
         """Setup compact progress section in the improved layout"""
         # The improved layout already has the progress section built-in
-        # We just need to connect our existing functionality
-        pass
+        # Just connect any additional status tracking if needed
+        try:
+            # Store references for easy access
+            if hasattr(self.improved_layout, 'status_label'):
+                self.status_label = self.improved_layout.status_label
+            if hasattr(self.improved_layout, 'progress_bar'):
+                self.progress_bar = self.improved_layout.progress_bar
+        except Exception as e:
+            logger.error(f"Error setting up improved progress section: {e}")
     
     def setup_seedream_v4_settings(self):
         """Setup Seedream V4 specific settings"""
@@ -836,6 +919,10 @@ class SeedreamV4Tab(BaseTab):
     
     def process_task(self):
         """Process Seedream V4 task"""
+        # Stop any existing polling before starting new task
+        if hasattr(self, '_polling_active'):
+            self._polling_active = False
+        
         # Validate inputs
         prompt = self.prompt_text.get("1.0", tk.END).strip()
         if not prompt or prompt == "remove man":
@@ -932,30 +1019,51 @@ class SeedreamV4Tab(BaseTab):
     
     def start_polling(self, task_id, duration):
         """Start polling for task results"""
+        # Stop any existing polling to prevent multiple threads
+        if hasattr(self, '_polling_active') and self._polling_active:
+            logger.info("Stopping existing polling thread")
+            self._polling_active = False
+        
+        # Wait a moment for existing thread to stop
+        import time
+        time.sleep(0.1)
+        
+        self._polling_active = True
+        logger.info(f"Starting polling for task: {task_id}")
+        
         def poll_for_results():
             try:
+                if not self._polling_active:
+                    return
+                    
                 result = self.api_client.get_seedream_v4_result(task_id)
                 
                 if result['success']:
                     status = result.get('status')
                     
                     if status == 'completed':
+                        self._polling_active = False
+                        logger.info(f"Task completed, stopping polling for task: {task_id}")
                         output_url = result.get('output_url')
                         if output_url:
                             self.frame.after(0, lambda: self.handle_success(output_url, duration))
                         else:
                             self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
                     elif status == 'failed':
+                        self._polling_active = False
                         error_msg = result.get('error', 'Task failed')
                         self.frame.after(0, lambda: self.handle_error(error_msg))
                     else:
-                        # Still processing, poll again in 2 seconds
-                        self.frame.after(2000, lambda: self.start_polling(task_id, duration))
+                        # Still processing, schedule next poll in 2 seconds
+                        if self._polling_active:
+                            self.frame.after(2000, lambda: self._poll_once(task_id, duration))
                 else:
+                    self._polling_active = False
                     error_msg = result.get('error', 'Failed to get task status')
                     self.frame.after(0, lambda: self.handle_error(error_msg))
                     
             except Exception as e:
+                self._polling_active = False
                 logger.error(f"Error polling for results: {e}")
                 self.frame.after(0, lambda: self.handle_error(f"Error checking task status: {str(e)}"))
         
@@ -964,6 +1072,45 @@ class SeedreamV4Tab(BaseTab):
         thread = threading.Thread(target=poll_for_results)
         thread.daemon = True
         thread.start()
+    
+    def _poll_once(self, task_id, duration):
+        """Single poll attempt - prevents recursive thread creation"""
+        if not hasattr(self, '_polling_active') or not self._polling_active:
+            return
+            
+        try:
+            result = self.api_client.get_seedream_v4_result(task_id)
+            
+            if result['success']:
+                status = result.get('status')
+                
+                if status == 'completed':
+                    self._polling_active = False
+                    logger.info(f"Task completed, stopping polling for task: {task_id}")
+                    output_url = result.get('output_url')
+                    if output_url:
+                        self.frame.after(0, lambda: self.handle_success(output_url, duration))
+                    else:
+                        self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
+                    return  # Exit immediately after completion
+                elif status == 'failed':
+                    self._polling_active = False
+                    error_msg = result.get('error', 'Task failed')
+                    self.frame.after(0, lambda: self.handle_error(error_msg))
+                    return  # Exit immediately after failure
+                else:
+                    # Still processing, schedule next poll in 2 seconds
+                    if self._polling_active:
+                        self.frame.after(2000, lambda: self._poll_once(task_id, duration))
+            else:
+                self._polling_active = False
+                error_msg = result.get('error', 'Failed to get task status')
+                self.frame.after(0, lambda: self.handle_error(error_msg))
+                
+        except Exception as e:
+            self._polling_active = False
+            logger.error(f"Error polling for results: {e}")
+            self.frame.after(0, lambda: self.handle_error(f"Error checking task status: {str(e)}"))
     
     def submit_seedream_v4_task(self, image_url, prompt):
         """Submit Seedream V4 task with detailed logging"""
@@ -997,7 +1144,8 @@ class SeedreamV4Tab(BaseTab):
                 logger.info(f"Seedream V4 task submitted successfully. Task ID: {task_id}")
                 
                 # Start polling for results
-                self.frame.after(0, lambda: self.start_polling(task_id, duration))
+                logger.info(f"About to start polling for task: {task_id}")
+                self.start_polling(task_id, duration)
             else:
                 error_msg = result.get('error', 'Unknown error occurred')
                 self.frame.after(0, lambda: self.handle_error(error_msg))
@@ -1037,24 +1185,9 @@ class SeedreamV4Tab(BaseTab):
         
         # Download and display result in improved layout
         if hasattr(self, 'improved_layout'):
-            # For the improved layout, we need to download the image and set it as result
-            try:
-                import requests
-                from PIL import Image
-                import io
-                
-                response = requests.get(output_url)
-                if response.status_code == 200:
-                    img = Image.open(io.BytesIO(response.content))
-                    self.result_image = img
-                    self.improved_layout.result_image_path = output_url
-                    self.improved_layout.display_image(output_url)
-                    success = True
-                else:
-                    success = False
-            except Exception as e:
-                logger.error(f"Error downloading result image: {e}")
-                success = False
+            # Use the proper download and display method
+            self.improved_layout.download_and_display_result(output_url)
+            success = True
         else:
             # Fallback to old layout
             success = self.optimized_layout.update_result_image(output_url)
@@ -1062,27 +1195,8 @@ class SeedreamV4Tab(BaseTab):
                 self.result_image = self.optimized_layout.result_image
         
         if success:
-            
-            # Auto-save the result
-            prompt = self.prompt_text.get("1.0", tk.END).strip()
-            width = int(self.width_var.get())
-            height = int(self.height_var.get())
-            size = f"{width}x{height}"  # Use 'x' instead of '*' for filename compatibility
-            seed = self.seed_var.get()
-            extra_info = f"{size}_seed{seed}"
-            
-            # Log auto-save attempt
-            logger.info(f"Attempting to auto-save Seedream V4 result: {output_url}")
-            
-            # Show auto-save progress
-            self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}! Auto-saving result...")
-            
-            success, saved_path, error = auto_save_manager.save_result(
-                'seedream_v4', 
-                output_url, 
-                prompt=prompt, 
-                extra_info=extra_info
-            )
+            # Show completion status
+            self.update_status(f"✅ Seedream V4 completed in {format_duration(duration)}!")
             
             # If auto-save failed, try to save the result image directly
             if not success and self.result_image:

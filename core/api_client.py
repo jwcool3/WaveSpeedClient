@@ -288,7 +288,10 @@ class WaveSpeedAPIClient:
                         logger.info(f"Prompt: {prompt}")
                         logger.info(f"Size: {size}")
                         logger.info(f"Seed: {seed}")
-                        logger.info(f"Images Count: {len(images)}")
+                        images_info = f"Images Count: {len(images) if images else 0}"
+                        if images:
+                            images_info += f" (first image size: {len(images[0])} bytes)"
+                        logger.info(images_info)
                         logger.info(f"Sync Mode: {enable_sync_mode}")
                         logger.info(f"Base64 Output: {enable_base64_output}")
                         logger.info("=" * 60)

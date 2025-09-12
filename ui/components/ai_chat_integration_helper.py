@@ -4,7 +4,6 @@ Provides reusable methods for integrating AI chat across all layout components
 """
 
 import tkinter as tk
-import asyncio
 from core.logger import get_logger
 
 logger = get_logger()
