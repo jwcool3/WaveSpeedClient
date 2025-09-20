@@ -52,6 +52,7 @@ class CrossTabNavigator:
         all_tabs = [
             ("editor", "Nano Banana Editor", "🍌"),
             ("seededit", "SeedEdit", "✨"),
+            ("seedream_v4", "Seedream V4", "🌟"),  # NEW
             ("upscaler", "Image Upscaler", "🔍"),
             ("video", "Wan 2.2", "🎬"),
             ("seeddance", "SeedDance", "🕺")
@@ -59,9 +60,10 @@ class CrossTabNavigator:
         
         # Define valid targets for each tab type
         target_rules = {
-            "editor": ["seededit", "upscaler", "video", "seeddance"],  # Nano Banana can send to all others
-            "seededit": ["editor", "upscaler", "video", "seeddance"],  # SeedEdit can send to all others
-            "upscaler": ["editor", "seededit", "video", "seeddance"],  # Upscaler can send to all others
+            "editor": ["seededit", "seedream_v4", "upscaler", "video", "seeddance"],  # Nano Banana can send to all others
+            "seededit": ["editor", "seedream_v4", "upscaler", "video", "seeddance"],  # SeedEdit can send to all others
+            "seedream_v4": ["editor", "seededit", "upscaler", "video", "seeddance"],  # Seedream V4 can send to all others
+            "upscaler": ["editor", "seededit", "seedream_v4", "video", "seeddance"],  # Upscaler can send to all others
             "video": [],  # Video tabs don't produce images to send
             "seeddance": []  # Video tabs don't produce images to send
         }
@@ -69,7 +71,8 @@ class CrossTabNavigator:
         # Map current tab name to tab ID
         tab_name_to_id = {
             "Nano Banana Editor": "editor",
-            "SeedEdit": "seededit", 
+            "SeedEdit": "seededit",
+            "Seedream V4": "seedream_v4",  # NEW
             "Image Upscaler": "upscaler",
             "Wan 2.2": "video",
             "SeedDance": "seeddance"
@@ -136,6 +139,7 @@ class CrossTabNavigator:
         tab_mapping = {
             "editor": self.main_app.editor_tab,
             "seededit": self.main_app.seededit_tab,
+            "seedream_v4": self.main_app.seedream_v4_tab,  # NEW
             "upscaler": self.main_app.upscaler_tab,
             "video": self.main_app.video_tab,
             "seeddance": self.main_app.seeddance_tab
@@ -147,11 +151,12 @@ class CrossTabNavigator:
         
         # Map tab IDs to notebook tab indices
         tab_indices = {
-            "editor": 0,      # Nano Banana Editor
-            "seededit": 1,    # SeedEdit  
-            "upscaler": 2,    # Image Upscaler
-            "video": 3,       # Wan 2.2
-            "seeddance": 4    # SeedDance
+            "editor": 0,         # Nano Banana Editor
+            "seededit": 1,       # SeedEdit V3
+            "seedream_v4": 2,    # Seedream V4 (NEW)
+            "upscaler": 3,       # Image Upscaler (updated index)
+            "video": 4,          # Wan 2.2 (updated index)
+            "seeddance": 5       # SeedDance (updated index)
         }
         
         tab_index = tab_indices.get(tab_id)

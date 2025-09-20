@@ -1,8 +1,8 @@
 """
-Main WaveSpeed AI GUI Application
+Updated Main App with Fixed AI Integration
+For WaveSpeed AI Creative Suite
 
-This is the main application file that creates the tabbed interface
-and manages all the different AI tools.
+This fixes the AI assistant menu and integrates the universal AI system.
 """
 
 import os
@@ -33,12 +33,17 @@ from utils.utils import show_error, show_warning, show_success
 import utils.utils as utils
 from core.auto_save import auto_save_manager
 
+# Import the new AI integration system
+from ui.components.universal_ai_integration import universal_ai_integrator, refresh_ai_button_states
+from ui.components.fixed_ai_settings import show_ai_settings, get_ai_status
+from ui.components.prompt_analytics import show_prompt_analytics
+
 logger = get_logger()
 resource_manager = get_resource_manager()
 
 
 class WaveSpeedAIApp:
-    """Main WaveSpeed AI Application"""
+    """Main WaveSpeed AI Application with Fixed AI Integration"""
     
     def __init__(self):
         logger.info("Initializing WaveSpeed AI Application")
@@ -65,8 +70,11 @@ class WaveSpeedAIApp:
         
         self.root.title(Config.WINDOW_TITLE)
         self.root.geometry(Config.WINDOW_SIZE)
-        self.root.minsize(*Config.WINDOW_MIN_SIZE)  # Set minimum window size
+        self.root.minsize(*Config.WINDOW_MIN_SIZE)
         self.root.configure(bg=Config.COLORS['background'])
+        
+        # Setup responsive layout
+        self.setup_responsive_layout()
         
         # Set window icon if available
         self.set_window_icon()
@@ -82,182 +90,346 @@ class WaveSpeedAIApp:
         self.seeddance_tab = None
         self.notebook = None
         
-        # Setup error handling
-        self.setup_error_handling()
-        
+        # Setup UI
         self.setup_ui()
         
-        logger.info("Application initialized successfully")
+        # Auto-integrate AI features with all tabs after UI is ready
+        self.root.after(500, self.integrate_ai_features)
     
-    def set_window_icon(self):
-        """Set window icon if available"""
-        try:
-            # Try to set icon from file
-            icon_path = "assets/icon.ico"
-            if os.path.exists(icon_path):
-                self.root.iconbitmap(icon_path)
-        except Exception as e:
-            logger.debug(f"Could not set window icon: {str(e)}")
-    
-    def setup_error_handling(self):
-        """Setup global error handling"""
-        def handle_exception(exc_type, exc_value, exc_traceback):
-            if issubclass(exc_type, KeyboardInterrupt):
-                sys.__excepthook__(exc_type, exc_value, exc_traceback)
-                return
-            
-            logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-            show_error(
-                "Unexpected Error",
-                f"An unexpected error occurred:\n\n{exc_type.__name__}: {exc_value}\n\n"
-                "Please check the logs for more details."
-            )
+    def setup_responsive_layout(self):
+        """Configure responsive layout"""
+        # Bind to window resize events
+        self.root.bind('<Configure>', self._on_window_resize)
         
-        sys.excepthook = handle_exception
-    
-    def setup_ui(self):
-        """Setup the main UI"""
-        # Main frame
-        main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Configure grid weights
+        # Configure weight distribution for main container
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(0, weight=1)  # Main frame expands
-        main_frame.rowconfigure(2, weight=1)  # Content area expands vertically
-        
-        # Create header frame to hold title and balance indicator
-        header_frame = ttk.Frame(main_frame)
-        header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
-        header_frame.columnconfigure(0, weight=1)  # Title takes most space
-        
-        # Title
-        title_label = ttk.Label(
-            header_frame, 
-            text="WaveSpeed AI - Image Editor, Upscaler & Video Generator", 
-            font=('Arial', 16, 'bold')
-        )
-        title_label.grid(row=0, column=0, sticky=tk.W)
-        
-        # Balance indicator in top-right corner
-        if self.api_client.api_key:  # Only show if API key is available
-            self.balance_indicator = BalanceIndicator(header_frame, self.api_client)
-            self.balance_indicator.get_frame().grid(row=0, column=1, sticky=tk.E, padx=(10, 0))
-        
-        # API Key status
-        api_status = "✓ API Key loaded" if self.api_client.api_key else "✗ API Key not found"
-        api_color = "green" if self.api_client.api_key else "red"
-        api_label = tk.Label(
-            main_frame, text=api_status, fg=api_color, 
-            bg='#f0f0f0', font=('Arial', 10)
-        )
-        api_label.grid(row=1, column=0, pady=(0, 10))
-        
-        # Create resizable paned window for main content
-        self.setup_resizable_layout(main_frame)
-        
-        # Create tabs
-        self.setup_tabs()
-        
-        # Setup menu
-        self.setup_menu()
     
-    def setup_resizable_layout(self, parent):
-        """Setup resizable paned window layout"""
-        # Create horizontal paned window (resizable splitter)
-        self.paned_window = tk.PanedWindow(
-            parent,
-            orient=tk.HORIZONTAL,
-            sashrelief=tk.RAISED,
-            sashwidth=4,
-            bg='#e0e0e0',
-            handlesize=8,
-            handlepad=20
-        )
-        self.paned_window.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
-        
-        # Create recent results panel (left pane)
-        self.setup_recent_results_panel(self.paned_window)
-        
-        # Create notebook for tabs (right pane)
-        self.notebook = ttk.Notebook(self.paned_window)
-        
-        # Add both panes to the paned window
-        self.paned_window.add(self.recent_results_frame, minsize=150, width=200)  # Left pane: min 150px, default 200px
-        self.paned_window.add(self.notebook, minsize=400)  # Right pane: min 400px, gets remaining space
-        
-        # Configure the paned window to be responsive
-        self.paned_window.paneconfigure(self.recent_results_frame, sticky="nsew")
-        self.paned_window.paneconfigure(self.notebook, sticky="nsew")
-        
-        # Bind keyboard shortcuts for quick resizing
-        self.root.bind('<Control-bracketleft>', self.collapse_sidebar)  # Ctrl+[ to collapse sidebar
-        self.root.bind('<Control-bracketright>', self.expand_sidebar)   # Ctrl+] to expand sidebar
-        self.root.bind('<Control-equal>', self.reset_splitter)          # Ctrl+= to reset splitter
-        
-        # Load saved splitter position if available
-        self.load_splitter_position()
+    def _on_window_resize(self, event):
+        """Handle window resize"""
+        if event.widget == self.root:
+            # Trigger layout updates for all tabs
+            self._update_layout_for_size(event.width, event.height)
     
-    def setup_recent_results_panel(self, parent):
-        """Setup the recent results panel"""
-        # Create frame for recent results (for paned window)
-        self.recent_results_frame = ttk.LabelFrame(parent, text="📂 Recent Results", padding="3")
-        
-        # Create recent results panel
-        self.recent_results_panel = RecentResultsPanel(self.recent_results_frame, self)
-        self.recent_results_panel.get_frame().pack(fill=tk.BOTH, expand=True)
+    def _update_layout_for_size(self, width, height):
+        """Update layout based on window size"""
+        # Update any size-dependent layouts
+        if hasattr(self, 'notebook') and self.notebook:
+            # Force notebook to update its layout
+            self.notebook.update_idletasks()
     
-    def setup_tabs(self):
-        """Setup all application tabs"""
-        # Nano Banana Editor Tab
-        self.editor_tab = ImageEditorTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.editor_tab.container, text="🍌 Nano Banana Editor")
-        
-        # SeedEdit Tab
-        self.seededit_tab = SeedEditTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.seededit_tab.container, text="✨ SeedEdit")
-        
-        # Image Upscaler Tab
-        self.upscaler_tab = ImageUpscalerTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.upscaler_tab.container, text="🔍 Image Upscaler")
-        
-        # Wan 2.2 Tab
-        self.video_tab = ImageToVideoTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.video_tab.container, text="🎬 Wan 2.2")
-        
-        # SeedDance Tab
-        self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)
-        self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance")
+    def integrate_ai_features(self):
+        """Integrate AI features with all tabs"""
+        try:
+            # Integration mapping: tab_instance -> (model_type, prompt_widget_name)
+            integrations = [
+                (self.editor_tab, "nano_banana", "prompt_text"),
+                (self.seededit_tab, "seededit", "prompt_text"),
+                (self.upscaler_tab, "upscaler", None),  # Upscaler doesn't have prompts
+                (self.video_tab, "wan_22", "prompt_text"),
+                (self.seeddance_tab, "seeddance", "prompt_text")
+            ]
+            
+            # Check if Seedream V4 tab exists
+            if hasattr(self, 'seedream_tab') and self.seedream_tab:
+                integrations.append((self.seedream_tab, "seedream_v4", "prompt_text"))
+            
+            successful_integrations = 0
+            for tab_instance, model_type, prompt_widget_name in integrations:
+                if tab_instance and prompt_widget_name:  # Skip tabs without prompts
+                    try:
+                        success = universal_ai_integrator.integrate_with_tab(
+                            tab_instance, 
+                            model_type, 
+                            prompt_widget_name
+                        )
+                        if success:
+                            successful_integrations += 1
+                            logger.info(f"Successfully integrated AI features with {model_type} tab")
+                        else:
+                            logger.warning(f"Failed to integrate AI features with {model_type} tab")
+                    except Exception as e:
+                        logger.error(f"Error integrating AI with {model_type} tab: {e}")
+            
+            logger.info(f"AI integration complete: {successful_integrations}/{len([i for i in integrations if i[2]])} tabs integrated")
+            
+            # Update menu with current AI status
+            self.update_ai_menu_status()
+            
+        except Exception as e:
+            logger.error(f"Error during AI integration: {e}")
     
-    def setup_menu(self):
-        """Setup application menu"""
+    def update_ai_menu_status(self):
+        """Update AI menu with current status"""
+        try:
+            ai_status = get_ai_status()
+            
+            # Update menu title based on availability
+            if ai_status['any_available']:
+                provider = ai_status['preferred_provider'].title()
+                menu_title = f"🤖 AI Assistant ({provider})"
+            else:
+                menu_title = "🤖 AI Assistant (Configure)"
+            
+            # Find and update the AI menu
+            menubar = self.root['menu']
+            if menubar:
+                # Update the menu cascade label
+                try:
+                    menu_index = None
+                    for i in range(menubar.index('end') + 1):
+                        if '🤖' in menubar.entrycget(i, 'label'):
+                            menu_index = i
+                            break
+                    
+                    if menu_index is not None:
+                        menubar.entryconfig(menu_index, label=menu_title)
+                except:
+                    pass  # Menu might not exist yet
+            
+        except Exception as e:
+            logger.error(f"Error updating AI menu status: {e}")
+    
+    def set_window_icon(self):
+        """Set application window icon"""
+        try:
+            icon_path = os.path.join("assets", "icon.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+            else:
+                # Try PNG icon
+                icon_path = os.path.join("assets", "icon.png")
+                if os.path.exists(icon_path):
+                    from PIL import Image, ImageTk
+                    img = Image.open(icon_path)
+                    img = img.resize((32, 32), Image.Resampling.LANCZOS)
+                    icon = ImageTk.PhotoImage(img)
+                    self.root.iconphoto(True, icon)
+        except Exception as e:
+            logger.debug(f"Could not set window icon: {e}")
+    
+    def setup_ui(self):
+        """Setup the user interface"""
+        # Create menu bar
+        self.create_menu_bar()
+        
+        # Create main container with paned window for resizable layout
+        self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Create left panel for main content with scrolling
+        self.left_panel = ttk.Frame(self.main_paned_window)
+        self.main_paned_window.add(self.left_panel, weight=3)
+        
+        # Create right panel for recent results
+        self.right_panel = ttk.Frame(self.main_paned_window)
+        self.main_paned_window.add(self.right_panel, weight=1)
+        
+        # Create notebook for tabs in left panel
+        self.create_notebook()
+        
+        # Create recent results panel in right panel
+        self.create_recent_results_panel()
+        
+        # Create balance indicator
+        self.create_balance_indicator()
+        
+        # Setup keyboard shortcuts
+        self.setup_keyboard_shortcuts()
+        
+        # Load layout configuration
+        self.load_layout_config()
+        
+        logger.info("UI setup completed")
+    
+    def create_menu_bar(self):
+        """Create the application menu bar"""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
         
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
-        file_menu.add_separator()
         file_menu.add_command(label="Open Results Folder", command=self.open_results_folder)
         file_menu.add_separator()
         file_menu.add_command(label="Privacy Settings", command=self.show_privacy_settings)
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+        file_menu.add_command(label="Exit", command=self.on_closing)
         
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tools", menu=tools_menu)
-        tools_menu.add_command(label="Switch to Editor", command=lambda: self.switch_to_tab(0))
+        tools_menu.add_command(label="Switch to Nano Banana Editor", command=lambda: self.switch_to_tab(0))
         tools_menu.add_command(label="Switch to SeedEdit", command=lambda: self.switch_to_tab(1))
-        tools_menu.add_command(label="Switch to Upscaler", command=lambda: self.switch_to_tab(2))
+        tools_menu.add_command(label="Switch to Image Upscaler", command=lambda: self.switch_to_tab(2))
         tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(3))
-        tools_menu.add_command(label="Switch to SeedDance", command=lambda: self.switch_to_tab(4))
+        tools_menu.add_command(label="Switch to SeedDance Pro", command=lambda: self.switch_to_tab(4))
+        tools_menu.add_separator()
+        tools_menu.add_command(label="📊 Prompt Analytics", command=self.show_prompt_analytics)
+        
+        # AI Assistant menu (improved)
+        ai_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="🤖 AI Assistant", menu=ai_menu)
+        ai_menu.add_command(label="⚙️ Settings", command=self.show_ai_settings)
+        ai_menu.add_separator()
+        ai_menu.add_command(label="🔄 Refresh AI Features", command=self.refresh_ai_features)
+        ai_menu.add_separator()
+        ai_menu.add_command(label="ℹ️ About AI Assistant", command=self.show_ai_about)
+        ai_menu.add_command(label="📚 Help & Documentation", command=self.show_ai_help)
         
         # Help menu
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
         help_menu.add_command(label="About", command=self.show_about)
+        
+        logger.info("Menu bar created")
+    
+    def create_notebook(self):
+        """Create the main notebook for tabs"""
+        # Create container for notebook and balance
+        notebook_container = ttk.Frame(self.left_panel)
+        notebook_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Create notebook
+        self.notebook = ttk.Notebook(notebook_container)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+        
+        # Create tabs
+        self.create_tabs()
+        
+        logger.info("Notebook created with tabs")
+    
+    def create_tabs(self):
+        """Create all application tabs"""
+        try:
+            # Nano Banana Editor Tab
+            self.editor_tab = ImageEditorTab(self.notebook, self.api_client, self)
+            self.notebook.add(self.editor_tab.container, text="🍌 Nano Banana Editor")
+            
+            # SeedEdit Tab
+            self.seededit_tab = SeedEditTab(self.notebook, self.api_client, self)
+            self.notebook.add(self.seededit_tab.container, text="✨ SeedEdit")
+            
+            # Image Upscaler Tab
+            self.upscaler_tab = ImageUpscalerTab(self.notebook, self.api_client, self)
+            self.notebook.add(self.upscaler_tab.container, text="🔍 Image Upscaler")
+            
+            # Image to Video Tab
+            self.video_tab = ImageToVideoTab(self.notebook, self.api_client, self)
+            self.notebook.add(self.video_tab.container, text="🎬 Wan 2.2")
+            
+            # SeedDance Tab
+            self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)
+            self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance Pro")
+            
+            # Try to add Seedream V4 tab if available
+            try:
+                from ui.tabs.seedream_v4_tab import SeedreamV4Tab
+                self.seedream_tab = SeedreamV4Tab(self.notebook, self.api_client, self)
+                # Insert before upscaler (at index 2)
+                self.notebook.insert(2, self.seedream_tab.container, text="🌟 Seedream V4")
+                logger.info("Seedream V4 tab added successfully")
+            except ImportError:
+                logger.info("Seedream V4 tab not available")
+                self.seedream_tab = None
+            
+            logger.info("All tabs created successfully")
+            
+        except Exception as e:
+            logger.error(f"Error creating tabs: {str(e)}")
+            show_error("Tab Creation Error", f"Failed to create application tabs: {str(e)}")
+    
+    def create_recent_results_panel(self):
+        """Create the recent results panel"""
+        try:
+            self.recent_results_panel = RecentResultsPanel(
+                self.right_panel, 
+                self  # Pass main app instance
+            )
+            logger.info("Recent results panel created")
+        except Exception as e:
+            logger.error(f"Error creating recent results panel: {str(e)}")
+    
+    def create_balance_indicator(self):
+        """Create the balance indicator"""
+        try:
+            self.balance_indicator = BalanceIndicator(self.left_panel, self.api_client)
+            logger.info("Balance indicator created")
+        except Exception as e:
+            logger.error(f"Error creating balance indicator: {str(e)}")
+    
+    def handle_recent_result_selected(self, image_path, metadata):
+        """Handle selection of a recent result"""
+        try:
+            # Get the current active tab
+            current_tab_index = self.get_current_tab_index()
+            
+            # Map tab indices to tab instances
+            tabs = [
+                self.editor_tab,
+                self.seededit_tab, 
+                self.upscaler_tab,
+                self.video_tab,
+                self.seeddance_tab
+            ]
+            
+            # Add Seedream V4 tab if it exists
+            if hasattr(self, 'seedream_tab') and self.seedream_tab:
+                tabs.insert(2, self.seedream_tab)  # Insert at index 2
+            
+            if 0 <= current_tab_index < len(tabs) and tabs[current_tab_index]:
+                current_tab = tabs[current_tab_index]
+                
+                # Load the image into the current tab
+                if hasattr(current_tab, 'load_image_from_path'):
+                    current_tab.load_image_from_path(image_path)
+                elif hasattr(current_tab, 'selected_image_path'):
+                    current_tab.selected_image_path = image_path
+                    # Trigger image loading if there's a method for it
+                    if hasattr(current_tab, 'load_selected_image'):
+                        current_tab.load_selected_image()
+                
+                logger.info(f"Loaded recent result into tab {current_tab_index}: {image_path}")
+            else:
+                logger.warning(f"Invalid tab index or tab not available: {current_tab_index}")
+                
+        except Exception as e:
+            logger.error(f"Error handling recent result selection: {e}")
+            show_error("Error", f"Failed to load recent result: {str(e)}")
+    
+    def setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts"""
+        try:
+            # Layout shortcuts
+            self.root.bind('<Control-bracketleft>', lambda e: self.toggle_right_panel())
+            self.root.bind('<Control-bracketright>', lambda e: self.toggle_right_panel())
+            self.root.bind('<Control-equal>', lambda e: self.reset_layout())
+            
+            # Tab shortcuts
+            self.root.bind('<Control-1>', lambda e: self.switch_to_tab(0))
+            self.root.bind('<Control-2>', lambda e: self.switch_to_tab(1))
+            self.root.bind('<Control-3>', lambda e: self.switch_to_tab(2))
+            self.root.bind('<Control-4>', lambda e: self.switch_to_tab(3))
+            self.root.bind('<Control-5>', lambda e: self.switch_to_tab(4))
+            
+            logger.info("Keyboard shortcuts configured")
+        except Exception as e:
+            logger.error(f"Error setting up keyboard shortcuts: {str(e)}")
+    
+    def toggle_right_panel(self):
+        """Toggle the right panel visibility"""
+        # Implementation for toggling right panel
+        pass
+    
+    def reset_layout(self):
+        """Reset the layout to default"""
+        # Implementation for resetting layout
+        pass
+    
+    def load_layout_config(self):
+        """Load layout configuration"""
+        # Implementation for loading layout config
+        pass
     
     def switch_to_tab(self, tab_index):
         """Switch to a specific tab"""
@@ -265,6 +437,14 @@ class WaveSpeedAIApp:
             self.notebook.select(tab_index)
         except tk.TclError:
             pass  # Tab doesn't exist or invalid index
+    
+    def get_current_tab_index(self):
+        """Get the current active tab index"""
+        try:
+            return self.notebook.index(self.notebook.select())
+        except Exception as e:
+            logger.debug(f"Error getting current tab index: {e}")
+            return 0
     
     def open_results_folder(self):
         """Open the auto-save results folder"""
@@ -280,155 +460,289 @@ class WaveSpeedAIApp:
     
     def show_privacy_settings(self):
         """Show privacy settings dialog"""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Privacy Settings")
-        dialog.geometry("500x400")
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        # Center the dialog
-        dialog.geometry("+%d+%d" % (self.root.winfo_rootx() + 50, self.root.winfo_rooty() + 50))
-        
-        # Main frame
-        main_frame = ttk.Frame(dialog, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Title
-        title_label = ttk.Label(main_frame, text="🔒 Privacy & Upload Settings", font=('Arial', 14, 'bold'))
-        title_label.pack(pady=(0, 20))
-        
-        # Current setting
-        current_frame = ttk.LabelFrame(main_frame, text="Current Privacy Mode", padding="10")
-        current_frame.pack(fill=tk.X, pady=(0, 20))
-        
-        current_label = ttk.Label(current_frame, text=f"Currently using: {Config.PRIVACY_MODE.upper()} privacy mode")
-        current_label.pack()
-        
-        # Privacy options
-        options_frame = ttk.LabelFrame(main_frame, text="Privacy Options", padding="10")
-        options_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
-        
-        privacy_var = tk.StringVar(value=Config.PRIVACY_MODE)
-        
-        # High privacy option
-        high_frame = ttk.Frame(options_frame)
-        high_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Radiobutton(high_frame, text="🔒 HIGH PRIVACY", variable=privacy_var, value="high").pack(anchor=tk.W)
-        ttk.Label(high_frame, text="• Uses base64 data URLs (no external hosting)\n• Most secure but may not work with all APIs\n• Your images never leave your computer", 
-                 font=('Arial', 9), foreground='green').pack(anchor=tk.W, padx=20)
-        
-        # Medium privacy option
-        medium_frame = ttk.Frame(options_frame)
-        medium_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Radiobutton(medium_frame, text="⚠️ MEDIUM PRIVACY", variable=privacy_var, value="medium").pack(anchor=tk.W)
-        ttk.Label(medium_frame, text="• Temporary hosting with 1-hour auto-delete\n• Good balance of privacy and compatibility\n• Images automatically removed after processing", 
-                 font=('Arial', 9), foreground='orange').pack(anchor=tk.W, padx=20)
-        
-        # Low privacy option (demo)
-        low_frame = ttk.Frame(options_frame)
-        low_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Radiobutton(low_frame, text="🔓 DEMO MODE", variable=privacy_var, value="low").pack(anchor=tk.W)
-        ttk.Label(low_frame, text="• Uses sample images for demonstration\n• Your images are not uploaded anywhere\n• For testing the application interface", 
-                 font=('Arial', 9), foreground='blue').pack(anchor=tk.W, padx=20)
-        
-        # Buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X)
-        
-        def save_settings():
-            Config.PRIVACY_MODE = privacy_var.get()
-            try:
-                show_success("Settings Saved", f"Privacy mode set to: {Config.PRIVACY_MODE.upper()}")
-            except NameError:
-                utils.show_success("Settings Saved", f"Privacy mode set to: {Config.PRIVACY_MODE.upper()}")
-            dialog.destroy()
-        
-        ttk.Button(button_frame, text="Save Settings", command=save_settings).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.RIGHT)
+        # Implementation for privacy settings
+        show_warning("Feature Coming Soon", "Privacy settings dialog will be available in a future update.")
     
-    def switch_to_editor_with_image(self, image_path):
-        """Switch to editor tab and load an image"""
+    def show_ai_settings(self):
+        """Show AI assistant settings dialog"""
         try:
-            # Switch to editor tab
-            self.notebook.select(0)  # Editor is tab 0
-            
-            # Set the image in editor
-            if self.editor_tab:
-                self.editor_tab.image_selector.selected_path = image_path
-                self.editor_tab.image_selector.image_path_label.config(
-                    text=os.path.basename(image_path) + " (from upscaler)", 
-                    foreground="blue"
-                )
-                self.editor_tab.on_image_selected(image_path)
-                
+            show_ai_settings(self.root)
+            # Refresh AI features after settings dialog is closed
+            self.root.after(100, self.refresh_ai_features)
         except Exception as e:
-            show_error("Error", f"Failed to switch to editor: {str(e)}")
+            logger.error(f"Error showing AI settings: {e}")
+            show_error("AI Settings Error", f"Failed to show AI settings: {str(e)}")
+    
+    def refresh_ai_features(self):
+        """Refresh AI features in all tabs"""
+        try:
+            refresh_ai_button_states()
+            self.update_ai_menu_status()
+            show_success("AI Features Refreshed", "AI assistant features have been refreshed in all tabs.")
+            logger.info("AI features refreshed successfully")
+        except Exception as e:
+            logger.error(f"Error refreshing AI features: {e}")
+            show_error("Refresh Error", f"Failed to refresh AI features: {str(e)}")
+    
+    def show_ai_about(self):
+        """Show AI assistant information"""
+        ai_status = get_ai_status()
+        
+        if ai_status['any_available']:
+            status_text = f"✅ Active (Primary: {ai_status['preferred_provider'].title()})"
+            providers_text = []
+            if ai_status['claude_available']:
+                providers_text.append("• ✅ Claude API configured")
+            else:
+                providers_text.append("• ❌ Claude API not configured")
+            
+            if ai_status['openai_available']:
+                providers_text.append("• ✅ OpenAI API configured")
+            else:
+                providers_text.append("• ❌ OpenAI API not configured")
+            
+            providers_info = "\n".join(providers_text)
+        else:
+            status_text = "❌ Not configured"
+            providers_info = "No API keys configured. Go to Settings to configure."
+        
+        about_text = f"""🤖 AI Prompt Assistant
+
+Status: {status_text}
+
+Configuration:
+{providers_info}
+
+Features:
+• ✨ Improve existing prompts for better results
+• 💡 Generate creative prompt ideas  
+• 🎯 Tab-specific optimization for each AI model
+• 🧠 Context-aware suggestions
+• 🛡️ Filter training mode for safety research
+• ⚙️ Configurable settings and preferences
+
+Setup:
+1. Add API keys to your .env file:
+   - CLAUDE_API_KEY=your_claude_key
+   - OPENAI_API_KEY=your_openai_key
+
+2. Restart the application
+
+3. Use "✨ Improve with AI" buttons in any tab
+
+The AI Assistant helps you create more effective prompts that lead to better AI generations!"""
+        
+        from tkinter import messagebox
+        messagebox.showinfo("AI Prompt Assistant", about_text)
+    
+    def show_ai_help(self):
+        """Show AI assistant help documentation"""
+        help_dialog = tk.Toplevel(self.root)
+        help_dialog.title("AI Assistant Help")
+        help_dialog.geometry("800x600")
+        help_dialog.transient(self.root)
+        help_dialog.grab_set()
+        
+        # Center dialog
+        help_dialog.update_idletasks()
+        x = (help_dialog.winfo_screenwidth() // 2) - (help_dialog.winfo_width() // 2)
+        y = (help_dialog.winfo_screenheight() // 2) - (help_dialog.winfo_height() // 2)
+        help_dialog.geometry(f"+{x}+{y}")
+        
+        # Create scrollable text widget
+        text_frame = tk.Frame(help_dialog)
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        text_widget = tk.Text(
+            text_frame,
+            wrap=tk.WORD,
+            font=('Arial', 11),
+            bg='#f8f9fa',
+            fg='#2c3e50'
+        )
+        
+        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
+        text_widget.configure(yscrollcommand=scrollbar.set)
+        
+        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        help_content = """🤖 AI Assistant Complete Guide
+
+OVERVIEW
+========
+The AI Assistant provides intelligent prompt suggestions using Claude or OpenAI APIs to help you create better prompts for all AI models in the WaveSpeed AI Creative Suite.
+
+SETUP INSTRUCTIONS
+==================
+1. Get API Keys:
+   • Claude: Visit console.anthropic.com
+   • OpenAI: Visit platform.openai.com/api-keys
+
+2. Configure .env file:
+   Add these lines to your .env file:
+   CLAUDE_API_KEY=your_claude_api_key_here
+   OPENAI_API_KEY=your_openai_api_key_here
+   AI_ADVISOR_PROVIDER=claude
+
+3. Restart the application
+
+HOW TO USE
+==========
+Method 1: AI Improve Button
+• Enter your prompt in any tab's prompt field
+• Click "✨ Improve with AI" button
+• Review suggestions in the enhanced dialog
+• Click "✅ Use This Prompt" to apply
+
+Method 2: Right-Click Context Menu
+• Right-click in any prompt text field
+• Select "✨ Improve with AI" from context menu
+• Choose from suggestions and apply
+
+Method 3: Filter Training (Research Only)
+• Enter a prompt in any tab
+• Click "🛡️ Filter Training" button
+• Confirm warning dialog about safety research
+• Review generated examples for filter training
+
+SUGGESTION TYPES
+================
+• Clarity: Makes prompts clearer and more specific
+• Creativity: Adds artistic flair and creative elements
+• Technical: Optimizes for technical accuracy and model performance
+
+MODEL-SPECIFIC GUIDANCE
+=======================
+🍌 Nano Banana: Artistic transformations with vivid, descriptive language
+✨ SeedEdit: Precise, controlled edits with technical precision
+🌟 Seedream V4: Complex multi-step transformations with structured prompts
+🎬 Wan 2.2: Natural motion and realistic animations
+🕺 SeedDance Pro: Cinematic movement and camera work
+
+TROUBLESHOOTING
+===============
+Buttons Not Appearing:
+• Check that API keys are configured in .env file
+• Restart the application
+• Go to AI Assistant → Refresh AI Features
+
+API Errors:
+• Verify your API keys are valid
+• Check that you have sufficient quota/credits
+• Test connection in AI Assistant → Settings
+
+No Suggestions Generated:
+• Check your internet connection
+• Try with a different prompt
+• Switch to alternative provider if available
+
+Empty Prompts:
+• Enter some text in the prompt field before requesting suggestions
+• The AI needs context to provide meaningful improvements
+
+PRIVACY & SECURITY
+==================
+• API keys are stored securely in .env file
+• Only current prompt text is sent to AI APIs
+• No permanent storage of AI suggestions
+• Users control which suggestions to apply
+
+ADVANCED FEATURES
+=================
+• Auto-detection of available APIs
+• Graceful fallback between providers
+• Context-aware suggestions for each model
+• Filter training for safety research
+• Copy suggestions to clipboard
+• Preview before applying
+
+GETTING HELP
+============
+• Check this help documentation
+• Visit AI Assistant → Settings for configuration
+• Test API connections in settings
+• Check application logs for detailed error information
+
+For additional support, refer to the main application documentation."""
+        
+        text_widget.insert('1.0', help_content)
+        text_widget.config(state='disabled')
+        
+        # Close button
+        close_btn = tk.Button(
+            help_dialog,
+            text="Close",
+            command=help_dialog.destroy,
+            bg='#3498db',
+            fg='white',
+            font=('Arial', 11),
+            padx=20,
+            pady=5
+        )
+        close_btn.pack(pady=(0, 20))
+    
+    def show_prompt_analytics(self):
+        """Show prompt analytics window"""
+        try:
+            show_prompt_analytics(self.root)
+        except Exception as e:
+            logger.error(f"Error showing prompt analytics: {e}")
+            show_error("Error", f"Failed to open prompt analytics: {e}")
     
     def show_about(self):
         """Show about dialog"""
-        about_text = """WaveSpeed AI Complete Creative Suite
-        
-Version: 2.5
-Created by: Jackson Weed
-        
-🆕 Latest Features:
-• Enhanced User Experience (No popup interruptions)
-• Improved Stability & Performance 
-• Enhanced Prompt Management for all tabs
-• Universal Drag & Drop support
-• Fixed Cross-Tab Sharing & File Handling
+        about_text = f"""WaveSpeed AI Creative Suite
+Version: {Config.VERSION}
 
-🤖 AI Models:
-• 🍌 Nano Banana Editor - Advanced image editing
-• ✨ SeedEdit - Precise image modifications  
-• 🔍 Image Upscaler - 2k/4k/8k resolution enhancement
-• 🎬 Wan 2.2 - Image to video generation
-• 🕺 SeedDance - Professional video generation
+A comprehensive GUI application for AI-powered image editing, upscaling, and video generation.
 
-🎯 Professional Features:
-• Real-time Balance Indicator
-• Recent Results Panel with visual gallery
-• Cross-tab Result Sharing & Workflows
-• Resizable UI Sections with keyboard shortcuts
-• Enhanced Video Player (YouTube-like experience)
-• Auto-save System with organized folders
+Created by Jackson Weed
 
-Powered by WaveSpeed AI APIs
-Built with Python, tkinter, and modern UI/UX principles"""
+Features:
+• Multiple AI models (Nano Banana, SeedEdit, Seedream V4, etc.)
+• Enhanced prompt management with database
+• AI-powered prompt suggestions
+• Cross-tab workflow integration
+• Auto-save and organization
+• Professional video player
+• Real-time balance tracking
+
+Visit: https://wavespeed.ai"""
         
-        about_window = tk.Toplevel(self.root)
-        about_window.title("About WaveSpeed AI")
-        about_window.geometry("400x300")
-        about_window.resizable(False, False)
-        
-        # Center the window
-        about_window.transient(self.root)
-        about_window.grab_set()
-        
-        # Content
-        text_widget = tk.Text(about_window, wrap=tk.WORD, padx=20, pady=20)
-        text_widget.pack(fill=tk.BOTH, expand=True)
-        text_widget.insert("1.0", about_text)
-        text_widget.config(state=tk.DISABLED)
-        
-        # Close button
-        close_button = ttk.Button(about_window, text="Close", command=about_window.destroy)
-        close_button.pack(pady=10)
+        from tkinter import messagebox
+        messagebox.showinfo("About WaveSpeed AI", about_text)
+    
+    def on_closing(self):
+        """Handle application closing"""
+        try:
+            # Save layout configuration
+            self.save_layout_config()
+            
+            # Cleanup resources
+            resource_manager.cleanup_all()
+            
+            logger.info("Application closing")
+            self.root.quit()
+            self.root.destroy()
+            
+        except Exception as e:
+            logger.error(f"Error during application shutdown: {str(e)}")
+            self.root.quit()
+            self.root.destroy()
+    
+    def save_layout_config(self):
+        """Save layout configuration"""
+        # Implementation for saving layout config
+        pass
     
     def run(self):
         """Run the application"""
-        logger.info("Starting WaveSpeed AI Application")
-        
         try:
-            # Check API key on startup
-            if not self.api_client.api_key:
-                logger.warning("API key not found")
-                show_error(
-                    "API Key Missing", 
-                    "No API key found. Please set WAVESPEED_API_KEY in your .env file.\n\n"
+            # Check API key configuration
+            if not Config.API_KEY:
+                show_warning("Configuration", 
+                    "Please set WAVESPEED_API_KEY in your .env file.\n\n"
                     "Copy env_example.txt to .env and add your API key."
                 )
             else:
@@ -446,83 +760,13 @@ Built with Python, tkinter, and modern UI/UX principles"""
             show_error("Application Error", f"Failed to run application: {str(e)}")
         finally:
             logger.info("Application shutdown")
-    
-    def on_closing(self):
-        """Handle application closing"""
-        try:
-            logger.info("Application closing - cleaning up resources")
-            
-            # Stop balance indicator updates
-            if hasattr(self, 'balance_indicator'):
-                self.balance_indicator.destroy()
-            
-            # Cleanup recent results panel
-            if hasattr(self, 'recent_results_panel'):
-                self.recent_results_panel.destroy()
-            
-            # Save splitter position before closing
-            self.save_splitter_position()
-            
-            resource_manager.cleanup_all()
-            self.root.quit()
-            self.root.destroy()
-        except Exception as e:
-            logger.error(f"Error during cleanup: {str(e)}")
-            self.root.quit()
-    
-    def collapse_sidebar(self, event=None):
-        """Collapse the sidebar to minimum size"""
-        if hasattr(self, 'paned_window'):
-            self.paned_window.paneconfigure(self.recent_results_frame, width=150)
-    
-    def expand_sidebar(self, event=None):
-        """Expand the sidebar to larger size"""
-        if hasattr(self, 'paned_window'):
-            self.paned_window.paneconfigure(self.recent_results_frame, width=300)
-    
-    def reset_splitter(self, event=None):
-        """Reset splitter to default position"""
-        if hasattr(self, 'paned_window'):
-            self.paned_window.paneconfigure(self.recent_results_frame, width=200)
-    
-    def save_splitter_position(self):
-        """Save current splitter position to config"""
-        try:
-            if hasattr(self, 'paned_window'):
-                # Get current sash position (splitter position)
-                sash_pos = self.paned_window.sash_coord(0)[0]  # Get x-coordinate of first sash
-                
-                # Save to a simple config file
-                config_file = "ui_layout.conf"
-                with open(config_file, 'w') as f:
-                    f.write(f"splitter_position={sash_pos}\n")
-                
-                logger.info(f"Saved splitter position: {sash_pos}")
-        except Exception as e:
-            logger.error(f"Error saving splitter position: {e}")
-    
-    def load_splitter_position(self):
-        """Load saved splitter position from config"""
-        try:
-            config_file = "ui_layout.conf"
-            if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    for line in f:
-                        if line.startswith("splitter_position="):
-                            pos = int(line.split("=")[1].strip())
-                            # Apply the position after a short delay to ensure UI is ready
-                            self.root.after(100, lambda: self.paned_window.sash_place(0, pos, 0))
-                            logger.info(f"Loaded splitter position: {pos}")
-                            break
-        except Exception as e:
-            logger.error(f"Error loading splitter position: {e}")
 
-
-def main():
-    """Main entry point"""
-    app = WaveSpeedAIApp()
-    app.run()
-
-
+# Example usage and testing
 if __name__ == "__main__":
-    main()
+    try:
+        app = WaveSpeedAIApp()
+        app.run()
+    except Exception as e:
+        print(f"Failed to start application: {e}")
+        import traceback
+        traceback.print_exc()

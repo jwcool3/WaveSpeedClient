@@ -8,6 +8,7 @@ with large image displays and compact, well-organized controls.
 import tkinter as tk
 from tkinter import ttk
 import os
+from typing import Optional
 from PIL import Image, ImageTk
 from utils.utils import load_image_preview, validate_image_file, show_error, parse_drag_drop_data
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
@@ -43,6 +44,8 @@ class OptimizedImageLayout:
         # Main container with horizontal layout - use pack to be compatible with BaseTab
         main_container = ttk.Frame(self.parent_frame)
         main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Configure grid weights for the main container
         main_container.columnconfigure(1, weight=3)  # Images get 3x more space
         main_container.columnconfigure(0, weight=1)  # Controls get 1x space
         main_container.rowconfigure(0, weight=1)
@@ -65,12 +68,34 @@ class OptimizedImageLayout:
         left_panel.rowconfigure(2, weight=1)  # Prompts - expandable
         left_panel.rowconfigure(3, weight=0)  # Action buttons - fixed size
         left_panel.rowconfigure(4, weight=0)  # Progress - fixed size
+        left_panel.rowconfigure(5, weight=0)  # AI Chat - fixed size
         
         # Compact image selection
         self.setup_compact_image_selector(left_panel)
         
         # Compact settings
         self.setup_compact_settings(left_panel)
+        
+        # Prompt container (expandable)
+        self.prompt_container = ttk.LabelFrame(left_panel, text="📝 Prompts", padding="8")
+        self.prompt_container.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        self.prompt_container.columnconfigure(0, weight=1)
+        self.prompt_container.rowconfigure(1, weight=1)  # Make the text area expandable
+        
+        # Progress container (for progress bars and status)
+        self.progress_container = ttk.LabelFrame(left_panel, text="⚡ Progress", padding="8")
+        self.progress_container.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.progress_container.columnconfigure(0, weight=1)
+        
+        # Status container (fixed size)
+        self.status_container = ttk.LabelFrame(left_panel, text="📊 Status", padding="8")
+        self.status_container.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.status_container.columnconfigure(0, weight=1)
+        
+        # AI Chat container (fixed size, positioned higher up)
+        self.ai_chat_container = ttk.LabelFrame(left_panel, text="🤖 AI Assistant", padding="8")
+        self.ai_chat_container.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.ai_chat_container.columnconfigure(0, weight=1)
         
         # Action buttons with spacer
         self.setup_action_buttons(left_panel)
@@ -122,23 +147,23 @@ class OptimizedImageLayout:
         """Setup action buttons with vertical spacer"""
         # Create a spacer that expands to push buttons to bottom
         spacer_frame = ttk.Frame(parent)
-        spacer_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        spacer_frame.grid(row=6, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Action buttons at the bottom of left panel
-        button_frame = ttk.Frame(parent)
-        button_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        button_frame.columnconfigure(0, weight=1)
+        self.button_frame = ttk.Frame(parent)
+        self.button_frame.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.button_frame.columnconfigure(0, weight=1)
         
         # Main action button (will be set by specific tab)
         self.main_action_button = ttk.Button(
-            button_frame,
+            self.button_frame,
             text="Process Image",
             style="Accent.TButton"
         )
         self.main_action_button.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
         
         # Secondary buttons
-        secondary_frame = ttk.Frame(button_frame)
+        secondary_frame = ttk.Frame(self.button_frame)
         secondary_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         secondary_frame.columnconfigure(0, weight=1)
         secondary_frame.columnconfigure(1, weight=1)
@@ -186,7 +211,7 @@ class OptimizedImageLayout:
         self.input_frame.rowconfigure(0, weight=1)
         
         # Input image display
-        self.input_display_frame = ttk.Frame(self.input_frame, relief='solid', borderwidth=1)
+        self.input_display_frame = ttk.Frame(self.input_frame)
         self.input_display_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=10)
         self.input_display_frame.columnconfigure(0, weight=1)
         self.input_display_frame.rowconfigure(0, weight=1)
@@ -294,7 +319,7 @@ class OptimizedImageLayout:
         self.result_frame.rowconfigure(0, weight=1)
         
         # Result image display
-        self.result_display_frame = ttk.Frame(self.result_frame, relief='solid', borderwidth=1)
+        self.result_display_frame = ttk.Frame(self.result_frame)
         self.result_display_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10, pady=(10, 5))
         self.result_display_frame.columnconfigure(0, weight=1)
         self.result_display_frame.rowconfigure(0, weight=1)
@@ -347,6 +372,20 @@ class OptimizedImageLayout:
         self.save_result_button.config(command=save_command)
         self.use_result_button.config(command=use_command)
     
+    def on_image_selected(self, image_path):
+        """Handle image selection and update AI chat"""
+        # Update the image display
+        result = self.update_input_image(image_path)
+        
+        # NEW: Update AI chat with new image
+        self.update_ai_chat_image()
+        
+        return result
+    
+    def display_result(self, result_url):
+        """Display result from URL - compatibility method for tabs"""
+        return self.update_result_image(result_url)
+    
     def update_input_image(self, image_path):
         """Update the input image display"""
         try:
@@ -356,8 +395,12 @@ class OptimizedImageLayout:
             filename = os.path.basename(image_path)
             self.image_path_label.config(text=filename, foreground="black")
             
-            # Load and display image with proper file handling
+            # Load and display image with proper file handling and rotation fix
             with Image.open(image_path) as image:
+                # Apply EXIF orientation correction for display
+                from PIL import ImageOps
+                image = ImageOps.exif_transpose(image)
+                
                 # Calculate size to fit display area while maintaining aspect ratio
                 display_width = 800  # Max width for display
                 display_height = 600  # Max height for display
@@ -373,7 +416,7 @@ class OptimizedImageLayout:
             self.input_image_label.config(image=photo, text="")
             self.input_image_label.image = photo  # Keep a reference
             
-            # Update small preview
+            # Update small preview (already rotated from main image)
             preview_image = image_copy.copy()
             preview_image.thumbnail((80, 80), Image.Resampling.LANCZOS)
             preview_photo = ImageTk.PhotoImage(preview_image)
@@ -382,6 +425,9 @@ class OptimizedImageLayout:
             
             # Switch to input tab
             self.image_notebook.select(self.input_frame)
+            
+            # NEW: Notify AI chat of image change
+            self.update_ai_chat_image()
             
             return True
             
@@ -538,3 +584,128 @@ class OptimizedImageLayout:
             else:
                 # Fallback to direct update
                 self.update_input_image(file_path)
+    
+    def add_ai_chat_interface(self, prompt_widget, model_type, tab_instance):
+        """Add AI chat interface to the AI chat container"""
+        try:
+            from ui.components.ai_prompt_chat import AIPromptChat
+            
+            # Create callback to apply improved prompts
+            def apply_prompt_callback(improved_prompt: str):
+                prompt_widget.delete("1.0", tk.END)
+                prompt_widget.insert("1.0", improved_prompt)
+                logger.info("Applied improved prompt from AI chat")
+            
+            # Create AI model chat interface (with system prompt for specific model)
+            self.ai_model_chat = AIPromptChat(
+                parent=self.ai_chat_container,
+                on_prompt_updated=apply_prompt_callback
+            )
+            
+            # Create filter training chat interface (for safety research)
+            self.filter_training_chat = AIPromptChat(
+                parent=self.ai_chat_container,
+                on_prompt_updated=apply_prompt_callback
+            )
+            
+            # Set filter training mode for the second chat
+            self.filter_training_chat.filter_training = True
+            
+            # NEW: Set up image reference for both chat instances
+            self.ai_model_chat.set_image_reference(self)
+            self.filter_training_chat.set_image_reference(self)
+            
+            # Store references for later use
+            self.prompt_widget = prompt_widget
+            self.model_type = model_type
+            self.tab_instance = tab_instance
+            
+            # Initial sync of current image
+            self.update_ai_chat_image()
+            
+            # Create button frame for the two different AI chat types
+            button_frame = ttk.Frame(self.ai_chat_container)
+            button_frame.pack(fill=tk.X, pady=(5, 0))
+            button_frame.columnconfigure(0, weight=1)
+            button_frame.columnconfigure(1, weight=1)
+            
+            # AI Model Chat button (uses system prompt for the specific model)
+            self.ai_model_button = ttk.Button(
+                button_frame,
+                text=f"🤖 {model_type.title()} AI Chat",
+                command=self.toggle_ai_model_chat
+            )
+            self.ai_model_button.grid(row=0, column=0, padx=(0, 2), sticky=(tk.W, tk.E))
+            
+            # Filter Training Chat button (for safety research)
+            self.filter_training_button = ttk.Button(
+                button_frame,
+                text="🛡️ Filter Training Chat",
+                command=self.toggle_filter_training_chat
+            )
+            self.filter_training_button.grid(row=0, column=1, padx=(2, 0), sticky=(tk.W, tk.E))
+            
+            # Initially hide both chats
+            self.ai_model_chat.container.pack_forget()
+            self.filter_training_chat.container.pack_forget()
+            self.ai_model_chat_visible = False
+            self.filter_training_chat_visible = False
+            
+            logger.info(f"Added dual AI chat interface to {model_type} tab")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error adding AI chat interface: {e}")
+            return False
+    
+    def toggle_ai_model_chat(self):
+        """Toggle AI model chat visibility"""
+        if hasattr(self, 'ai_model_chat_visible'):
+            if self.ai_model_chat_visible:
+                self.ai_model_chat.container.pack_forget()
+                self.ai_model_chat_visible = False
+            else:
+                # Hide filter training chat if it's visible
+                if hasattr(self, 'filter_training_chat_visible') and self.filter_training_chat_visible:
+                    self.filter_training_chat.container.pack_forget()
+                    self.filter_training_chat_visible = False
+                
+                # Get current prompt and show AI model chat
+                current_prompt = self.prompt_widget.get("1.0", tk.END).strip()
+                self.ai_model_chat.show_chat(current_prompt, self.model_type)
+                self.ai_model_chat_visible = True
+    
+    def toggle_filter_training_chat(self):
+        """Toggle filter training chat visibility"""
+        if hasattr(self, 'filter_training_chat_visible'):
+            if self.filter_training_chat_visible:
+                self.filter_training_chat.container.pack_forget()
+                self.filter_training_chat_visible = False
+            else:
+                # Hide AI model chat if it's visible
+                if hasattr(self, 'ai_model_chat_visible') and self.ai_model_chat_visible:
+                    self.ai_model_chat.container.pack_forget()
+                    self.ai_model_chat_visible = False
+                
+                # Get current prompt and show filter training chat
+                current_prompt = self.prompt_widget.get("1.0", tk.END).strip()
+                self.filter_training_chat.show_chat(current_prompt, f"{self.model_type} - Filter Training")
+                self.filter_training_chat_visible = True
+    
+    def get_current_image_path(self) -> Optional[str]:
+        """Get the current input image path"""
+        return self.selected_image_path
+    
+    def update_ai_chat_image(self):
+        """Update AI chat with current image"""
+        image_path = self.get_current_image_path()
+        
+        if hasattr(self, 'ai_model_chat') and self.ai_model_chat:
+            self.ai_model_chat.set_current_image(image_path)
+            
+        if hasattr(self, 'filter_training_chat') and self.filter_training_chat:
+            self.filter_training_chat.set_current_image(image_path)
+    
+    def sync_image_with_ai_chat(self):
+        """Sync current image with AI chat across all instances"""
+        self.update_ai_chat_image()

@@ -10,7 +10,7 @@ from tkinter import ttk
 import os
 from PIL import Image, ImageTk
 from utils.utils import load_image_preview, validate_image_file, show_error, parse_drag_drop_data
-from ui.components.enhanced_video_player import EnhancedVideoPlayer, VIDEO_PLAYER_AVAILABLE
+from ui.components.modern_video_player import ModernVideoPlayer
 from core.logger import get_logger
 
 logger = get_logger()
@@ -29,7 +29,7 @@ class OptimizedVideoLayout:
         self.parent_frame = parent_frame
         self.title = title
         self.selected_image_path = None
-        self.enhanced_video_player = None
+        self.modern_video_player = None
         
         # Parent frame will be managed by pack, so no grid configuration needed
         
@@ -199,20 +199,13 @@ class OptimizedVideoLayout:
         video_section.columnconfigure(0, weight=1)
         video_section.rowconfigure(0, weight=1)
         
-        # Enhanced video player (responsive to window size)
-        if VIDEO_PLAYER_AVAILABLE:
-            try:
-                # Create responsive video player that adapts to container size
-                self.enhanced_video_player = EnhancedVideoPlayer(
-                    video_section,
-                    width=960,  # Base size - will expand with container
-                    height=540  # Maintains 16:9 ratio but expands vertically
-                )
-                logger.info("Large responsive enhanced video player created successfully")
-            except Exception as e:
-                logger.error(f"Failed to create enhanced video player: {e}")
-                self.setup_fallback_video_display(video_section)
-        else:
+        # Modern video player (responsive to window size)
+        try:
+            # Create modern video player that adapts to container size
+            self.modern_video_player = ModernVideoPlayer(video_section)
+            logger.info("Modern video player created successfully")
+        except Exception as e:
+            logger.error(f"Failed to create modern video player: {e}")
             self.setup_fallback_video_display(video_section)
     
     def setup_fallback_video_display(self, parent):
@@ -405,8 +398,8 @@ class OptimizedVideoLayout:
         return self.selected_image_path
     
     def get_video_player(self):
-        """Get the enhanced video player instance"""
-        return self.enhanced_video_player
+        """Get the modern video player instance"""
+        return self.modern_video_player
     
     def add_setting_widget(self, widget, row):
         """Add a setting widget to the settings panel"""

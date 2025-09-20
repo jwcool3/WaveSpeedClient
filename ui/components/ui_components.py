@@ -35,7 +35,7 @@ class BaseTab(ABC):
         # Configure scrolling
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            lambda e: self._update_scroll_region()
         )
         
         # Create window in canvas
@@ -80,18 +80,71 @@ class BaseTab(ABC):
         self.results_frame = None
         self.result_text = None
         self.process_button = None
+        self.loading_label = None
         
         self.setup_ui()
         
     def _on_canvas_configure(self, event):
-        """Handle canvas resize"""
+        """Handle canvas resize events"""
         # Update the scrollable frame width to match canvas width
         canvas_width = event.width
         self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+        
+        # Update scroll region when canvas size changes
+        self._update_scroll_region()
+    
+    def _update_scroll_region(self):
+        """Force scroll region update"""
+        self.canvas.after_idle(lambda: self.canvas.configure(
+            scrollregion=self.canvas.bbox("all")
+        ))
     
     def _on_mousewheel(self, event):
         """Handle mouse wheel scrolling"""
         self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    def show_loading(self, message="Processing..."):
+        """Show loading indicator"""
+        if hasattr(self, 'loading_label') and self.loading_label:
+            self.loading_label.config(text=message)
+            self.loading_label.pack(pady=5)
+        elif hasattr(self, 'status_label') and self.status_label:
+            self.status_label.config(text=message, foreground="blue")
+    
+    def hide_loading(self):
+        """Hide loading indicator"""
+        if hasattr(self, 'loading_label') and self.loading_label:
+            self.loading_label.pack_forget()
+        elif hasattr(self, 'status_label') and self.status_label:
+            self.status_label.config(text="Ready", foreground="green")
+    
+    def show_user_error(self, title, message, suggestion=None):
+        """Show user-friendly error dialog"""
+        from tkinter import messagebox
+        
+        error_msg = message
+        if suggestion:
+            error_msg += f"\n\n💡 Suggestion: {suggestion}"
+        
+        messagebox.showerror(title, error_msg)
+        
+        # Also update status if available
+        if hasattr(self, 'status_label') and self.status_label:
+            self.status_label.config(text=f"❌ Error: {title}", foreground="red")
+    
+    def show_user_warning(self, title, message, suggestion=None):
+        """Show user-friendly warning dialog"""
+        from tkinter import messagebox
+        
+        warning_msg = message
+        if suggestion:
+            warning_msg += f"\n\n💡 Suggestion: {suggestion}"
+        
+        messagebox.showwarning(title, warning_msg)
+        
+        # Also update status if available
+        if hasattr(self, 'status_label') and self.status_label:
+            self.status_label.config(text=f"⚠️ Warning: {title}", foreground="orange")
     
     def setup_sticky_buttons(self, buttons_config):
         """

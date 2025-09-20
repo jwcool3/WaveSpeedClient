@@ -11,11 +11,13 @@ import os
 from ui.components.ui_components import BaseTab, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview
 from ui.components.optimized_image_layout import OptimizedImageLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from app.config import Config
 from utils.utils import *
 from core.auto_save import auto_save_manager
 from core.secure_upload import privacy_uploader
 from core.logger import get_logger
+from core.prompt_tracker import prompt_tracker
 
 logger = get_logger()
 
@@ -33,46 +35,84 @@ class SeedEditTab(BaseTab):
         
         super().__init__(parent_frame, api_client)
     
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
+    
     def setup_ui(self):
-        """Setup the optimized SeedEdit UI"""
+        """Setup the improved SeedEdit UI with new optimized layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedImageLayout(self.container, "SeedEdit")
+        # Use the new improved SeedEdit layout instead of the generic optimized layout
+        from ui.components.improved_seededit_layout import ImprovedSeedEditLayout
+        self.optimized_layout = ImprovedSeedEditLayout(self.container)
         
-        # Setup the layout with SeedEdit specific settings
-        self.setup_seededit_settings()
+        # Connect the improved layout methods to our existing functionality
+        self.connect_improved_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup SeedEdit specific settings in the improved layout
+        self.setup_seededit_settings_improved()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🌱 Apply SeedEdit", self.process_task)
+        # Setup prompt section in the improved layout
+        self.setup_compact_prompt_section_improved()
         
-        # Connect image selector
-        self.optimized_layout.set_image_selector_command(self.browse_image)
+        # Setup progress section in the improved layout
+        self.setup_compact_progress_section_improved()
+    
+    def connect_improved_layout(self):
+        """Connect the improved layout methods to our existing functionality"""
+        # Connect image browsing
+        self.optimized_layout.browse_image = self.browse_image
         
-        # Connect result buttons
-        self.optimized_layout.set_result_button_commands(
-            self.save_result_image, 
-            self.use_result_as_editor_input
-        )
+        # Connect processing
+        self.optimized_layout.process_seededit = self.process_task
         
-        # Connect sample and clear buttons
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
-        self.optimized_layout.clear_button.config(command=self.clear_prompts)
+        # Connect result actions
+        self.optimized_layout.save_result = self.save_result_image
+        self.optimized_layout.export_result = self.use_result_as_editor_input
         
-        # Connect drag and drop handling
-        self.optimized_layout.set_parent_tab(self)
+        # Connect utility methods
+        self.optimized_layout.clear_all = self.clear_prompts
+        self.optimized_layout.load_sample = self.load_sample_prompt
+        self.optimized_layout.improve_with_ai = self.improve_with_ai_placeholder
         
-        # Setup cross-tab sharing
-        self.optimized_layout.create_cross_tab_button(self.main_app, "SeedEdit")
+        # Connect prompt management
+        self.optimized_layout.save_preset = self.save_current_seededit_prompt
+        self.optimized_layout.load_preset = self.show_saved_seededit_prompts
         
-        # Setup progress section in the left panel
-        self.setup_compact_progress_section()
+        # Store references to layout components for easy access
+        self.prompt_text = self.optimized_layout.prompt_text
+        self.seed_var = self.optimized_layout.seed_var
+        self.format_var = self.optimized_layout.format_var
+        self.status_label = self.optimized_layout.status_label
+        self.progress_bar = self.optimized_layout.progress_bar
+        self.primary_btn = self.optimized_layout.primary_btn
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        # This would connect to your existing AI improvement system
+        pass
+    
+    def setup_seededit_settings_improved(self):
+        """Setup SeedEdit specific settings in the improved layout"""
+        # The improved layout already has SeedEdit settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_prompt_section_improved(self):
+        """Setup compact prompt section in the improved layout"""
+        # The improved layout already has the prompt section built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_improved(self):
+        """Setup compact progress section in the improved layout"""
+        # The improved layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def browse_image(self):
         """Browse for image file"""
@@ -164,7 +204,12 @@ class SeedEditTab(BaseTab):
     
     def clear_prompts(self):
         """Clear the prompt text"""
-        self.prompt_text.delete("1.0", tk.END)
+        if hasattr(self.optimized_layout, 'clear_all'):
+            # Use the improved layout's clear_all method
+            self.optimized_layout.clear_all()
+        else:
+            # Fallback to old layout
+            self.prompt_text.delete("1.0", tk.END)
     
     def show_saved_seededit_prompts(self):
         """Show saved SeedEdit prompts in a dialog"""
@@ -229,7 +274,15 @@ class SeedEditTab(BaseTab):
                   command=lambda: self.prompt_text.delete("1.0", tk.END)).pack(side=tk.LEFT, padx=(0, 5))
         
         ttk.Button(prompt_actions, text="Sample Prompt", 
-                  command=self.load_sample_prompt).pack(side=tk.LEFT)
+                  command=self.load_sample_prompt).pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_section, 
+            self.prompt_text, 
+            "SeedEdit",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
         
         # Saved prompts section
         saved_prompts_frame = ttk.Frame(prompt_section)
@@ -303,26 +356,30 @@ class SeedEditTab(BaseTab):
         self.prompt_text.delete("1.0", tk.END)
         self.prompt_text.insert("1.0", sample)
     
-    def on_image_selected(self, image_path):
+    def on_image_selected(self, image_path, replacing_image=False):
         """Handle image selection"""
-        # Check if replacing existing image
-        replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
+        # Check if replacing existing image (use parameter or detect automatically)
+        if not replacing_image:
+            replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
-        # Update the optimized layout with the new image
-        success = self.optimized_layout.update_input_image(image_path)
+        # Update the improved layout with the new image
+        if hasattr(self.optimized_layout, 'load_image'):
+            # Use the new improved layout's load_image method
+            self.optimized_layout.load_image(image_path)
+        else:
+            # Fallback to old layout if improved layout not available
+            success = self.optimized_layout.update_input_image(image_path)
+            if not success:
+                show_error("Load Error", "Failed to load the selected image.")
+                return
         
-        if success:
-            self.selected_image_path = image_path
-            
-            # Reset result buttons and clear previous results
-            self.optimized_layout.save_result_button.config(state="disabled")
-            self.optimized_layout.use_result_button.config(state="disabled")
-            
-            # Provide feedback about image replacement
-            if replacing_image:
-                self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready for SeedEdit")
-            else:
-                self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready for SeedEdit")
+        self.selected_image_path = image_path
+        
+        # Provide feedback about image replacement
+        if replacing_image:
+            self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready for SeedEdit")
+        else:
+            self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready for SeedEdit")
     
     def on_drop(self, event):
         """Handle drag and drop with robust file path parsing"""
@@ -424,10 +481,32 @@ class SeedEditTab(BaseTab):
             self.frame.after(0, lambda: self.handle_error(error_msg))
     
     def upload_image_for_seededit(self, image_path):
-        """Upload image securely for SeedEdit"""
+        """Upload image securely for SeedEdit with rotation fix"""
         try:
-            # Use privacy-friendly upload
-            success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(image_path, 'seededit')
+            # Fix image rotation before upload
+            from PIL import Image, ImageOps
+            import tempfile
+            
+            # Open image and fix rotation
+            image = Image.open(image_path)
+            
+            # Apply EXIF orientation correction
+            image = ImageOps.exif_transpose(image)
+            
+            # Save corrected image to temporary file
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                temp_path = temp_file.name
+                image.save(temp_path, 'PNG')
+            
+            try:
+                # Use privacy-friendly upload with corrected image
+                success, url, privacy_info = privacy_uploader.upload_with_privacy_warning(temp_path, 'seededit')
+            finally:
+                # Clean up temp file
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
             
             if success:
                 # Privacy info logged but no popup
@@ -507,21 +586,65 @@ class SeedEditTab(BaseTab):
         # Update status
         self.update_status(f"❌ Error: {error_message}")
         
+        # Track failed prompt
+        prompt = self.prompt_text.get("1.0", tk.END).strip()
+        seed = self.seed_var.get()
+        
+        additional_context = {
+            "seed": seed,
+            "guidance_scale": getattr(self, 'guidance_scale_var', tk.DoubleVar()).get(),
+            "num_inference_steps": getattr(self, 'num_inference_steps_var', tk.IntVar()).get()
+        }
+        
+        # Determine error type from message
+        error_type = "api_error"
+        if "denied" in error_message.lower():
+            error_type = "request_denied"
+        elif "timeout" in error_message.lower():
+            error_type = "timeout"
+        elif "invalid" in error_message.lower():
+            error_type = "invalid_parameters"
+        elif "quota" in error_message.lower() or "limit" in error_message.lower():
+            error_type = "quota_exceeded"
+        
+        prompt_tracker.log_failed_prompt(
+            prompt=prompt,
+            ai_model="seededit",
+            error_message=error_message,
+            error_type=error_type,
+            additional_context=additional_context
+        )
+        
         # Show error dialog
         show_error("SeedEdit Error", error_message)
     
     def show_progress(self, message):
         """Show progress"""
-        self.progress_bar.start()
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            # Use the improved layout's progress bar
+            self.optimized_layout.progress_bar.start()
+        elif hasattr(self, 'progress_bar'):
+            # Fallback to old progress bar
+            self.progress_bar.start()
         self.update_status(message)
     
     def hide_progress(self):
         """Hide progress"""
-        self.progress_bar.stop()
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            # Use the improved layout's progress bar
+            self.optimized_layout.progress_bar.stop()
+        elif hasattr(self, 'progress_bar'):
+            # Fallback to old progress bar
+            self.progress_bar.stop()
     
     def update_status(self, message):
         """Update status label"""
-        self.status_label.config(text=message)
+        if hasattr(self.optimized_layout, 'status_label'):
+            # Use the improved layout's status label
+            self.optimized_layout.status_label.config(text=message)
+        elif hasattr(self, 'status_label'):
+            # Fallback to old status label
+            self.status_label.config(text=message)
     
     def validate_inputs(self):
         """Validate inputs before processing"""
@@ -634,7 +757,7 @@ class SeedEditTab(BaseTab):
             return
         
         if current_prompt in self.saved_seededit_prompts:
-            show_success("Info", "This SeedEdit prompt is already saved.")
+            # Prompt already saved (no popup needed)
             return
         
         self.saved_seededit_prompts.append(current_prompt)
@@ -642,7 +765,7 @@ class SeedEditTab(BaseTab):
         
         if success:
             self.refresh_seededit_prompts_list()
-            show_success("Success", "SeedEdit prompt saved successfully!")
+            # Prompt saved successfully (no popup needed)
         else:
             show_error("Error", error)
     
@@ -672,7 +795,7 @@ class SeedEditTab(BaseTab):
             
             if success:
                 self.refresh_seededit_prompts_list()
-                show_success("Success", "SeedEdit prompt deleted successfully!")
+                # Prompt deleted successfully (no popup needed)
             else:
                 show_error("Error", error)
     

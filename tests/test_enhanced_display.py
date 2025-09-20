@@ -14,7 +14,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview, ExpandableImageViewer
+    from ui.components.enhanced_image_display import EnhancedImageSelector, EnhancedImagePreview, ExpandableImageViewer
     from PIL import Image, ImageDraw
     print("✅ Enhanced image display components imported successfully!")
 except ImportError as e:

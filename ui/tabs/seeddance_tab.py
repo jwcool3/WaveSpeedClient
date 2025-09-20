@@ -15,6 +15,7 @@ import time
 from ui.components.ui_components import BaseTab, ImagePreview, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector
 from ui.components.optimized_video_layout import OptimizedVideoLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from app.config import Config
 from utils.utils import *
 from core.auto_save import auto_save_manager
@@ -34,38 +35,104 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         BaseTab.__init__(self, parent_frame, api_client)
         VideoPlayerMixin.__init__(self)
     
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
+    
     def setup_ui(self):
-        """Setup the optimized SeedDance UI"""
+        """Setup the optimized SeedDance UI with new dance-specific layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedVideoLayout(self.container, "SeedDance Video Generation")
+        # Use the new optimized SeedDance layout instead of the generic optimized layout
+        from ui.components.optimized_seeddance_layout import OptimizedSeedDanceLayout
+        self.optimized_layout = OptimizedSeedDanceLayout(self.container)
         
-        # Setup the layout with SeedDance-specific settings
-        self.setup_seeddance_settings()
+        # Connect the optimized layout methods to our existing functionality
+        self.connect_optimized_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup SeedDance specific settings in the optimized layout
+        self.setup_seeddance_settings_optimized()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🎭 Generate SeedDance Video", self.process_task)
-        
-        # Connect sample button to load sample prompt
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
-        
-        # Connect clear button to clear prompts
-        self.optimized_layout.clear_button.config(command=self.clear_prompts)
-        
-        # Get references to important components
-        self.enhanced_video_player = self.optimized_layout.get_video_player()
-        
-        # Setup progress and results (compact)
-        self.setup_compact_progress_section()
+        # Setup progress section in the optimized layout
+        self.setup_compact_progress_section_optimized()
         
         logger.info("Optimized SeedDance UI setup complete")
+    
+    def connect_optimized_layout(self):
+        """Connect the optimized layout methods to our existing functionality"""
+        # Connect image browsing
+        self.optimized_layout.browse_image = self.browse_image
+        
+        # Connect processing
+        self.optimized_layout.process_dance_generation = self.process_task
+        
+        # Connect result actions
+        self.optimized_layout.open_in_browser = self.open_video_in_browser
+        self.optimized_layout.play_in_system = self.play_in_system_placeholder
+        self.optimized_layout.download_video = self.download_video_placeholder
+        
+        # Connect utility methods
+        self.optimized_layout.clear_all = self.clear_prompts
+        self.optimized_layout.load_sample = self.load_sample_prompt
+        self.optimized_layout.improve_with_ai = self.improve_with_ai_placeholder
+        
+        # Connect prompt management
+        self.optimized_layout.save_current_prompt = self.save_current_prompt
+        self.optimized_layout.delete_saved_prompt = self.delete_selected_prompt
+        self.optimized_layout.on_saved_prompt_selected = self.on_saved_prompt_selected_placeholder
+        
+        # Store references to layout components for easy access
+        self.prompt_text = self.optimized_layout.video_prompt_text
+        self.status_label = self.optimized_layout.status_label
+        self.progress_bar = self.optimized_layout.progress_bar
+        self.primary_btn = self.optimized_layout.generate_btn
+    
+    def browse_image(self):
+        """Browse for image file"""
+        from tkinter import filedialog
+        
+        file_path = filedialog.askopenfilename(
+            title="Select Image for SeedDance Video Generation",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            self.on_image_selected(file_path)
+    
+    def play_in_system_placeholder(self):
+        """Placeholder for playing video in system player"""
+        pass
+    
+    def download_video_placeholder(self):
+        """Placeholder for downloading video"""
+        pass
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        pass
+    
+    def on_saved_prompt_selected_placeholder(self, event=None):
+        """Placeholder for saved prompt selection"""
+        pass
+    
+    def setup_seeddance_settings_optimized(self):
+        """Setup SeedDance specific settings in the optimized layout"""
+        # The optimized layout already has SeedDance settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_optimized(self):
+        """Setup compact progress section in the optimized layout"""
+        # The optimized layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def setup_seeddance_settings(self):
         """Setup SeedDance generation settings in the optimized layout"""
@@ -79,22 +146,41 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         ttk.Label(duration_frame, text="Duration:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
         self.duration_var = tk.StringVar(value="5")
         duration_combo = ttk.Combobox(duration_frame, textvariable=self.duration_var, 
-                                     values=["5"], state="readonly", width=8)
+                                     values=[str(d) for d in Config.SEEDDANCE_DURATIONS], state="readonly", width=8)
         duration_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Version/Resolution setting
+        version_frame = ttk.Frame(settings_container)
+        version_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=2)
+        version_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(version_frame, text="Resolution:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
+        self.version_var = tk.StringVar(value="720p")
+        version_combo = ttk.Combobox(version_frame, textvariable=self.version_var, 
+                                    values=["480p", "720p"], state="readonly", width=8)
+        version_combo.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
+        
+        # Add version change callback to update button text
+        def on_version_change(event=None):
+            version = self.version_var.get()
+            button_text = f"🕺 Generate SeedDance {version}"
+            self.optimized_layout.main_action_button.config(text=button_text)
+        
+        version_combo.bind('<<ComboboxSelected>>', on_version_change)
         
         # Camera fixed setting
         camera_frame = ttk.Frame(settings_container)
-        camera_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=2)
+        camera_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=2)
         camera_frame.columnconfigure(1, weight=1)
         
         ttk.Label(camera_frame, text="Camera Fixed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
-        self.camera_fixed_var = tk.BooleanVar(value=True)
+        self.camera_fixed_var = tk.BooleanVar(value=False)
         camera_check = ttk.Checkbutton(camera_frame, variable=self.camera_fixed_var)
         camera_check.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
         
         # Seed setting
         seed_frame = ttk.Frame(settings_container)
-        seed_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=2)
+        seed_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=2)
         seed_frame.columnconfigure(1, weight=1)
         
         ttk.Label(seed_frame, text="Seed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
@@ -121,6 +207,14 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         
         # Prompt management section
         self.setup_prompt_management(prompt_frame)
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_frame, 
+            self.prompt_text, 
+            "SeedDance Pro",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
     
     def setup_compact_progress_section(self):
         """Setup compact progress section"""
@@ -204,12 +298,12 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
     def load_sample_prompt(self):
         """Load a sample prompt for demonstration"""
         sample_prompts = [
-            "smooth camera movement, cinematic lighting",
-            "gentle zoom in, natural motion",
-            "dynamic movement, flowing hair",
-            "subtle animation, realistic motion",
-            "cinematic pan, professional quality",
-            "smooth transition, elegant movement"
+            "Girl playing piano, multiple camera switches, cinematic quality",
+            "A girl turns toward the camera, her earrings swaying gently with the motion. The camera rotates, bathed in dreamy sunlight",  # From 480p example
+            "Person walking through a magical forest, leaves falling, golden hour lighting, smooth camera movement",
+            "Dancer performing contemporary moves, flowing fabric, dramatic lighting, multiple angles",
+            "Portrait shot with gentle breeze moving hair, soft focus background, cinematic mood",
+            "Close-up of hands creating art, paint flowing, time-lapse style, artistic lighting"
         ]
         
         import random
@@ -217,10 +311,11 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         self.prompt_text.delete("1.0", tk.END)
         self.prompt_text.insert("1.0", sample)
     
-    def on_image_selected(self, image_path):
+    def on_image_selected(self, image_path, replacing_image=False):
         """Handle image selection"""
-        # Check if replacing existing image
-        replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
+        # Check if replacing existing image (use parameter or detect automatically)
+        if not replacing_image:
+            replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
         # Use the optimized layout's image selection handler
         original_image = self.optimized_layout.on_image_selected(image_path)
@@ -322,7 +417,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             self.saved_prompts.append(prompt_data)
             save_json_file(self.prompts_file, self.saved_prompts)
             self.refresh_prompts_list()
-            show_success("Saved", f"SeedDance prompt '{prompt_name}' saved successfully!")
+            # Prompt saved successfully (no popup needed)
 
     def load_selected_prompt(self):
         """Load the selected prompt from the saved prompts list"""
@@ -337,7 +432,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         self.prompt_text.delete("1.0", tk.END)
         self.prompt_text.insert("1.0", prompt_data.get('video_prompt', ''))
         
-        show_success("Loaded", f"SeedDance prompt '{prompt_data['name']}' loaded successfully!")
+        # Prompt loaded successfully (no popup needed)
 
     def delete_selected_prompt(self):
         """Delete the selected prompt from the saved prompts list"""
@@ -353,7 +448,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             del self.saved_prompts[selection[0]]
             save_json_file(self.prompts_file, self.saved_prompts)
             self.refresh_prompts_list()
-            show_success("Deleted", f"SeedDance prompt '{prompt_data['name']}' deleted successfully!")
+            # Prompt deleted successfully (no popup needed)
 
     def clear_prompts(self):
         """Clear all prompts"""
@@ -418,7 +513,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             
             # Submit task
             request_id, error = self.api_client.submit_seeddance_task(
-                image_url, duration, prompt, camera_fixed, seed
+                image_url, duration, prompt, camera_fixed, seed, self.version_var.get()  # Add version parameter
             )
             
             if error:
@@ -460,7 +555,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
                 return image_url
             else:
                 # Fallback to sample URL if upload fails
-                sample_url = Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit'))
+                version = self.version_var.get()
+                sample_url = Config.SAMPLE_URLS.get(f'seeddance_{version}', Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit')))
                 
                 self.frame.after(0, lambda: show_warning(
                     "Using Sample Image", 
@@ -473,7 +569,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
                 
         except Exception as e:
             logger.error(f"Upload failed: {e}")
-            sample_url = Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit'))
+            version = self.version_var.get()
+            sample_url = Config.SAMPLE_URLS.get(f'seeddance_{version}', Config.SAMPLE_URLS.get('seeddance', Config.SAMPLE_URLS.get('seededit')))
             
             self.frame.after(0, lambda: show_warning(
                 "Upload Error", 
@@ -487,16 +584,15 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         # Hide progress
         self.hide_progress()
         
-        # Load video in enhanced player if available
-        if self.enhanced_video_player:
-            # Download and load the video in the enhanced player
+        # Load video in modern player if available
+        if self.modern_video_player:
+            # Load the video in the modern player
             try:
-                # For now, we'll use the existing video handling
-                # In the future, we could enhance this to download and load locally
+                self.modern_video_player.load_video(output_url)
                 self.result_video_url = output_url
-                self.update_status("SeedDance video generated! Click 'Recent Videos' to load it.")
+                self.update_status("SeedDance video generated! Use the player controls to watch it.")
             except Exception as e:
-                logger.error(f"Failed to load video in enhanced player: {e}")
+                logger.error(f"Failed to load video in modern player: {e}")
                 self.update_status("SeedDance video generated! Available in browser.")
         
         # Auto-save the result
@@ -504,7 +600,8 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         duration = self.duration_var.get()
         camera_fixed = self.camera_fixed_var.get()
         seed = self.seed_var.get()
-        extra_info = f"{duration}s_cam{camera_fixed}_seed{seed}"
+        version = self.version_var.get()
+        extra_info = f"duration_{duration}s_camera_{'fixed' if camera_fixed else 'dynamic'}_{version}_seed_{seed}"
         
         success, saved_path, error = auto_save_manager.save_result(
             'seeddance', 
@@ -524,11 +621,12 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
         dialog_msg = f"SeedDance video generated successfully in {format_duration(duration_time)}!"
         if saved_path:
             dialog_msg += f"\n\nAuto-saved to:\n{os.path.basename(saved_path)}"
-        dialog_msg += f"\n\nCamera Fixed: {camera_fixed}"
+        dialog_msg += f"\n\nResolution: {version}"
+        dialog_msg += f"\nCamera Fixed: {camera_fixed}"
         dialog_msg += f"\nSeed: {seed}"
         dialog_msg += f"\n\nVideo URL: {output_url}"
         
-        show_success("SeedDance Complete!", dialog_msg)
+        # SeedDance completed successfully (no popup needed)
     
     def handle_error(self, error_message):
         """Handle error"""
@@ -563,7 +661,7 @@ class SeedDanceTab(BaseTab, VideoPlayerMixin):
             self.frame.clipboard_clear()
             self.frame.clipboard_append(self.result_video_url)
             self.frame.update()  # Required for clipboard to work
-            show_success("Success", "Video URL copied to clipboard!")
+            # Video URL copied to clipboard (no popup needed)
         except Exception as e:
             show_error("Error", f"Failed to copy URL: {str(e)}")
     
