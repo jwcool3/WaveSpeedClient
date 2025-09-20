@@ -82,9 +82,12 @@ def validate_image_file(file_path):
 
 
 def load_image_preview(image_path, max_size=(350, 250)):
-    """Load and resize image for preview"""
+    """Load and resize image for preview with rotation correction"""
     try:
         with Image.open(image_path) as img:
+            # Apply EXIF orientation correction
+            from PIL import ImageOps
+            img = ImageOps.exif_transpose(img)
             original_image = img.copy()
             img.thumbnail(max_size, Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)

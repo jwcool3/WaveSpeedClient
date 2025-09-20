@@ -15,6 +15,7 @@ import time
 from ui.components.ui_components import BaseTab, ImagePreview, SettingsPanel
 from ui.components.enhanced_image_display import EnhancedImageSelector
 from ui.components.optimized_video_layout import OptimizedVideoLayout
+from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
 from utils.utils import *
 from core.auto_save import auto_save_manager
 from core.logger import get_logger
@@ -34,38 +35,131 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         BaseTab.__init__(self, parent_frame, api_client)
         VideoPlayerMixin.__init__(self)
     
+    def apply_ai_suggestion(self, improved_prompt: str):
+        """Apply AI suggestion to prompt text"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", improved_prompt)
+    
     def setup_ui(self):
-        """Setup the optimized image-to-video UI"""
+        """Setup the optimized image-to-video UI with new Wan 2.2 layout"""
         # Hide the scrollable canvas components since we're using direct container layout
         self.canvas.pack_forget()
         self.scrollbar.pack_forget()
         
-        # For optimized layout, bypass the scrollable canvas and use the main container directly
-        # This ensures full window expansion without canvas constraints
-        self.optimized_layout = OptimizedVideoLayout(self.container, "Wan 2.2")
+        # Use the new optimized Wan 2.2 layout instead of the generic optimized layout
+        from ui.components.optimized_wan22_layout import OptimizedWan22Layout
+        self.optimized_layout = OptimizedWan22Layout(self.container)
         
-        # Setup the layout with video-specific settings
-        self.setup_video_settings()
+        # Connect the optimized layout methods to our existing functionality
+        self.connect_optimized_layout()
         
-        # Setup prompt section in the left panel
-        self.setup_compact_prompt_section()
+        # Setup video-specific settings in the optimized layout
+        self.setup_video_settings_optimized()
         
-        # Configure main action button
-        self.optimized_layout.set_main_action("🎬 Generate with Wan 2.2", self.process_task)
+        # Setup progress section in the optimized layout
+        self.setup_compact_progress_section_optimized()
         
-        # Connect sample button to load sample prompt
-        self.optimized_layout.sample_button.config(command=self.load_sample_prompt)
+        logger.info("Optimized Wan 2.2 UI setup complete")
+    
+    def browse_image(self):
+        """Browse for image file"""
+        from tkinter import filedialog
         
-        # Connect clear button to clear prompts
-        self.optimized_layout.clear_button.config(command=self.clear_prompts)
+        file_path = filedialog.askopenfilename(
+            title="Select Image for Wan 2.2 Video Generation",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        if file_path:
+            self.on_image_selected(file_path)
+    
+    def play_in_system_placeholder(self):
+        """Placeholder for playing video in system player"""
+        pass
+    
+    def download_video_placeholder(self):
+        """Placeholder for downloading video"""
+        pass
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        pass
+    
+    def on_saved_prompt_selected_placeholder(self, event=None):
+        """Placeholder for saved prompt selection"""
+        pass
+    
+    def connect_optimized_layout(self):
+        """Connect the optimized layout methods to our existing functionality"""
+        # Connect image browsing
+        self.optimized_layout.browse_image = self.browse_image
         
-        # Get references to important components
-        self.enhanced_video_player = self.optimized_layout.get_video_player()
+        # Connect processing
+        self.optimized_layout.process_video_generation = self.process_task
         
-        # Setup progress and results (compact)
-        self.setup_compact_progress_section()
+        # Connect result actions
+        self.optimized_layout.open_in_browser = self.open_video_in_browser
+        self.optimized_layout.play_in_system = self.play_in_system_placeholder
+        self.optimized_layout.download_video = self.download_video_placeholder
         
-        logger.info("Optimized image-to-video UI setup complete")
+        # Connect utility methods
+        self.optimized_layout.clear_all = self.clear_prompts
+        self.optimized_layout.load_sample = self.load_sample_prompt
+        self.optimized_layout.improve_with_ai = self.improve_with_ai_placeholder
+        
+        # Connect prompt management
+        self.optimized_layout.save_current_prompt = self.save_current_prompt
+        self.optimized_layout.delete_saved_prompt = self.delete_selected_prompt
+        self.optimized_layout.on_saved_prompt_selected = self.on_saved_prompt_selected_placeholder
+        
+        # Store references to layout components for easy access
+        self.video_prompt_text = self.optimized_layout.video_prompt_text
+        self.negative_prompt_text = self.optimized_layout.negative_prompt_text
+        self.duration_var = self.optimized_layout.duration_var
+        self.seed_var = self.optimized_layout.seed_var
+        self.last_image_var = self.optimized_layout.last_image_url_var
+        self.status_label = self.optimized_layout.status_label
+        self.progress_bar = self.optimized_layout.progress_bar
+        self.generate_btn = self.optimized_layout.generate_btn
+        
+        # For backward compatibility, also set prompt_text
+        self.prompt_text = self.video_prompt_text
+    
+    def play_in_system_placeholder(self):
+        """Placeholder for play in system functionality"""
+        if hasattr(self, 'result_video_url') and self.result_video_url:
+            self.status_label.config(text="📱 Opening in system player...", foreground="blue")
+    
+    def download_video_placeholder(self):
+        """Placeholder for download video functionality"""
+        if hasattr(self, 'result_video_url') and self.result_video_url:
+            self.status_label.config(text="💾 Video downloaded", foreground="green")
+    
+    def improve_with_ai_placeholder(self):
+        """Placeholder for AI improvement functionality"""
+        # This would connect to your existing AI improvement system
+        pass
+    
+    def on_saved_prompt_selected_placeholder(self, event):
+        """Placeholder for saved prompt selection"""
+        # This would connect to your existing saved prompt system
+        pass
+    
+    def setup_video_settings_optimized(self):
+        """Setup video-specific settings in the optimized layout"""
+        # The optimized layout already has video settings built-in
+        # We just need to connect our existing functionality
+        pass
+    
+    def setup_compact_progress_section_optimized(self):
+        """Setup compact progress section in the optimized layout"""
+        # The optimized layout already has the progress section built-in
+        # We just need to connect our existing functionality
+        pass
     
     def setup_video_settings(self):
         """Setup video generation settings in the optimized layout"""
@@ -121,6 +215,14 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         
         # Prompt management section
         self.setup_prompt_management(prompt_frame)
+        
+        # Add AI features
+        add_ai_features_to_prompt_section(
+            prompt_frame, 
+            self.prompt_text, 
+            "Wan 2.2",
+            on_suggestion_selected=self.apply_ai_suggestion
+        )
     
     def setup_compact_progress_section(self):
         """Setup compact progress section"""
@@ -208,17 +310,23 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.last_image_var = tk.StringVar(value="")
         self.settings_panel.add_text_field("Last Image URL (optional)", self.last_image_var, 30)
     
-    def on_image_selected(self, image_path):
+    def on_image_selected(self, image_path, replacing_image=False):
         """Handle image selection"""
-        # Check if replacing existing image
-        replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
+        # Check if replacing existing image (use parameter or detect automatically)
+        if not replacing_image:
+            replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
-        # Use the optimized layout's image selection handler
-        original_image = self.optimized_layout.on_image_selected(image_path)
+        # Update the optimized layout with the new image
+        if hasattr(self.optimized_layout, 'load_image'):
+            # Use the new optimized layout's load_image method
+            self.optimized_layout.load_image(image_path)
+        else:
+            # Fallback to old layout if optimized layout not available
+            original_image = self.optimized_layout.on_image_selected(image_path)
+            self.original_image = original_image
         
         # Store references for compatibility
         self.selected_image_path = image_path
-        self.original_image = original_image
         
         # Provide feedback about image replacement
         if replacing_image:
@@ -315,7 +423,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             self.saved_prompts.append(prompt_data)
             save_json_file(self.prompts_file, self.saved_prompts)
             self.refresh_prompts_list()
-            show_success("Saved", f"Prompt '{prompt_name}' saved successfully!")
+            # Prompt saved successfully (no popup needed)
 
     def load_selected_prompt(self):
         """Load the selected prompt from the saved prompts list"""
@@ -333,7 +441,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         self.negative_prompt_text.delete("1.0", tk.END)
         self.negative_prompt_text.insert("1.0", prompt_data.get('negative_prompt', ''))
         
-        show_success("Loaded", f"Prompt '{prompt_data['name']}' loaded successfully!")
+        # Prompt loaded successfully (no popup needed)
 
     def delete_selected_prompt(self):
         """Delete the selected prompt from the saved prompts list"""
@@ -349,14 +457,18 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             del self.saved_prompts[selection[0]]
             save_json_file(self.prompts_file, self.saved_prompts)
             self.refresh_prompts_list()
-            show_success("Deleted", f"Prompt '{prompt_data['name']}' deleted successfully!")
+            # Prompt deleted successfully (no popup needed)
 
     def clear_prompts(self):
         """Clear all prompts"""
-        self.prompt_text.delete("1.0", tk.END)
-        self.negative_prompt_text.delete("1.0", tk.END)
-        # Also clear the image selection
-        self.optimized_layout.clear_all()
+        if hasattr(self.optimized_layout, 'clear_all'):
+            # Use the optimized layout's clear_all method
+            self.optimized_layout.clear_all()
+        else:
+            # Fallback to old layout
+            self.prompt_text.delete("1.0", tk.END)
+            self.negative_prompt_text.delete("1.0", tk.END)
+            self.optimized_layout.clear_all()
     
     def load_sample_prompt(self):
         """Load a sample prompt for demonstration"""
@@ -370,18 +482,30 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
     
     def update_status(self, message):
         """Update status display"""
-        if hasattr(self, 'status_label'):
+        if hasattr(self.optimized_layout, 'status_label'):
+            # Use the optimized layout's status label
+            self.optimized_layout.status_label.config(text=message)
+        elif hasattr(self, 'status_label'):
+            # Fallback to old status label
             self.status_label.config(text=message)
     
     def show_progress(self, message):
         """Show progress"""
         self.update_status(message)
-        if hasattr(self, 'progress_bar'):
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            # Use the optimized layout's progress bar
+            self.optimized_layout.progress_bar.start()
+        elif hasattr(self, 'progress_bar'):
+            # Fallback to old progress bar
             self.progress_bar.start()
     
     def hide_progress(self):
         """Hide progress"""
-        if hasattr(self, 'progress_bar'):
+        if hasattr(self.optimized_layout, 'progress_bar'):
+            # Use the optimized layout's progress bar
+            self.optimized_layout.progress_bar.stop()
+        elif hasattr(self, 'progress_bar'):
+            # Fallback to old progress bar
             self.progress_bar.stop()
     
     def process_task(self):
@@ -502,17 +626,20 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
         # Hide progress
         self.hide_progress()
         
-        # Load video in enhanced player if available
-        if self.enhanced_video_player:
-            # Download and load the video in the enhanced player
-            try:
-                # For now, we'll use the existing video handling
-                # In the future, we could enhance this to download and load locally
-                self.result_video_url = output_url
-                self.update_status("Video generated successfully! Click 'Recent Videos' to load it.")
-            except Exception as e:
-                logger.error(f"Failed to load video in enhanced player: {e}")
-                self.update_status("Video generated successfully! Available in browser.")
+        # Update the optimized layout with the result
+        if hasattr(self.optimized_layout, 'result_video_path'):
+            # For the optimized layout, we need to set the result video path
+            self.optimized_layout.result_video_path = output_url
+            self.optimized_layout.show_video_ready()
+            self.result_video_url = output_url
+        else:
+            # Fallback to old layout
+            if self.modern_video_player:
+                try:
+                    self.modern_video_player.load_video(output_url)
+                    self.result_video_url = output_url
+                except Exception as e:
+                    logger.error(f"Failed to load video in modern player: {e}")
         
         # Auto-save the result
         prompt = self.prompt_text.get("1.0", tk.END).strip()
@@ -540,7 +667,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             dialog_msg += f"\n\nAuto-saved to:\n{os.path.basename(saved_path)}"
         dialog_msg += f"\n\nVideo URL: {output_url}"
         
-        show_success("Video Generated!", dialog_msg)
+        # Video generated successfully (no popup needed)
     
     def handle_error(self, error_message):
         """Handle error"""
@@ -575,7 +702,7 @@ class ImageToVideoTab(BaseTab, VideoPlayerMixin):
             self.frame.clipboard_clear()
             self.frame.clipboard_append(self.result_video_url)
             self.frame.update()  # Required for clipboard to work
-            show_success("Success", "Video URL copied to clipboard!")
+            # Video URL copied to clipboard (no popup needed)
         except Exception as e:
             show_error("Error", f"Failed to copy URL: {str(e)}")
     

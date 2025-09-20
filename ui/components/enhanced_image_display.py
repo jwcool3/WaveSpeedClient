@@ -223,7 +223,7 @@ class EnhancedImageSelector:
                 bg='#f8f8f8', fg='#666666', font=('Arial', 9),
                 relief='groove', bd=1, width=30, height=8
             )
-            self.preview_label.pack(side=tk.LEFT, padx=(0, 10))
+            self.preview_label.grid(row=0, column=0, padx=(0, 10), sticky=(tk.W, tk.E, tk.N, tk.S))
             
             # Setup drag and drop on preview
             self.setup_drag_and_drop()
@@ -331,7 +331,7 @@ class EnhancedImagePreview:
             bg='#f8f8f8', fg='#666666', font=('Arial', 9),
             width=20, height=10, relief='groove', bd=1
         )
-        self.original_image_label.pack(padx=5, pady=5)
+        self.original_image_label.grid(row=0, column=0, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Result section (larger)
         self.result_frame = ttk.LabelFrame(self.images_frame, text="Result", padding="5")
@@ -344,7 +344,7 @@ class EnhancedImagePreview:
             bg='white', fg='#666666', font=('Arial', 11),
             relief='groove', bd=1, cursor='hand2'
         )
-        self.result_image_label.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.result_image_label.grid(row=0, column=0, padx=5, pady=5, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Bind double-click to expand
         self.result_image_label.bind('<Double-Button-1>', self.expand_result_image)
