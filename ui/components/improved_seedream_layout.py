@@ -40,6 +40,16 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.selected_image_paths = []  # Changed to support multiple images
         self.result_image_path = None
         self.result_url = None
+        
+        # Resize performance optimization
+        self.resize_timer = None
+        self.resize_delay = 300  # ms delay for debouncing
+        
+        # Splitter position persistence
+        self.splitter_position_file = "data/seedream_splitter_position.txt"
+        
+        # Image panning state
+        self.drag_data = {"x": 0, "y": 0, "dragging": False, "threshold_met": False}
         self.current_task_id = None
         self.tab_name = "Seedream V4"  # For AI integration
         
@@ -81,24 +91,127 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def setup_layout(self):
         """Setup the improved 2-column layout"""
         
-        # Main container
+        # Main container with draggable splitter
         main_container = ttk.Frame(self.parent_frame)
         main_container.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
-        # Configure grid - 2 columns with no wasted space
-        main_container.columnconfigure(0, weight=1, minsize=380)  # Left: Controls (slightly wider for settings)
-        main_container.columnconfigure(1, weight=2, minsize=520)  # Right: Images (2x weight)
-        main_container.rowconfigure(0, weight=1)
+        # Create PanedWindow for resizable layout
+        self.paned_window = ttk.PanedWindow(main_container, orient=tk.HORIZONTAL)
+        self.paned_window.pack(fill=tk.BOTH, expand=True)
+        
+        # Create frames for each pane
+        self.left_pane = ttk.Frame(self.paned_window)
+        self.right_pane = ttk.Frame(self.paned_window)
+        
+        # Add panes to PanedWindow
+        self.paned_window.add(self.left_pane, weight=1)  # Controls pane
+        self.paned_window.add(self.right_pane, weight=3)  # Images pane (3x weight = 75%)
         
         # Left Column - Compact Controls
-        self.setup_left_column(main_container)
+        self.setup_left_column_paned(self.left_pane)
         
         # Right Column - Large Image Display  
-        self.setup_right_column(main_container)
+        self.setup_right_column_paned(self.right_pane)
+        
+        # Set initial splitter position after a short delay to ensure window is rendered
+        self.parent_frame.after(100, self.set_initial_splitter_position)
     
+    def set_initial_splitter_position(self):
+        """Set the initial position of the splitter, loading saved position if available"""
+        try:
+            # Get the total width of the paned window
+            total_width = self.paned_window.winfo_width()
+            if total_width > 1:
+                # Always start with 25/75 split, but allow loading saved position for user preference
+                # You can uncomment the saved position code if you want persistence
+                # saved_position = self.load_splitter_position()
+                # if saved_position and 200 <= saved_position <= total_width - 200:
+                #     position = saved_position
+                # else:
+                # Default to 25% of total width for initial load
+                position = max(280, int(total_width * 0.25))
+                
+                self.paned_window.sashpos(0, position)
+                
+                # Bind event to save position when user drags splitter
+                self.paned_window.bind('<ButtonRelease-1>', self.on_splitter_moved)
+        except Exception as e:
+            # Fallback: try again after another delay if window isn't ready
+            self.parent_frame.after(200, self.set_initial_splitter_position)
+    
+    def load_splitter_position(self):
+        """Load saved splitter position from file"""
+        try:
+            import os
+            if os.path.exists(self.splitter_position_file):
+                with open(self.splitter_position_file, 'r') as f:
+                    return int(f.read().strip())
+        except:
+            pass
+        return None
+    
+    def save_splitter_position(self, position):
+        """Save splitter position to file"""
+        try:
+            import os
+            os.makedirs(os.path.dirname(self.splitter_position_file), exist_ok=True)
+            with open(self.splitter_position_file, 'w') as f:
+                f.write(str(position))
+        except:
+            pass
+    
+    def on_splitter_moved(self, event):
+        """Handle splitter movement to save position"""
+        try:
+            position = self.paned_window.sashpos(0)
+            self.save_splitter_position(position)
+        except:
+            pass
+    
+    def setup_left_column_paned(self, parent):
+        """Setup left column with logical flow and compact sections for paned layout"""
+        left_frame = ttk.Frame(parent, padding="4")
+        left_frame.pack(fill=tk.BOTH, expand=True)
+        left_frame.columnconfigure(0, weight=1)
+        
+        # Configure rows to eliminate vertical scrolling
+        left_frame.rowconfigure(0, weight=0)  # Image input - compact
+        left_frame.rowconfigure(1, weight=0)  # Settings - MUCH more compact
+        left_frame.rowconfigure(2, weight=0)  # Prompt section - compact  
+        left_frame.rowconfigure(3, weight=0)  # Primary action - prominent
+        left_frame.rowconfigure(4, weight=0)  # Advanced sections - collapsible
+        left_frame.rowconfigure(5, weight=0)  # Status console - professional feedback
+        left_frame.rowconfigure(6, weight=1)  # Spacer
+        left_frame.rowconfigure(7, weight=0)  # Secondary actions - bottom
+        
+        # 1. COMPACT IMAGE INPUT
+        self.setup_compact_image_input(left_frame)
+        
+        # 2. SUPER COMPACT SETTINGS (key improvement!)
+        self.setup_compact_settings(left_frame)
+        
+        # 3. PROMPT SECTION
+        self.setup_prompt_section(left_frame)
+        
+        # 4. PRIMARY ACTION (right under prompt!)
+        self.setup_primary_action(left_frame)
+        
+        # 5. COLLAPSIBLE ADVANCED SECTIONS
+        self.setup_advanced_sections(left_frame)
+        
+        # 6. STATUS CONSOLE (professional feedback)
+        self.setup_status_console(left_frame)
+        
+        # 7. SPACER
+        spacer = ttk.Frame(left_frame)
+        spacer.grid(row=6, column=0, sticky="nsew")
+        
+        # 8. SECONDARY ACTIONS (at bottom)
+        self.setup_secondary_actions(left_frame)
+        
     def setup_left_column(self, parent):
         """Setup left column with logical flow and compact sections"""
-        left_frame = ttk.Frame(parent, padding="8")
+        left_frame = ttk.Frame(parent, padding="4")
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
         left_frame.columnconfigure(0, weight=1)
         
@@ -157,9 +270,6 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.thumbnail_label.grid(row=0, column=0, padx=(0, 8), rowspan=2)
         self.thumbnail_label.bind("<Button-1>", lambda e: self.browse_image())
         
-        # Setup drag and drop
-        self.setup_drag_drop()
-        
         # Image info
         self.image_name_label = ttk.Label(
             input_frame,
@@ -187,6 +297,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             width=8
         )
         browse_btn.pack(side=tk.RIGHT)
+        
+        # Setup drag and drop after all widgets are created
+        self.setup_drag_drop()
     
     def setup_compact_settings(self, parent):
         """SUPER compact settings - key improvement! 1/3 the height"""
@@ -195,69 +308,41 @@ class ImprovedSeedreamLayout(AIChatMixin):
         settings_frame.columnconfigure(1, weight=1)
         settings_frame.columnconfigure(3, weight=1)
         
-        # Row 1: Width + Height (side by side with sliders)
+        # Compact row layout for size controls
         ttk.Label(settings_frame, text="Size:", font=('Arial', 9, 'bold')).grid(
-            row=0, column=0, sticky="w", columnspan=4, pady=(0, 2)
+            row=0, column=0, sticky="w", pady=(0, 2)
         )
         
-        # Width
-        ttk.Label(settings_frame, text="W:", font=('Arial', 8)).grid(
-            row=1, column=0, sticky="w"
-        )
+        # Compact width/height in single row
+        size_row = ttk.Frame(settings_frame)
+        size_row.grid(row=1, column=0, columnspan=4, sticky="ew", pady=2)
+        size_row.columnconfigure(1, weight=1)
+        size_row.columnconfigure(3, weight=1)
         
-        width_frame = ttk.Frame(settings_frame)
-        width_frame.grid(row=1, column=1, sticky="ew", padx=(2, 8))
-        
-        self.width_scale = ttk.Scale(
-            width_frame,
-            from_=256, to=4096,
-            variable=self.width_var,
-            orient=tk.HORIZONTAL,
-            length=80,
-            command=self.on_size_changed
-        )
-        self.width_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+        ttk.Label(size_row, text="W:", font=('Arial', 8)).grid(row=0, column=0, sticky="w")
         self.width_entry = ttk.Entry(
-            width_frame,
+            size_row,
             textvariable=self.width_var,
-            width=5,
+            width=6,
             font=('Arial', 8),
             validate='key',
             validatecommand=(self.parent_frame.register(self.validate_integer), '%P')
         )
-        self.width_entry.pack(side=tk.RIGHT, padx=(2, 0))
+        self.width_entry.grid(row=0, column=1, sticky="ew", padx=(2, 8))
         
         # Add validation for aspect ratio locking on entry changes
         self.width_var.trace('w', self._on_entry_change)
         
-        # Height  
-        ttk.Label(settings_frame, text="H:", font=('Arial', 8)).grid(
-            row=1, column=2, sticky="w"
-        )
-        
-        height_frame = ttk.Frame(settings_frame)
-        height_frame.grid(row=1, column=3, sticky="ew")
-        
-        self.height_scale = ttk.Scale(
-            height_frame,
-            from_=256, to=4096,
-            variable=self.height_var,
-            orient=tk.HORIZONTAL,
-            length=80,
-            command=self.on_size_changed
-        )
-        self.height_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
+        ttk.Label(size_row, text="H:", font=('Arial', 8)).grid(row=0, column=2, sticky="w")
         self.height_entry = ttk.Entry(
-            height_frame,
+            size_row,
             textvariable=self.height_var,
-            width=5,
+            width=6,
             font=('Arial', 8),
             validate='key',
             validatecommand=(self.parent_frame.register(self.validate_integer), '%P')
         )
-        self.height_entry.pack(side=tk.RIGHT, padx=(2, 0))
+        self.height_entry.grid(row=0, column=3, sticky="ew")
         
         # Add validation for aspect ratio locking on height entry changes
         self.height_var.trace('w', self._on_entry_change)
@@ -362,12 +447,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
         prompt_container.grid(row=1, column=0, sticky="ew", pady=(0, 6))
         prompt_container.columnconfigure(0, weight=1)
         
-        # Prompt text with better size and features
+        # Prompt text with compact size for 25% layout
         self.prompt_text = tk.Text(
             prompt_container,
-            height=8,  # Expanded from 4 to 8 lines
+            height=6,  # Reduced from 8 to 6 lines for compact layout
             wrap=tk.WORD,
-            font=('Arial', 11),  # Slightly larger font
+            font=('Arial', 10),  # Smaller font for compact layout
             relief='solid',
             borderwidth=1,
             padx=8,
@@ -771,7 +856,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.status_label.grid(row=1, column=0, pady=(4, 0))
         
         # Progress bar (hidden by default)
-        self.progress_bar = ttk.Progressbar(
+        self.action_progress_bar = ttk.Progressbar(
             action_frame,
             mode='indeterminate'
         )
@@ -993,6 +1078,19 @@ class ImprovedSeedreamLayout(AIChatMixin):
         #     chat_callback=self.ai_chat
         # )
     
+    def setup_right_column_paned(self, parent):
+        """Setup right column with side-by-side comparison view for paned layout"""
+        right_frame = ttk.Frame(parent, padding="4")
+        right_frame.pack(fill=tk.BOTH, expand=True)
+        right_frame.columnconfigure(0, weight=1)
+        right_frame.rowconfigure(1, weight=1)
+        
+        # Comparison controls
+        self.setup_comparison_controls(right_frame)
+        
+        # Side-by-side image display
+        self.setup_side_by_side_display(right_frame)
+    
     def setup_right_column(self, parent):
         """Setup right column with side-by-side comparison view"""
         right_frame = ttk.Frame(parent, padding="4")
@@ -1010,7 +1108,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         """Setup enhanced comparison and zoom controls"""
         controls_frame = ttk.Frame(parent)
         controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        controls_frame.columnconfigure(3, weight=1)
+        controls_frame.columnconfigure(4, weight=1)
         
         # Comparison mode selector
         ttk.Label(controls_frame, text="View:", font=('Arial', 9, 'bold')).grid(row=0, column=0, padx=(0, 4))
@@ -1037,9 +1135,30 @@ class ImprovedSeedreamLayout(AIChatMixin):
         )
         sync_check.grid(row=0, column=2, padx=(0, 8))
         
+        # Opacity slider (for overlay mode)
+        opacity_frame = ttk.Frame(controls_frame)
+        opacity_frame.grid(row=0, column=3, padx=(0, 8))
+        
+        ttk.Label(opacity_frame, text="Opacity:", font=('Arial', 9)).pack(side=tk.LEFT)
+        
+        self.opacity_var = tk.DoubleVar(value=0.5)  # 50% default
+        self.opacity_scale = ttk.Scale(
+            opacity_frame,
+            from_=0.0,
+            to=1.0,
+            variable=self.opacity_var,
+            orient=tk.HORIZONTAL,
+            length=80,
+            command=self.on_opacity_changed
+        )
+        self.opacity_scale.pack(side=tk.LEFT, padx=(2, 4))
+        
+        self.opacity_label = ttk.Label(opacity_frame, text="50%", font=('Arial', 8))
+        self.opacity_label.pack(side=tk.LEFT)
+        
         # Zoom controls
         zoom_frame = ttk.Frame(controls_frame)
-        zoom_frame.grid(row=0, column=4, padx=(8, 0))
+        zoom_frame.grid(row=0, column=5, padx=(8, 0))
         
         ttk.Label(zoom_frame, text="Zoom:", font=('Arial', 9)).pack(side=tk.LEFT)
         
@@ -1057,7 +1176,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         # Quick actions
         actions_frame = ttk.Frame(controls_frame)
-        actions_frame.grid(row=0, column=5, padx=(12, 0))
+        actions_frame.grid(row=0, column=6, padx=(12, 0))
         
         ttk.Button(
             actions_frame,
@@ -1106,6 +1225,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             highlightcolor='#ddd',
             relief='flat'
         )
+        canvas.configure(takefocus=True)  # Allow canvas to receive focus for mouse events
         canvas.grid(row=0, column=0, sticky="nsew")
         
         # Scrollbars
@@ -1117,20 +1237,28 @@ class ImprovedSeedreamLayout(AIChatMixin):
         v_scrollbar.grid(row=0, column=1, sticky="ns")
         h_scrollbar.grid(row=1, column=0, sticky="ew")
         
-        # Store canvas references
+        # Store canvas and panel references
         if panel_type == "original":
             self.original_canvas = canvas
             self.original_scrollbar_v = v_scrollbar
             self.original_scrollbar_h = h_scrollbar
+            self.original_panel = panel_frame
         else:
             self.result_canvas = canvas
             self.result_scrollbar_v = v_scrollbar
             self.result_scrollbar_h = h_scrollbar
+            self.result_panel = panel_frame
         
         # Bind events for synchronized scrolling when enabled
-        canvas.bind('<Configure>', lambda e: self.on_canvas_configure(e, panel_type))
-        canvas.bind('<Button-1>', lambda e: self.on_canvas_click(e, panel_type))
-        canvas.bind('<MouseWheel>', lambda e: self.on_mouse_wheel(e, panel_type))
+        canvas.bind('<Configure>', lambda e: self.on_canvas_configure_debounced(e, panel_type))
+        canvas.bind('<Button-1>', lambda e: self.on_canvas_drag_start(e, panel_type))
+        canvas.bind('<B1-Motion>', lambda e: self.on_canvas_drag_motion(e, panel_type))
+        canvas.bind('<ButtonRelease-1>', lambda e: self.on_canvas_drag_end(e, panel_type))
+        canvas.bind('<MouseWheel>', lambda e: self.on_mouse_wheel_zoom(e, panel_type))
+        canvas.bind('<Button-4>', lambda e: self.on_mouse_wheel_zoom(e, panel_type))  # Linux
+        canvas.bind('<Button-5>', lambda e: self.on_mouse_wheel_zoom(e, panel_type))  # Linux
+        canvas.bind('<Enter>', lambda e: self.on_canvas_enter(e, panel_type))  # Set focus when mouse enters
+        canvas.bind('<Leave>', lambda e: self.on_canvas_leave(e, panel_type))  # Reset cursor when mouse leaves
         
         # Default message
         self.show_panel_message(panel_type)
@@ -1187,14 +1315,16 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def show_default_message(self):
         """Show default message"""
-        self.image_canvas.delete("all")
-        self.image_canvas.create_text(
-            260, 200,
-            text="Select an image to transform\n\nDrag & drop supported",
-            font=('Arial', 14),
-            fill='#888',
-            justify=tk.CENTER
-        )
+        # Show message on original canvas
+        if hasattr(self, 'original_canvas'):
+            self.original_canvas.delete("all")
+            self.original_canvas.create_text(
+                150, 200,
+                text="Select an image to transform\n\nDrag & drop supported",
+                font=('Arial', 12),
+                fill='#888',
+                justify=tk.CENTER
+            )
     
     # Event handlers and utility methods
     def browse_image(self):
@@ -1292,8 +1422,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
             # Auto-set resolution if enabled
             self.auto_set_resolution()
             
-            # Display in main canvas
-            self.set_view_mode("original")
+            # Display in original panel
+            self.display_image_in_panel(image_path, "original")
             
         except Exception as e:
             self.status_label.config(text=f"Error loading image: {str(e)}", foreground="red")
@@ -1525,8 +1655,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         # Show processing state
         self.status_label.config(text="Processing with Seedream V4...", foreground="blue")
-        self.progress_bar.grid(row=2, column=0, sticky="ew", pady=(4, 0))
-        self.progress_bar.start()
+        self.action_progress_bar.grid(row=2, column=0, sticky="ew", pady=(4, 0))
+        self.action_progress_bar.start()
         self.primary_btn.config(state='disabled', text="Processing...")
         
         # Log the start
@@ -1606,8 +1736,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def handle_processing_error(self, error_msg):
         """Handle processing error with enhanced logging"""
-        self.progress_bar.stop()
-        self.progress_bar.grid_remove()
+        self.action_progress_bar.stop()
+        self.action_progress_bar.grid_remove()
         self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
         self.status_label.config(text=f"Error: {error_msg}", foreground="red")
         self.log_message(f"❌ Processing failed: {error_msg}")
@@ -1831,14 +1961,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def handle_download_complete(self, result_path):
         """Handle successful download completion"""
         # Update UI state
-        self.progress_bar.stop()
-        self.progress_bar.grid_remove()
+        self.action_progress_bar.stop()
+        self.action_progress_bar.grid_remove()
         self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
         self.status_label.config(text="✅ Transformation complete!", foreground="green")
         
         # Log completion
         self.log_message("✅ Processing completed successfully!")
         self.log_message(f"💾 Result saved to: {result_path}")
+        
+        # Display result in result panel
+        self.display_image_in_panel(result_path, "result")
         
         # Enable result view buttons
         if hasattr(self, 'view_result_btn'):
@@ -1961,8 +2094,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def after_processing(self):
         """Called after processing completes"""
         # Hide progress
-        self.progress_bar.stop()
-        self.progress_bar.grid_remove()
+        self.action_progress_bar.stop()
+        self.action_progress_bar.grid_remove()
         self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
         self.status_label.config(text="✅ Transformation complete!", foreground="green")
         
@@ -1987,18 +2120,60 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.current_view_mode = mode
         
         if mode == "original":
-            # ttk.Button doesn't support relief, use state instead
-            self.view_original_btn.state(['pressed'])
-            self.view_result_btn.state(['!pressed'])
+            # Show only original panel, hide result panel
+            self.set_panel_visibility("original", True)
+            self.set_panel_visibility("result", False)
             if self.selected_image_path:
-                self.display_image(self.selected_image_path)
+                self.display_image_in_panel(self.selected_image_path, "original")
+            else:
+                self.show_panel_message("original")
+            
         elif mode == "result":
-            self.view_result_btn.state(['pressed'])
-            self.view_original_btn.state(['!pressed'])
+            # Show only result panel, hide original panel
+            self.set_panel_visibility("original", False)
+            self.set_panel_visibility("result", True)
             if self.result_image_path:
-                self.display_image(self.result_image_path)
+                self.display_image_in_panel(self.result_image_path, "result")
+            else:
+                self.show_panel_message("result")
+            
+        elif mode == "comparison":
+            # Show both panels side by side
+            self.set_panel_visibility("original", True)
+            self.set_panel_visibility("result", True)
+            
+            if self.selected_image_path:
+                self.display_image_in_panel(self.selected_image_path, "original")
+            else:
+                self.show_panel_message("original")
+                
+            if self.result_image_path:
+                self.display_image_in_panel(self.result_image_path, "result")
+            else:
+                self.show_panel_message("result")
         
-        self.comparison_btn.state(['!pressed'])
+        elif mode == "overlay":
+            # Show overlay view - both images in one canvas
+            self.set_panel_visibility("original", True)
+            self.set_panel_visibility("result", False)
+            self.display_overlay_view()
+        
+        # Clear comparison button state if not in comparison mode
+        if mode != "comparison":
+            self.comparison_btn.state(['!pressed'])
+    
+    def set_panel_visibility(self, panel_type, visible):
+        """Show or hide a specific panel"""
+        if panel_type == "original" and hasattr(self, 'original_panel'):
+            if visible:
+                self.original_panel.grid()
+            else:
+                self.original_panel.grid_remove()
+        elif panel_type == "result" and hasattr(self, 'result_panel'):
+            if visible:
+                self.result_panel.grid()
+            else:
+                self.result_panel.grid_remove()
     
     def toggle_comparison_mode(self):
         """Toggle comparison mode"""
@@ -2006,21 +2181,33 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.status_label.config(text="Need both images for comparison", foreground="orange")
             return
         
-        self.comparison_btn.state(['pressed'])
-        self.view_original_btn.state(['!pressed'])
-        self.view_result_btn.state(['!pressed'])
-        
-        self.display_comparison()
+        self.set_view_mode("comparison")
     
     def display_image(self, image_path, position="center"):
         """Display image with dynamic scaling"""
         # Same implementation as SeedEdit layout
         try:
-            self.image_canvas.delete("all")
+            # Determine which canvas to use based on current view mode
+            if hasattr(self, 'current_view_mode'):
+                if self.current_view_mode == "original":
+                    canvas = self.original_canvas
+                elif self.current_view_mode == "result":
+                    canvas = self.result_canvas
+                else:
+                    # For comparison mode, determine based on image path
+                    if image_path == self.selected_image_path:
+                        canvas = self.original_canvas
+                    else:
+                        canvas = self.result_canvas
+            else:
+                # Default to original canvas if no mode set
+                canvas = self.original_canvas
+            
+            canvas.delete("all")
             
             img = Image.open(image_path)
-            canvas_width = self.image_canvas.winfo_width()
-            canvas_height = self.image_canvas.winfo_height()
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
             
             if canvas_width <= 1:
                 canvas_width = 520
@@ -2044,20 +2231,23 @@ class ImprovedSeedreamLayout(AIChatMixin):
             x = max(5, (canvas_width - new_width) // 2)
             y = max(5, (canvas_height - new_height) // 2)
             
-            self.image_canvas.create_image(x, y, anchor=tk.NW, image=photo)
-            self.image_canvas.image = photo
+            canvas.create_image(x, y, anchor=tk.NW, image=photo)
+            canvas.image = photo  # Keep reference to prevent garbage collection
             
-            self.image_canvas.configure(scrollregion=self.image_canvas.bbox("all"))
+            canvas.configure(scrollregion=canvas.bbox("all"))
             
         except Exception as e:
-            self.image_canvas.delete("all")
-            self.image_canvas.create_text(
-                260, 200,
-                text=f"Error loading image:\n{str(e)}",
-                font=('Arial', 12),
-                fill='red',
-                justify=tk.CENTER
-            )
+            # Show error on the appropriate canvas
+            canvas = getattr(self, 'original_canvas', None)
+            if canvas:
+                canvas.delete("all")
+                canvas.create_text(
+                    150, 200,
+                    text=f"Error loading image:\n{str(e)}",
+                    fill="red",
+                    font=('Arial', 10),
+                    justify=tk.CENTER
+                )
     
     def display_comparison(self):
         """Display side-by-side comparison"""
@@ -2121,11 +2311,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def on_canvas_configure(self, event):
         """Handle canvas resize"""
         # Update scroll region if we have a canvas
-        if hasattr(self, 'image_canvas') and hasattr(event, 'width') and hasattr(event, 'height'):
-            try:
-                self.image_canvas.configure(scrollregion=self.image_canvas.bbox("all"))
-            except:
-                pass
+        # This is handled by individual canvas events now
+        pass
     
     def on_canvas_click(self, event):
         """Handle canvas click"""
@@ -2133,19 +2320,61 @@ class ImprovedSeedreamLayout(AIChatMixin):
         if hasattr(self, 'selected_image_path') and self.selected_image_path:
             self.log_message("📍 Image clicked - feature could be expanded for interactive editing")
     
-    def on_mouse_wheel(self, event):
-        """Handle mouse wheel for zooming"""
-        # Basic mouse wheel support for image viewing
-        if hasattr(self, 'image_canvas') and hasattr(event, 'delta'):
+    def on_mouse_wheel_zoom(self, event, panel_type):
+        """Handle mouse wheel zoom for specific panel"""
+        try:
+            # Determine zoom direction
+            if hasattr(event, 'delta'):
+                # Windows
+                delta = event.delta
+            elif hasattr(event, 'num'):
+                # Linux
+                delta = 120 if event.num == 4 else -120
+            else:
+                return
+            
+            # Get current zoom level
+            current_zoom = self.zoom_var.get()
+            zoom_levels = ["25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"]
+            
             try:
-                # Scroll the canvas
-                self.image_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-            except:
-                pass
+                if current_zoom == "Fit":
+                    current_index = 3  # 100%
+                else:
+                    current_index = zoom_levels.index(current_zoom)
+            except ValueError:
+                current_index = 3  # Default to 100%
+            
+            # Adjust zoom level
+            if delta > 0:  # Zoom in
+                new_index = min(current_index + 1, len(zoom_levels) - 1)
+            else:  # Zoom out
+                new_index = max(current_index - 1, 0)
+            
+            new_zoom = zoom_levels[new_index]
+            
+            # Update zoom and refresh display
+            self.zoom_var.set(new_zoom)
+            self.on_zoom_changed()
+            
+        except Exception as e:
+            pass  # Silently handle any zoom errors
     
-    def on_zoom_changed(self, event):
+    def on_zoom_changed(self, event=None):
         """Handle zoom change"""
-        # Could implement image zoom functionality
+        # Re-display images with new zoom level
+        if hasattr(self, 'current_view_mode'):
+            if self.current_view_mode == "original" and self.selected_image_path:
+                self.display_image_in_panel(self.selected_image_path, "original")
+            elif self.current_view_mode == "result" and self.result_image_path:
+                self.display_image_in_panel(self.result_image_path, "result")
+            elif self.current_view_mode == "comparison":
+                if self.selected_image_path:
+                    self.display_image_in_panel(self.selected_image_path, "original")
+                if self.result_image_path:
+                    self.display_image_in_panel(self.result_image_path, "result")
+            elif self.current_view_mode == "overlay":
+                self.display_overlay_view()
         if hasattr(self, 'current_zoom'):
             self.log_message(f"🔍 Zoom changed: {self.current_zoom}%")
     
@@ -2968,45 +3197,101 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def expand_prompt_history(self):
         """Expand prompt history section"""
         if self.prompt_history_content is None:
-            # Create history content
-            parent = event.widget.master if hasattr(self, 'event') else None
             # Find the history frame
-            for child in self.parent_frame.winfo_children():
-                if isinstance(child, ttk.LabelFrame) and "Recent Prompts" in child.cget("text"):
-                    parent = child
-                    break
+            history_frame = None
+            def find_history_frame(widget):
+                if isinstance(widget, ttk.LabelFrame) and "Recent Prompts" in widget.cget("text"):
+                    return widget
+                for child in widget.winfo_children():
+                    result = find_history_frame(child)
+                    if result:
+                        return result
+                return None
             
-            if parent:
-                self.prompt_history_content = ttk.Frame(parent)
+            history_frame = find_history_frame(self.parent_frame)
+            
+            if history_frame:
+                self.prompt_history_content = ttk.Frame(history_frame)
                 self.prompt_history_content.grid(row=1, column=0, sticky="ew", pady=(4, 0))
                 self.prompt_history_content.columnconfigure(0, weight=1)
                 
+                # Create container for listbox and scrollbar
+                list_container = ttk.Frame(self.prompt_history_content)
+                list_container.grid(row=0, column=0, sticky="ew")
+                list_container.columnconfigure(0, weight=1)
+                
                 # History list
                 history_list = tk.Listbox(
-                    self.prompt_history_content,
-                    height=4,
+                    list_container,
+                    height=6,  # Show more prompts
                     font=('Arial', 9),
                     relief='solid',
-                    borderwidth=1
+                    borderwidth=1,
+                    selectbackground='#e3f2fd',
+                    selectforeground='#1976d2'
                 )
                 history_list.grid(row=0, column=0, sticky="ew")
                 
-                # Add some sample prompts
-                sample_prompts = [
-                    "Make the subject more vibrant and colorful",
-                    "Add dramatic lighting and shadows",
-                    "Convert to black and white with high contrast",
-                    "Apply a vintage film effect"
-                ]
+                # Scrollbar for history list
+                history_scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL, command=history_list.yview)
+                history_scrollbar.grid(row=0, column=1, sticky="ns")
+                history_list.configure(yscrollcommand=history_scrollbar.set)
                 
-                for prompt in sample_prompts:
-                    history_list.insert(tk.END, prompt)
+                # Store reference to history listbox for updates
+                self.history_listbox = history_list
+                
+                # Load actual saved prompts
+                self.populate_prompt_history()
                 
                 # Bind selection
                 history_list.bind('<Double-Button-1>', self.load_history_prompt)
+                history_list.bind('<Return>', self.load_history_prompt)  # Enter key support
+                
+                # Add buttons for prompt management
+                button_frame = ttk.Frame(self.prompt_history_content)
+                button_frame.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+                
+                ttk.Button(
+                    button_frame, 
+                    text="Load Selected", 
+                    command=lambda: self.load_selected_history_prompt(),
+                    width=12
+                ).pack(side=tk.LEFT, padx=(0, 4))
+                
+                ttk.Button(
+                    button_frame, 
+                    text="Refresh", 
+                    command=self.populate_prompt_history,
+                    width=8
+                ).pack(side=tk.LEFT, padx=(0, 4))
+                
+                ttk.Button(
+                    button_frame, 
+                    text="Clear History", 
+                    command=self.clear_prompt_history,
+                    width=10
+                ).pack(side=tk.LEFT)
+        
+        else:
+            # Just show the existing content
+            self.prompt_history_content.grid()
         
         self.prompt_history_expanded = True
-        parent.config(text="📝 Recent Prompts (Click to collapse)")
+        
+        # Update the frame title
+        history_frame = None
+        def find_history_frame(widget):
+            if isinstance(widget, ttk.LabelFrame) and "Recent Prompts" in widget.cget("text"):
+                return widget
+            for child in widget.winfo_children():
+                result = find_history_frame(child)
+                if result:
+                    return result
+            return None
+        
+        history_frame = find_history_frame(self.parent_frame)
+        if history_frame:
+            history_frame.config(text="📝 Recent Prompts (Click to collapse)")
     
     def collapse_prompt_history(self):
         """Collapse prompt history section"""
@@ -3026,49 +3311,255 @@ class ImprovedSeedreamLayout(AIChatMixin):
         selection = listbox.curselection()
         if selection:
             prompt = listbox.get(selection[0])
+            # Remove "..." if it was truncated
+            if prompt.endswith("..."):
+                # Find the full prompt from our saved prompts
+                full_prompt = self.find_full_prompt(prompt[:-3])
+                if full_prompt:
+                    prompt = full_prompt
+            
             self.prompt_text.delete("1.0", tk.END)
             self.prompt_text.insert("1.0", prompt)
             self.prompt_text.config(fg='#333333')
             self.prompt_has_placeholder = False
             self.on_prompt_text_changed(None)
+            self.log_message(f"📋 Loaded prompt: {prompt[:50]}{'...' if len(prompt) > 50 else ''}")
+    
+    def load_selected_history_prompt(self):
+        """Load currently selected prompt from history"""
+        if hasattr(self, 'history_listbox') and self.history_listbox:
+            selection = self.history_listbox.curselection()
+            if selection:
+                prompt = self.history_listbox.get(selection[0])
+                # Remove "..." if it was truncated
+                if prompt.endswith("..."):
+                    full_prompt = self.find_full_prompt(prompt[:-3])
+                    if full_prompt:
+                        prompt = full_prompt
+                
+                self.prompt_text.delete("1.0", tk.END)
+                self.prompt_text.insert("1.0", prompt)
+                self.prompt_text.config(fg='#333333')
+                self.prompt_has_placeholder = False
+                self.on_prompt_text_changed(None)
+                self.log_message(f"📋 Loaded prompt: {prompt[:50]}{'...' if len(prompt) > 50 else ''}")
+            else:
+                self.log_message("❌ No prompt selected")
+    
+    def find_full_prompt(self, partial_prompt):
+        """Find the full prompt that matches the partial prompt"""
+        if not self.tab_instance or not hasattr(self.tab_instance, 'saved_seedream_v4_prompts'):
+            return None
+            
+        saved_prompts = self.tab_instance.saved_seedream_v4_prompts or []
+        for prompt_data in saved_prompts:
+            if isinstance(prompt_data, dict):
+                full_prompt = prompt_data.get('prompt', '')
+            else:
+                full_prompt = str(prompt_data)
+            
+            if full_prompt.startswith(partial_prompt):
+                return full_prompt
+        return None
+    
+    def clear_prompt_history(self):
+        """Clear the prompt history display"""
+        if hasattr(self, 'history_listbox') and self.history_listbox:
+            self.history_listbox.delete(0, tk.END)
+            self.log_message("🗑️ Prompt history display cleared")
+    
+    def update_prompt_history_display(self):
+        """Update the prompt history display with current prompts"""
+        if hasattr(self, 'history_listbox') and self.history_listbox:
+            self.populate_prompt_history()
+    
+    def populate_prompt_history(self):
+        """Populate prompt history with saved Seedream prompts"""
+        if not hasattr(self, 'history_listbox') or not self.history_listbox:
+            return
+            
+        # Clear existing items
+        self.history_listbox.delete(0, tk.END)
+        
+        # Get saved prompts from tab instance
+        saved_prompts = []
+        if self.tab_instance and hasattr(self.tab_instance, 'saved_seedream_v4_prompts'):
+            saved_prompts = self.tab_instance.saved_seedream_v4_prompts or []
+        
+        if saved_prompts:
+            # Show most recent prompts first (limit to 10)
+            recent_prompts = saved_prompts[-10:]
+            for prompt in reversed(recent_prompts):
+                if isinstance(prompt, dict):
+                    prompt_text = prompt.get('prompt', '')
+                else:
+                    prompt_text = str(prompt)
+                
+                if prompt_text:
+                    # Truncate long prompts for display
+                    display_prompt = prompt_text if len(prompt_text) <= 80 else prompt_text[:77] + "..."
+                    self.history_listbox.insert(tk.END, display_prompt)
+                    
+            self.log_message(f"📝 Loaded {len(recent_prompts)} recent prompts")
+        else:
+            # Add some helpful sample prompts if no saved prompts exist
+            sample_prompts = [
+                "Make the subject more vibrant and colorful",
+                "Add dramatic lighting and shadows", 
+                "Convert to black and white with high contrast",
+                "Apply a vintage film effect",
+                "Transform into a cyberpunk neon scene",
+                "Add magical sparkles and fairy dust",
+                "Make it look like a Van Gogh painting",
+                "Add storm clouds and lightning"
+            ]
+            
+            for prompt in sample_prompts:
+                self.history_listbox.insert(tk.END, prompt)
+                
+            self.log_message("📝 Loaded sample prompts (no saved prompts found)")
     
     def show_prompt_browser(self):
         """Show enhanced prompt browser"""
         try:
             # Try to import and show enhanced prompt browser
             from ui.components.enhanced_prompt_browser import show_enhanced_prompt_browser
-            show_enhanced_prompt_browser(self.prompt_text)
+            
+            def on_prompt_selected(prompt_content):
+                """Callback when a prompt is selected"""
+                # Clear any placeholder state first
+                if hasattr(self, 'prompt_has_placeholder') and self.prompt_has_placeholder:
+                    self.prompt_has_placeholder = False
+                
+                # Set the selected prompt
+                self.prompt_text.delete("1.0", tk.END)
+                self.prompt_text.insert("1.0", prompt_content)
+                self.prompt_text.config(fg='#333333')
+            
+            show_enhanced_prompt_browser(self.prompt_text, "seedream_v4", on_prompt_selected)
         except ImportError:
-            # Fallback to simple load
-            self.load_preset()
+            # Fallback to expand prompt history if browser not available
+            if hasattr(self, 'prompt_history_expanded') and not self.prompt_history_expanded:
+                self.expand_prompt_history()
+            else:
+                # Fallback to simple load
+                self.load_preset()
     
     # Enhanced comparison methods
     def on_comparison_mode_changed(self, event=None):
         """Handle comparison mode change"""
         mode = self.comparison_mode_var.get()
         if mode == "side_by_side":
-            self.show_side_by_side_view()
+            self.set_view_mode("comparison")
         elif mode == "overlay":
-            self.show_overlay_view()
+            self.set_view_mode("overlay")
         elif mode == "original_only":
-            self.show_original_only()
+            self.set_view_mode("original")
         elif mode == "result_only":
-            self.show_result_only()
+            self.set_view_mode("result")
     
     def on_sync_zoom_changed(self):
         """Handle sync zoom toggle"""
         # Implementation for synchronized zooming
         pass
     
+    def on_opacity_changed(self, value=None):
+        """Handle opacity slider change"""
+        opacity = self.opacity_var.get()
+        # Update the label to show percentage
+        self.opacity_label.config(text=f"{int(opacity * 100)}%")
+        
+        # If we're in overlay mode, refresh the display
+        if hasattr(self, 'current_view_mode') and self.current_view_mode == "overlay":
+            self.display_overlay_view()
+    
+    def on_canvas_configure_debounced(self, event, panel_type):
+        """Handle canvas configuration with debouncing to improve resize performance"""
+        # Cancel previous timer if it exists
+        if self.resize_timer:
+            self.parent_frame.after_cancel(self.resize_timer)
+        
+        # Set new timer for delayed execution
+        self.resize_timer = self.parent_frame.after(
+            self.resize_delay, 
+            lambda: self.on_canvas_configure(event, panel_type)
+        )
+    
     def on_canvas_configure(self, event, panel_type):
         """Handle canvas configuration for specific panel"""
-        # Update scroll region and manage zoom
-        pass
+        # Reset timer
+        self.resize_timer = None
+        
+        # Re-display images if we're in a mode that needs refreshing
+        if hasattr(self, 'current_view_mode') and self.current_view_mode:
+            if self.current_view_mode == "original" and self.selected_image_path:
+                self.display_image_in_panel(self.selected_image_path, "original")
+            elif self.current_view_mode == "result" and self.result_image_path:
+                self.display_image_in_panel(self.result_image_path, "result")
+            elif self.current_view_mode == "comparison":
+                if self.selected_image_path:
+                    self.display_image_in_panel(self.selected_image_path, "original")
+                if self.result_image_path:
+                    self.display_image_in_panel(self.result_image_path, "result")
+            elif self.current_view_mode == "overlay":
+                self.display_overlay_view()
+    
+    def on_canvas_drag_start(self, event, panel_type):
+        """Handle start of potential canvas drag for panning"""
+        self.drag_data["x"] = event.x
+        self.drag_data["y"] = event.y
+        self.drag_data["dragging"] = False  # Don't set dragging immediately
+        self.drag_data["threshold_met"] = False
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        # Don't change cursor or set scan mark until actual dragging starts
+    
+    def on_canvas_drag_motion(self, event, panel_type):
+        """Handle canvas drag motion for panning"""
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        
+        # Calculate how much the mouse moved
+        dx = event.x - self.drag_data["x"]
+        dy = event.y - self.drag_data["y"]
+        
+        # Only start dragging if movement exceeds threshold (5 pixels)
+        if not self.drag_data["threshold_met"] and (abs(dx) > 5 or abs(dy) > 5):
+            self.drag_data["threshold_met"] = True
+            self.drag_data["dragging"] = True
+            canvas.configure(cursor="fleur")
+            canvas.scan_mark(self.drag_data["x"], self.drag_data["y"])
+        
+        # Only pan if dragging is active
+        if self.drag_data["dragging"]:
+            canvas.scan_dragto(event.x, event.y, gain=1)
+        
+    def on_canvas_drag_end(self, event, panel_type):
+        """Handle end of canvas drag"""
+        self.drag_data["dragging"] = False
+        self.drag_data["threshold_met"] = False
+        # Reset cursor
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        canvas.configure(cursor="")
+    
+    def on_canvas_enter(self, event, panel_type):
+        """Handle mouse entering canvas"""
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        canvas.focus_set()
+        # Show hand cursor to indicate draggable
+        if hasattr(canvas, 'image'):  # Only if there's an image
+            canvas.configure(cursor="hand2")
+    
+    def on_canvas_leave(self, event, panel_type):
+        """Handle mouse leaving canvas"""
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        # Reset cursor when leaving
+        if not self.drag_data["dragging"]:
+            canvas.configure(cursor="")
     
     def on_canvas_click(self, event, panel_type):
         """Handle canvas click for specific panel"""
-        # Handle pan/zoom interactions
-        pass
+        # If not dragging, just set scan mark for potential future dragging
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        canvas.scan_mark(event.x, event.y)
     
     def on_mouse_wheel(self, event, panel_type):
         """Handle mouse wheel for specific panel"""
@@ -3085,31 +3576,178 @@ class ImprovedSeedreamLayout(AIChatMixin):
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
         canvas.delete("all")
         
+        # Show appropriate message
         if panel_type == "original":
-            message = "📥 Load an image to begin\n\nClick 'Browse Image' or drag & drop"
-            color = "#666666"
+            message = "Select an image to transform\n\nDrag & drop supported"
         else:
-            message = "🌟 Result will appear here\n\nAfter processing completes"
-            color = "#999999"
+            message = "Results will appear here\nafter processing"
         
         canvas.create_text(
-            canvas.winfo_width() // 2 if canvas.winfo_width() > 1 else 200,
-            canvas.winfo_height() // 2 if canvas.winfo_height() > 1 else 150,
+            150, 200,
             text=message,
-            font=('Arial', 12),
-            fill=color,
+            font=('Arial', 11),
+            fill='#888',
             justify=tk.CENTER
         )
+    
+    def display_image_in_panel(self, image_path, panel_type):
+        """Display image in specific panel"""
+        try:
+            canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+            canvas.delete("all")
+            
+            img = Image.open(image_path)
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            
+            if canvas_width <= 1:
+                canvas_width = 300  # Default for side-by-side
+                canvas_height = 400
+            
+            zoom_value = self.zoom_var.get()
+            if zoom_value == "Fit":
+                # Better fit calculation with more padding for UI controls
+                scale_factor = min(
+                    (canvas_width - 20) / img.width,
+                    (canvas_height - 40) / img.height  # More vertical padding for controls
+                )
+                # Ensure minimum scale to prevent tiny images
+                scale_factor = max(scale_factor, 0.1)
+            else:
+                scale_factor = float(zoom_value.rstrip('%')) / 100
+            
+            new_width = int(img.width * scale_factor)
+            new_height = int(img.height * scale_factor)
+            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            photo = ImageTk.PhotoImage(img_resized)
+            
+            x = max(5, (canvas_width - new_width) // 2)
+            y = max(5, (canvas_height - new_height) // 2)
+            
+            canvas.create_image(x, y, anchor=tk.NW, image=photo)
+            canvas.image = photo  # Keep reference
+            
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            
+        except Exception as e:
+            canvas.delete("all")
+            canvas.create_text(
+                150, 200,
+                text=f"Error loading image:\n{str(e)}",
+                fill="red",
+                font=('Arial', 10),
+                justify=tk.CENTER
+            )
     
     def show_side_by_side_view(self):
         """Show side-by-side comparison view"""
         # Implementation for side-by-side view
         pass
     
-    def show_overlay_view(self):
-        """Show overlay comparison view"""
-        # Implementation for overlay view
-        pass
+    def display_overlay_view(self):
+        """Display overlay comparison view with opacity blending"""
+        if not self.selected_image_path or not self.result_image_path:
+            # Show message if we don't have both images
+            self.original_canvas.delete("all")
+            self.original_canvas.create_text(
+                150, 200,
+                text="Overlay mode requires both\noriginal and result images",
+                font=('Arial', 12),
+                fill='#888',
+                justify=tk.CENTER
+            )
+            return
+        
+        try:
+            # Load both images
+            original_img = Image.open(self.selected_image_path)
+            result_img = Image.open(self.result_image_path)
+            
+            # Get canvas dimensions
+            canvas = self.original_canvas
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            
+            if canvas_width <= 1:
+                canvas_width = 400
+                canvas_height = 400
+            
+            # Calculate scale factor based on zoom setting
+            zoom_value = self.zoom_var.get()
+            if zoom_value == "Fit":
+                # Scale to fit the larger of the two images
+                max_width = max(original_img.width, result_img.width)
+                max_height = max(original_img.height, result_img.height)
+                scale_factor = min(
+                    (canvas_width - 20) / max_width,
+                    (canvas_height - 20) / max_height
+                )
+            else:
+                scale_factor = float(zoom_value.rstrip('%')) / 100
+            
+            # Resize both images to the same size (use the larger dimensions)
+            target_width = max(original_img.width, result_img.width)
+            target_height = max(original_img.height, result_img.height)
+            
+            # Resize images to target size if needed
+            if original_img.size != (target_width, target_height):
+                original_img = original_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            if result_img.size != (target_width, target_height):
+                result_img = result_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            
+            # Apply zoom scaling
+            display_width = int(target_width * scale_factor)
+            display_height = int(target_height * scale_factor)
+            
+            original_img = original_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            result_img = result_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            
+            # Create blended image
+            opacity = self.opacity_var.get()
+            blended_img = Image.blend(original_img.convert('RGBA'), result_img.convert('RGBA'), opacity)
+            
+            # Clear canvas and display blended image
+            canvas.delete("all")
+            
+            # Convert to PhotoImage
+            photo = ImageTk.PhotoImage(blended_img)
+            
+            # Center the image
+            x = max(10, (canvas_width - display_width) // 2)
+            y = max(10, (canvas_height - display_height) // 2)
+            
+            canvas.create_image(x, y, anchor=tk.NW, image=photo)
+            canvas.image = photo  # Keep reference
+            
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            # Add overlay info text
+            canvas.create_text(
+                10, 10,
+                text=f"Overlay: {int(opacity * 100)}% result",
+                font=('Arial', 10, 'bold'),
+                fill='white',
+                anchor=tk.NW
+            )
+            # Add shadow for better visibility
+            canvas.create_text(
+                11, 11,
+                text=f"Overlay: {int(opacity * 100)}% result",
+                font=('Arial', 10, 'bold'),
+                fill='black',
+                anchor=tk.NW
+            )
+            
+        except Exception as e:
+            canvas.delete("all")
+            canvas.create_text(
+                150, 200,
+                text=f"Error creating overlay:\n{str(e)}",
+                fill="red",
+                font=('Arial', 10),
+                justify=tk.CENTER
+            )
     
     def show_original_only(self):
         """Show original image only"""
