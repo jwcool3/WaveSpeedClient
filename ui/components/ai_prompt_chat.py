@@ -45,6 +45,9 @@ class AIPromptChat:
         self.detailed_analyzer = detailed_image_analyzer
         
         # Adaptive learning system integration
+        # TESTING FLAG: Set to False to disable learning system
+        self.enable_learning_system = False  # Change to True to re-enable
+        
         from core.learning_integration_manager import learning_integration_manager
         from core.enhanced_prompt_tracker import enhanced_prompt_tracker
         self.learning_manager = learning_integration_manager
@@ -372,6 +375,10 @@ Please respond as a helpful AI assistant that specializes in prompt improvement.
     async def get_learning_enhanced_response(self, user_message: str, prompt_text: str) -> str:
         """Get learning-enhanced feedback before generating the main response"""
         try:
+            # Skip learning system if disabled for testing
+            if not self.enable_learning_system:
+                return ""
+            
             if self.filter_training:
                 # Get real-time feedback from learning system
                 feedback = await self.learning_manager.get_real_time_feedback(prompt_text)
@@ -1063,14 +1070,17 @@ Be friendly, professional, and helpful.
                 "notes": f"Marked as good example from chat - {self.current_tab_name}"
             }
             
-            # Integrate with learning system
-            integration_result = await self.learning_manager.integrate_with_prompt_tracking(prompt_data)
-            
-            if integration_result.get("learning_integrated"):
-                insights = integration_result.get("immediate_insights", [])
-                self.add_message("assistant", f"✅ **Saved as Good Example!**\n\nThis prompt has been added to the learning system as a successful example.\n\n🧠 **Learning Insights:**\n" + "\n".join([f"• {insight}" for insight in insights[:3]]))
+            # Integrate with learning system (if enabled)
+            if self.enable_learning_system:
+                integration_result = await self.learning_manager.integrate_with_prompt_tracking(prompt_data)
+                
+                if integration_result.get("learning_integrated"):
+                    insights = integration_result.get("immediate_insights", [])
+                    self.add_message("assistant", f"✅ **Saved as Good Example!**\n\nThis prompt has been added to the learning system as a successful example.\n\n🧠 **Learning Insights:**\n" + "\n".join([f"• {insight}" for insight in insights[:3]]))
+                else:
+                    self.add_message("assistant", "✅ **Saved as Good Example!**\n\nThis prompt has been saved for learning analysis.")
             else:
-                self.add_message("assistant", "✅ **Saved as Good Example!**\n\nThis prompt has been saved for learning analysis.")
+                self.add_message("assistant", "✅ **Saved as Good Example!**\n\n⚠️ Learning system is currently disabled for testing.")
                 
         except Exception as e:
             logger.error(f"Error saving good example: {e}")
@@ -1093,14 +1103,17 @@ Be friendly, professional, and helpful.
                 "notes": f"Marked as bad example from chat - {self.current_tab_name}"
             }
             
-            # Integrate with learning system
-            integration_result = await self.learning_manager.integrate_with_prompt_tracking(prompt_data)
-            
-            if integration_result.get("learning_integrated"):
-                suggestions = integration_result.get("suggestions", [])
-                self.add_message("assistant", f"❌ **Saved as Bad Example!**\n\nThis prompt has been added to the learning system as a failed example.\n\n💡 **Smart Suggestions:**\n" + "\n".join([f"• {suggestion}" for suggestion in suggestions[:3]]))
+            # Integrate with learning system (if enabled)
+            if self.enable_learning_system:
+                integration_result = await self.learning_manager.integrate_with_prompt_tracking(prompt_data)
+                
+                if integration_result.get("learning_integrated"):
+                    suggestions = integration_result.get("suggestions", [])
+                    self.add_message("assistant", f"❌ **Saved as Bad Example!**\n\nThis prompt has been added to the learning system as a failed example.\n\n💡 **Smart Suggestions:**\n" + "\n".join([f"• {suggestion}" for suggestion in suggestions[:3]]))
+                else:
+                    self.add_message("assistant", "❌ **Saved as Bad Example!**\n\nThis prompt has been saved for learning analysis.")
             else:
-                self.add_message("assistant", "❌ **Saved as Bad Example!**\n\nThis prompt has been saved for learning analysis.")
+                self.add_message("assistant", "❌ **Saved as Bad Example!**\n\n⚠️ Learning system is currently disabled for testing.")
                 
         except Exception as e:
             logger.error(f"Error saving bad example: {e}")
