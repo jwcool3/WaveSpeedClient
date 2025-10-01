@@ -242,3 +242,6 @@ desktop.ini
 *.backup
 
 # End of file
+data/failed_prompts_enhanced.json
+data/seedream_v4_prompts.json
+data/filter_training/filter_successful_catches.json

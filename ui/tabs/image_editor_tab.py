@@ -40,7 +40,7 @@ class ImageEditorTab(BaseTab):
         
         # Use the new compact image layout instead of the generic optimized layout
         from ui.components.compact_image_layout import CompactImageLayout
-        self.optimized_layout = CompactImageLayout(self.container, "Nano Banana Editor")
+        self.optimized_layout = CompactImageLayout(self.container, "Nano Banana Editor", self)
         
         # Connect the compact layout methods to our existing functionality
         self.connect_compact_layout()
@@ -67,8 +67,13 @@ class ImageEditorTab(BaseTab):
         
         # Store references to layout components for easy access
         self.prompt_text = self.optimized_layout.prompt_text
+        self.format_var = self.optimized_layout.format_var
         self.status_label = self.optimized_layout.status_label
         self.progress_bar = self.optimized_layout.progress_bar
+        
+        # Update the button command to use the real processing method
+        if hasattr(self.optimized_layout, 'main_action_btn'):
+            self.optimized_layout.main_action_btn.config(command=self.process_task)
     
     def improve_with_ai_placeholder(self):
         """Placeholder for AI improvement functionality"""
@@ -315,10 +320,14 @@ class ImageEditorTab(BaseTab):
         
         if success:
             self.selected_image_path = image_path
+            print(f"DEBUG: Image selected successfully: {image_path}")
+            print(f"DEBUG: Tab selected_image_path: {self.selected_image_path}")
             
             # Reset result buttons and clear previous results
             self.optimized_layout.save_result_button.config(state="disabled")
             self.optimized_layout.use_result_button.config(state="disabled")
+        else:
+            print(f"DEBUG: Failed to update input image: {image_path}")
             
             # Provide feedback about image replacement
             if replacing_image:
@@ -458,6 +467,8 @@ class ImageEditorTab(BaseTab):
     
     def validate_inputs(self):
         """Validate inputs before processing"""
+        print(f"DEBUG: validate_inputs - hasattr selected_image_path: {hasattr(self, 'selected_image_path')}")
+        print(f"DEBUG: validate_inputs - selected_image_path value: {getattr(self, 'selected_image_path', 'NOT_SET')}")
         if not hasattr(self, 'selected_image_path') or not self.selected_image_path:
             show_error("Error", "Please select an image first.")
             return False
