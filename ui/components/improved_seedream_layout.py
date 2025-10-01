@@ -79,9 +79,24 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.status_console = None
         self.keyboard_manager = None
         
-        self.setup_layout()
-        self.setup_enhanced_features()
-        self.setup_learning_components()
+        # Initialize view mode (CRITICAL FIX)
+        self.current_view_mode = "comparison"  # Default to side-by-side view
+        
+        try:
+            logger.info("ImprovedSeedreamLayout: Starting layout setup")
+            self.setup_layout()
+            logger.info("ImprovedSeedreamLayout: Layout setup complete")
+            
+            self.setup_enhanced_features()
+            logger.info("ImprovedSeedreamLayout: Enhanced features setup complete")
+            
+            self.setup_learning_components()
+            logger.info("ImprovedSeedreamLayout: Learning components setup complete")
+            
+            logger.info("ImprovedSeedreamLayout: Initialization successful")
+        except Exception as e:
+            logger.error(f"ImprovedSeedreamLayout: Initialization failed: {e}", exc_info=True)
+            raise
     
     @property
     def selected_image_path(self):
@@ -95,13 +110,21 @@ class ImprovedSeedreamLayout(AIChatMixin):
         main_container = ttk.Frame(self.parent_frame)
         main_container.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
+        # Configure parent frame to expand properly
+        self.parent_frame.columnconfigure(0, weight=1)
+        self.parent_frame.rowconfigure(0, weight=1)
+        
         # Create PanedWindow for resizable layout
         self.paned_window = ttk.PanedWindow(main_container, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
         
-        # Create frames for each pane
-        self.left_pane = ttk.Frame(self.paned_window)
-        self.right_pane = ttk.Frame(self.paned_window)
+        # Configure main container to ensure proper sizing
+        main_container.columnconfigure(0, weight=1)
+        main_container.rowconfigure(0, weight=1)
+        
+        # Create frames for each pane with minimum sizes
+        self.left_pane = ttk.Frame(self.paned_window, width=300)
+        self.right_pane = ttk.Frame(self.paned_window, width=600)
         
         # Add panes to PanedWindow
         self.paned_window.add(self.left_pane, weight=1)  # Controls pane
@@ -115,29 +138,54 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         # Set initial splitter position after a short delay to ensure window is rendered
         self.parent_frame.after(100, self.set_initial_splitter_position)
+        
+        # Initialize the display after everything is set up
+        self.parent_frame.after(200, self.initialize_display)
+    
+    def initialize_display(self):
+        """Initialize the image display panels with default messages"""
+        try:
+            logger.info("ImprovedSeedreamLayout: Initializing display panels")
+            
+            # Show default messages in both panels
+            self.show_panel_message("original")
+            self.show_panel_message("result")
+            
+            # Log that display is ready
+            if hasattr(self, 'status_console') and self.status_console:
+                self.status_console.log_ready("Seedream V4")
+                
+            logger.info("ImprovedSeedreamLayout: Display initialization complete")
+        except Exception as e:
+            logger.error(f"ImprovedSeedreamLayout: Error initializing display: {e}", exc_info=True)
     
     def set_initial_splitter_position(self):
         """Set the initial position of the splitter, loading saved position if available"""
         try:
             # Get the total width of the paned window
             total_width = self.paned_window.winfo_width()
-            if total_width > 1:
-                # Always start with 25/75 split, but allow loading saved position for user preference
-                # You can uncomment the saved position code if you want persistence
-                # saved_position = self.load_splitter_position()
-                # if saved_position and 200 <= saved_position <= total_width - 200:
-                #     position = saved_position
-                # else:
-                # Default to 25% of total width for initial load
+
+            # If window not rendered yet, retry
+            if total_width <= 1:
+                self.parent_frame.after(100, self.set_initial_splitter_position)
+                return
+
+            # Try to load saved position
+            saved_position = self.load_splitter_position()
+            if saved_position and 200 <= saved_position <= total_width - 200:
+                position = saved_position
+            else:
+                # Default to 25% of total width (approximately 300-400px for controls)
                 position = max(280, int(total_width * 0.25))
-                
-                self.paned_window.sashpos(0, position)
-                
-                # Bind event to save position when user drags splitter
-                self.paned_window.bind('<ButtonRelease-1>', self.on_splitter_moved)
+
+            self.paned_window.sashpos(0, position)
+
+            # Bind event to save position when user drags splitter
+            self.paned_window.bind('<ButtonRelease-1>', self.on_splitter_moved)
+
         except Exception as e:
             # Fallback: try again after another delay if window isn't ready
-            self.parent_frame.after(200, self.set_initial_splitter_position)
+            self.parent_frame.after(100, self.set_initial_splitter_position)
     
     def load_splitter_position(self):
         """Load saved splitter position from file"""
@@ -296,7 +344,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
             command=self.browse_image,
             width=8
         )
-        browse_btn.pack(side=tk.RIGHT)
+        browse_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        
+        # Add reorder button (only shown when multiple images selected)
+        self.reorder_btn = ttk.Button(
+            info_frame,
+            text="⚡ Order",
+            command=self.show_image_reorder_dialog,
+            width=8,
+            state="disabled"
+        )
+        self.reorder_btn.pack(side=tk.RIGHT, padx=(2, 0))
         
         # Setup drag and drop after all widgets are created
         self.setup_drag_drop()
@@ -1084,10 +1142,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
         right_frame.pack(fill=tk.BOTH, expand=True)
         right_frame.columnconfigure(0, weight=1)
         right_frame.rowconfigure(1, weight=1)
-        
+
         # Comparison controls
         self.setup_comparison_controls(right_frame)
-        
+
         # Side-by-side image display
         self.setup_side_by_side_display(right_frame)
     
@@ -1199,13 +1257,13 @@ class ImprovedSeedreamLayout(AIChatMixin):
         display_frame.columnconfigure(0, weight=1)
         display_frame.columnconfigure(1, weight=1)
         display_frame.rowconfigure(0, weight=1)
-        
+
         # Left panel - Original Image
         self.setup_image_panel(display_frame, "original", 0, "📥 Original Image")
-        
-        # Right panel - Result Image  
+
+        # Right panel - Result Image
         self.setup_image_panel(display_frame, "result", 1, "🌟 Generated Result")
-        
+
         # Progress overlay (initially hidden)
         self.setup_progress_overlay(display_frame)
     
@@ -1216,14 +1274,16 @@ class ImprovedSeedreamLayout(AIChatMixin):
         panel_frame.grid(row=0, column=column, sticky="nsew", padx=(2, 2))
         panel_frame.columnconfigure(0, weight=1)
         panel_frame.rowconfigure(0, weight=1)
-        
-        # Canvas for image display
+
+        # Canvas for image display with minimum size to ensure visibility
         canvas = tk.Canvas(
             panel_frame,
             bg='#f8f9fa' if panel_type == "original" else '#fff8f0',
             highlightthickness=1,
             highlightcolor='#ddd',
-            relief='flat'
+            relief='flat',
+            width=400,
+            height=400
         )
         canvas.configure(takefocus=True)  # Allow canvas to receive focus for mouse events
         canvas.grid(row=0, column=0, sticky="nsew")
@@ -1260,8 +1320,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         canvas.bind('<Enter>', lambda e: self.on_canvas_enter(e, panel_type))  # Set focus when mouse enters
         canvas.bind('<Leave>', lambda e: self.on_canvas_leave(e, panel_type))  # Reset cursor when mouse leaves
         
-        # Default message
-        self.show_panel_message(panel_type)
+        # Note: Default message will be shown by initialize_display() after full layout setup
     
     def setup_progress_overlay(self, parent):
         """Setup progress overlay for the comparison view"""
@@ -1377,11 +1436,15 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         if len(self.selected_image_paths) == 0:
             self.image_name_label.config(text="No images selected", foreground="gray")
+            if hasattr(self, 'reorder_btn'):
+                self.reorder_btn.config(state="disabled")
         elif len(self.selected_image_paths) == 1:
             filename = os.path.basename(self.selected_image_paths[0])
             if len(filename) > 25:
                 filename = filename[:22] + "..."
             self.image_name_label.config(text=filename, foreground="black")
+            if hasattr(self, 'reorder_btn'):
+                self.reorder_btn.config(state="disabled")
         else:
             # Show count and first image name
             first_filename = os.path.basename(self.selected_image_paths[0])
@@ -1391,6 +1454,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 text=f"{len(self.selected_image_paths)} images ({first_filename} +{len(self.selected_image_paths)-1} more)", 
                 foreground="blue"
             )
+            if hasattr(self, 'reorder_btn'):
+                self.reorder_btn.config(state="normal")
     
     def load_image(self, image_path):
         """Load and display input image (single image - for backward compatibility)"""
@@ -3572,9 +3637,22 @@ class ImprovedSeedreamLayout(AIChatMixin):
             pass
     
     def show_panel_message(self, panel_type):
-        """Show default message in panel"""
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        
+        # Get actual canvas dimensions
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+        
+        # If canvas not ready, use defaults but center properly
+        if canvas_width <= 1:
+            canvas_width = 300
+            canvas_height = 400
+        
         canvas.delete("all")
+        
+        # Calculate center coordinates dynamically
+        center_x = canvas_width // 2
+        center_y = canvas_height // 2
         
         # Show appropriate message
         if panel_type == "original":
@@ -3583,7 +3661,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             message = "Results will appear here\nafter processing"
         
         canvas.create_text(
-            150, 200,
+            center_x, center_y,  # Use calculated center
             text=message,
             font=('Arial', 11),
             fill='#888',
@@ -3594,6 +3672,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
         """Display image in specific panel"""
         try:
             canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+            
+            if not hasattr(self, 'original_canvas') or not hasattr(self, 'result_canvas'):
+                return
+            
             canvas.delete("all")
             
             img = Image.open(image_path)
@@ -3802,7 +3884,6 @@ class ImprovedSeedreamLayout(AIChatMixin):
         """Update progress status message"""
         if hasattr(self, 'progress_status'):
             self.progress_status.config(text=message)
-            self.log_message(f"❌ Failed to open learning panel: {str(e)}")
     
     def show_quality_rating(self, prompt: str = None, result_path: str = None):
         """Show quality rating dialog for user feedback"""
@@ -3912,3 +3993,229 @@ class ImprovedSeedreamLayout(AIChatMixin):
         """Update operation status for keyboard manager"""
         if self.keyboard_manager:
             self.keyboard_manager.set_operation_in_progress(in_progress)
+    
+    def show_image_reorder_dialog(self):
+        """Show dialog to reorder selected images"""
+        if len(self.selected_image_paths) < 2:
+            return
+        
+        import tkinter as tk
+        from tkinter import ttk
+        from PIL import Image, ImageTk
+        
+        # Create dialog window
+        dialog = tk.Toplevel(self.parent_frame)
+        dialog.title("Reorder Images")
+        dialog.geometry("600x500")
+        dialog.transient(self.parent_frame)
+        dialog.grab_set()
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() - dialog.winfo_width()) // 2
+        y = (dialog.winfo_screenheight() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        # Title
+        title_frame = ttk.Frame(dialog)
+        title_frame.pack(fill="x", padx=10, pady=5)
+        
+        ttk.Label(
+            title_frame, 
+            text="🔄 Reorder Your Images", 
+            font=("Arial", 14, "bold")
+        ).pack(anchor="w")
+        
+        ttk.Label(
+            title_frame, 
+            text="Drag items up/down or use arrow buttons to change processing order:",
+            font=("Arial", 9)
+        ).pack(anchor="w")
+        
+        # Main content frame
+        content_frame = ttk.Frame(dialog)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Create scrollable listbox for images
+        list_frame = ttk.Frame(content_frame)
+        list_frame.pack(fill="both", expand=True)
+        
+        # Listbox with scrollbar
+        listbox_frame = ttk.Frame(list_frame)
+        listbox_frame.pack(side="left", fill="both", expand=True)
+        
+        self.reorder_listbox = tk.Listbox(
+            listbox_frame,
+            height=12,
+            font=("Arial", 10),
+            selectmode="single"
+        )
+        self.reorder_listbox.pack(side="left", fill="both", expand=True)
+        
+        scrollbar = ttk.Scrollbar(listbox_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+        self.reorder_listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.reorder_listbox.yview)
+        
+        # Control buttons
+        button_frame = ttk.Frame(list_frame)
+        button_frame.pack(side="right", fill="y", padx=(10, 0))
+        
+        ttk.Button(
+            button_frame,
+            text="⬆️ Move Up",
+            command=lambda: self.move_image_up(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        ttk.Button(
+            button_frame,
+            text="⬇️ Move Down", 
+            command=lambda: self.move_image_down(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        ttk.Separator(button_frame, orient="horizontal").pack(fill="x", pady=10)
+        
+        ttk.Button(
+            button_frame,
+            text="🔝 Move to Top",
+            command=lambda: self.move_image_to_top(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        ttk.Button(
+            button_frame,
+            text="🔻 Move to Bottom",
+            command=lambda: self.move_image_to_bottom(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        # Bottom buttons
+        bottom_frame = ttk.Frame(dialog)
+        bottom_frame.pack(fill="x", padx=10, pady=5)
+        
+        ttk.Button(
+            bottom_frame,
+            text="✅ Apply Order",
+            command=lambda: self.apply_image_order(dialog),
+            style="Accent.TButton"
+        ).pack(side="right", padx=(5, 0))
+        
+        ttk.Button(
+            bottom_frame,
+            text="❌ Cancel",
+            command=dialog.destroy
+        ).pack(side="right")
+        
+        ttk.Button(
+            bottom_frame,
+            text="🔄 Reset to Original",
+            command=lambda: self.reset_image_order(dialog)
+        ).pack(side="left")
+        
+        # Store original order for reset
+        self.original_image_order = self.selected_image_paths.copy()
+        
+        # Populate listbox
+        self.populate_reorder_listbox()
+        
+        # Select first item
+        if self.reorder_listbox.size() > 0:
+            self.reorder_listbox.selection_set(0)
+    
+    def populate_reorder_listbox(self):
+        """Populate the reorder listbox with current image order"""
+        self.reorder_listbox.delete(0, tk.END)
+        
+        for i, image_path in enumerate(self.selected_image_paths):
+            filename = os.path.basename(image_path)
+            # Show position number and filename
+            display_text = f"{i+1}. {filename}"
+            self.reorder_listbox.insert(tk.END, display_text)
+    
+    def move_image_up(self, dialog):
+        """Move selected image up in the order"""
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == 0:
+            return
+        
+        index = selection[0]
+        # Swap with previous item
+        self.selected_image_paths[index], self.selected_image_paths[index-1] = \
+            self.selected_image_paths[index-1], self.selected_image_paths[index]
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(index-1)
+    
+    def move_image_down(self, dialog):
+        """Move selected image down in the order"""
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == len(self.selected_image_paths) - 1:
+            return
+        
+        index = selection[0]
+        # Swap with next item
+        self.selected_image_paths[index], self.selected_image_paths[index+1] = \
+            self.selected_image_paths[index+1], self.selected_image_paths[index]
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(index+1)
+    
+    def move_image_to_top(self, dialog):
+        """Move selected image to the top of the order"""
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == 0:
+            return
+        
+        index = selection[0]
+        # Move to top
+        image_path = self.selected_image_paths.pop(index)
+        self.selected_image_paths.insert(0, image_path)
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(0)
+    
+    def move_image_to_bottom(self, dialog):
+        """Move selected image to the bottom of the order"""
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == len(self.selected_image_paths) - 1:
+            return
+        
+        index = selection[0]
+        # Move to bottom
+        image_path = self.selected_image_paths.pop(index)
+        self.selected_image_paths.append(image_path)
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(len(self.selected_image_paths) - 1)
+    
+    def reset_image_order(self, dialog):
+        """Reset to original image order"""
+        self.selected_image_paths = self.original_image_order.copy()
+        self.populate_reorder_listbox()
+        if self.reorder_listbox.size() > 0:
+            self.reorder_listbox.selection_set(0)
+    
+    def apply_image_order(self, dialog):
+        """Apply the new image order and close dialog"""
+        # Update the display to reflect new order
+        self.update_image_count_display()
+        
+        # Update the original image display to show the first image in the new order
+        if self.selected_image_paths:
+            first_image = self.selected_image_paths[0]
+            # Update the thumbnail and info display
+            self.load_image(first_image)
+            # Also update the original canvas display directly
+            self.display_image_in_panel(first_image, "original")
+        
+        # Log the new order
+        filenames = [os.path.basename(path) for path in self.selected_image_paths]
+        self.log_message(f"🔄 Image order updated: {', '.join(filenames)}")
+        
+        dialog.destroy()
