@@ -24,12 +24,12 @@ except ImportError:
     VIDEO_PLAYER_AVAILABLE = False
     print("tkVideoPlayer not available. Video will open in browser only.")
 
-# Import enhanced video player
+# Import unified video player
 try:
-    from ui.components.enhanced_video_player import EnhancedVideoPlayer
-    ENHANCED_PLAYER_AVAILABLE = True
+    from ui.components.unified_video_player import UnifiedVideoPlayer
+    UNIFIED_PLAYER_AVAILABLE = True
 except ImportError:
-    ENHANCED_PLAYER_AVAILABLE = False
+    UNIFIED_PLAYER_AVAILABLE = False
 
 
 class VideoPlayerMixin:
@@ -52,21 +52,22 @@ class VideoPlayerMixin:
         self.video_display_frame = ttk.Frame(result_frame)
         self.video_display_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         
-        # Use enhanced video player if available
-        if VIDEO_PLAYER_AVAILABLE and ENHANCED_PLAYER_AVAILABLE:
+        # Use unified video player if available
+        if VIDEO_PLAYER_AVAILABLE and UNIFIED_PLAYER_AVAILABLE:
             try:
-                # Create enhanced video player (YouTube-like)
-                self.enhanced_video_player = EnhancedVideoPlayer(
+                # Create unified video player (enhanced style with YouTube-like features)
+                self.unified_video_player = UnifiedVideoPlayer(
                     self.video_display_frame, 
+                    style="enhanced",
                     width=720, 
                     height=405  # 16:9 aspect ratio
                 )
                 
-                # Store reference to the enhanced player's methods
-                self.video_player_widget = self.enhanced_video_player
-                logger.info("Enhanced video player initialized successfully")
+                # Store reference to the unified player's methods
+                self.video_player_widget = self.unified_video_player
+                logger.info("Unified video player initialized successfully")
             except Exception as e:
-                logger.error(f"Failed to initialize enhanced video player: {e}")
+                logger.error(f"Failed to initialize unified video player: {e}")
                 logger.info("Falling back to basic video player")
                 # Fall back to basic player
                 self._setup_basic_video_player()
@@ -396,13 +397,13 @@ class VideoPlayerMixin:
             if hasattr(self, 'update_status'):
                 self.update_status(f"Loading local video: {os.path.basename(video_path)}")
             
-            # Use enhanced video player if available
-            if hasattr(self, 'enhanced_video_player'):
-                success = self.enhanced_video_player.load_video(video_path)
+            # Use unified video player if available
+            if hasattr(self, 'unified_video_player'):
+                success = self.unified_video_player.load_video_file(video_path)
                 if success:
                     # Set the result URL to the local file path for consistency
                     self.result_video_url = f"file://{video_path}"
-                    logger.info(f"Loaded local video in enhanced player: {video_path}")
+                    logger.info(f"Loaded local video in unified player: {video_path}")
                 return
             
             # Fallback to basic video player
@@ -553,9 +554,9 @@ class VideoPlayerMixin:
         
         # Load video in embedded player if available
         if VIDEO_PLAYER_AVAILABLE:
-            # Try enhanced player first, then fallback to basic player
-            if hasattr(self, 'enhanced_video_player'):
-                # For enhanced player, we'll download the video first then load it
+            # Try unified player first, then fallback to basic player
+            if hasattr(self, 'unified_video_player'):
+                # For unified player, we'll download the video first then load it
                 self.load_video_in_player(output_url)
             else:
                 self.load_video_in_player(output_url)
@@ -567,6 +568,6 @@ class VideoPlayerMixin:
                     fg='green'
                 )
         
-        # Enable buttons (only for basic player, enhanced player has its own controls)
-        if not hasattr(self, 'enhanced_video_player'):
+        # Enable buttons (only for basic player, unified player has its own controls)
+        if not hasattr(self, 'unified_video_player'):
             self.enable_video_controls()

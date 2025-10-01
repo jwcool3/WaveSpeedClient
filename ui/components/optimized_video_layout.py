@@ -10,7 +10,7 @@ from tkinter import ttk
 import os
 from PIL import Image, ImageTk
 from utils.utils import load_image_preview, validate_image_file, show_error, parse_drag_drop_data
-from ui.components.modern_video_player import ModernVideoPlayer
+from ui.components.unified_video_player import UnifiedVideoPlayer
 from core.logger import get_logger
 
 logger = get_logger()
@@ -29,7 +29,7 @@ class OptimizedVideoLayout:
         self.parent_frame = parent_frame
         self.title = title
         self.selected_image_path = None
-        self.modern_video_player = None
+        self.unified_video_player = None
         
         # Parent frame will be managed by pack, so no grid configuration needed
         
@@ -199,13 +199,13 @@ class OptimizedVideoLayout:
         video_section.columnconfigure(0, weight=1)
         video_section.rowconfigure(0, weight=1)
         
-        # Modern video player (responsive to window size)
+        # Unified video player (responsive to window size)
         try:
-            # Create modern video player that adapts to container size
-            self.modern_video_player = ModernVideoPlayer(video_section)
-            logger.info("Modern video player created successfully")
+            # Create unified video player that adapts to container size
+            self.unified_video_player = UnifiedVideoPlayer(video_section, style="modern")
+            logger.info("Unified video player created successfully")
         except Exception as e:
-            logger.error(f"Failed to create modern video player: {e}")
+            logger.error(f"Failed to create unified video player: {e}")
             self.setup_fallback_video_display(video_section)
     
     def setup_fallback_video_display(self, parent):
@@ -398,8 +398,8 @@ class OptimizedVideoLayout:
         return self.selected_image_path
     
     def get_video_player(self):
-        """Get the modern video player instance"""
-        return self.modern_video_player
+        """Get the unified video player instance"""
+        return self.unified_video_player
     
     def add_setting_widget(self, widget, row):
         """Add a setting widget to the settings panel"""

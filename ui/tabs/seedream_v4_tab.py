@@ -50,8 +50,18 @@ class SeedreamV4Tab(BaseTab):
     
     def apply_ai_suggestion(self, improved_prompt: str):
         """Apply AI suggestion to prompt text"""
+        # Clear any placeholder state first
+        if hasattr(self.improved_layout, 'prompt_has_placeholder'):
+            self.improved_layout.prompt_has_placeholder = False
+        
+        # Set the improved prompt
         self.prompt_text.delete("1.0", tk.END)
         self.prompt_text.insert("1.0", improved_prompt)
+        self.prompt_text.config(fg='#333333')  # Ensure normal text color
+        
+        # Update status if available
+        if hasattr(self.improved_layout, 'on_prompt_text_changed'):
+            self.improved_layout.on_prompt_text_changed(None)
     
     def setup_ui(self):
         """Setup the improved Seedream V4 UI with new compact layout"""

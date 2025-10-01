@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import os
+from pathlib import Path
 
 # Try to import drag and drop support
 try:
@@ -382,8 +383,13 @@ class CompactImageLayout:
         if file_path:
             self.load_image(file_path)
     
-    def load_image(self, image_path):
-        """Load and display image"""
+    def load_image(self, image_path, notify_parent=True):
+        """Load and display image
+        
+        Args:
+            image_path: Path to the image file
+            notify_parent: Whether to notify parent tab (False when called from parent to avoid recursion)
+        """
         self.selected_image_path = image_path
         
         try:
@@ -408,6 +414,11 @@ class CompactImageLayout:
             # Load into main canvas
             self.display_image_in_canvas(image_path)
             
+            # Notify parent tab of image selection (if it has the handler and notify_parent is True)
+            if notify_parent and self.parent_tab and hasattr(self.parent_tab, 'on_image_selected'):
+                print(f"DEBUG: Notifying parent tab of image selection: {image_path}")
+                self.parent_tab.on_image_selected(image_path)
+            
         except Exception as e:
             self.status_label.config(text=f"Error: {str(e)}", foreground="red")
     
@@ -415,7 +426,8 @@ class CompactImageLayout:
         """Update the input image display - compatibility method for tabs"""
         try:
             print(f"DEBUG: update_input_image called with: {image_path}")
-            self.load_image(image_path)
+            # Don't notify parent since we're being called FROM the parent (avoid recursion)
+            self.load_image(image_path, notify_parent=False)
             print(f"DEBUG: update_input_image - load_image completed successfully")
             print(f"DEBUG: update_input_image - compact layout selected_image_path: {self.selected_image_path}")
             return True
@@ -424,10 +436,21 @@ class CompactImageLayout:
             self.status_label.config(text=f"Error updating image: {str(e)}", foreground="red")
             return False
     
-    def display_image_in_canvas(self, image_path):
-        """Display image in the main canvas with proper scaling"""
+    def display_image_in_canvas(self, image_source):
+        """
+        Display image in the main canvas with proper scaling
+        
+        Args:
+            image_source: Either a file path (str/Path) or a PIL Image object
+        """
         try:
-            img = Image.open(image_path)
+            # Handle both file paths and Image objects
+            if isinstance(image_source, (str, Path)):
+                img = Image.open(image_source)
+            elif isinstance(image_source, Image.Image):
+                img = image_source.copy()  # Copy to avoid modifying the original
+            else:
+                raise TypeError(f"Expected file path or PIL Image, got {type(image_source)}")
             
             # Get canvas size
             canvas_width = self.image_canvas.winfo_width()
@@ -576,17 +599,19 @@ class CompactImageLayout:
         """Setup drag and drop functionality"""
         if DND_AVAILABLE:
             try:
-                # Enable drag and drop on thumbnail
-                self.thumbnail_label.drop_target_register(DND_FILES)
-                self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
-                self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
-                self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                # Enable drag and drop on thumbnail (if it exists)
+                if hasattr(self, 'thumbnail_label'):
+                    self.thumbnail_label.drop_target_register(DND_FILES)
+                    self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
+                    self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                    self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
                 
-                # Enable drag and drop on image info area
-                self.image_name_label.drop_target_register(DND_FILES)
-                self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
-                self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
-                self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                # Enable drag and drop on image info area (if it exists)
+                if hasattr(self, 'image_name_label'):
+                    self.image_name_label.drop_target_register(DND_FILES)
+                    self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
+                    self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                    self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
                 
             except Exception as e:
                 print(f"Drag and drop setup failed: {e}")

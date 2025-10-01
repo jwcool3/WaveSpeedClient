@@ -446,17 +446,19 @@ class ImprovedSeedEditLayout:
         """Setup drag and drop functionality"""
         if DND_AVAILABLE:
             try:
-                # Enable drag and drop on thumbnail
-                self.thumbnail_label.drop_target_register(DND_FILES)
-                self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
-                self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
-                self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                # Enable drag and drop on thumbnail (if it exists)
+                if hasattr(self, 'thumbnail_label'):
+                    self.thumbnail_label.drop_target_register(DND_FILES)
+                    self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
+                    self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                    self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
                 
-                # Enable drag and drop on image info area
-                self.image_name_label.drop_target_register(DND_FILES)
-                self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
-                self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
-                self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                # Enable drag and drop on image info area (if it exists)
+                if hasattr(self, 'image_name_label'):
+                    self.image_name_label.drop_target_register(DND_FILES)
+                    self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
+                    self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                    self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
                 
             except Exception as e:
                 print(f"Drag and drop setup failed: {e}")
