@@ -104,9 +104,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
         return self.selected_image_paths[0] if self.selected_image_paths else None
     
     def setup_layout(self):
-        """Setup the improved 2-column layout"""
+        """Setup the improved 2-column layout with reliable splitter positioning"""
         
-        # Main container with draggable splitter
+        # Main container
         main_container = ttk.Frame(self.parent_frame)
         main_container.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
         
@@ -118,38 +118,135 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.paned_window = ttk.PanedWindow(main_container, orient=tk.HORIZONTAL)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
         
-        # Configure main container to ensure proper sizing
+        # Configure main container
         main_container.columnconfigure(0, weight=1)
         main_container.rowconfigure(0, weight=1)
         
-        # Create frames for each pane with minimum sizes
-        self.left_pane = ttk.Frame(self.paned_window, width=300)
-        self.right_pane = ttk.Frame(self.paned_window, width=600)
+        # Create frames with explicit minimum sizes to prevent collapse
+        self.left_pane = ttk.Frame(self.paned_window)
+        self.right_pane = ttk.Frame(self.paned_window)
         
-        # Add panes to PanedWindow with equal weights for 50/50 split
-        self.paned_window.add(self.left_pane, weight=1)  # Controls pane
-        self.paned_window.add(self.right_pane, weight=1)  # Images pane (equal weight = 50/50 split)
+        # Add panes with proper configuration
+        # Use unequal weights to establish proper sizing: 2:3 ratio (40/60 split)
+        self.paned_window.add(self.left_pane, weight=2)  # Controls pane
+        self.paned_window.add(self.right_pane, weight=3)  # Images pane (larger for better viewing)
         
-        # Left Column - Compact Controls
+        # Set up the content
         self.setup_left_column_paned(self.left_pane)
-        
-        # Right Column - Large Image Display  
         self.setup_right_column_paned(self.right_pane)
         
-        # Set initial splitter position after a short delay to ensure window is rendered
-        self.parent_frame.after(100, self.set_initial_splitter_position)
+        # Use reliable positioning strategy
+        self.setup_reliable_splitter_positioning()
+    
+    def setup_reliable_splitter_positioning(self):
+        """Implement reliable splitter positioning that works consistently"""
+        # Strategy: Multiple positioning attempts with proper timing
+        self.positioning_attempts = 0
+        self.max_positioning_attempts = 5
         
-        # Initialize the display after everything is set up
-        self.parent_frame.after(200, self.initialize_display)
+        # Start positioning after initial layout
+        self.parent_frame.after(50, self._attempt_splitter_positioning)
+        
+        # Also bind to window events for robustness
+        self.paned_window.bind('<Configure>', self._on_panedwindow_configure)
+    
+    def _attempt_splitter_positioning(self):
+        """Attempt to set splitter position with retry logic"""
+        self.positioning_attempts += 1
+        
+        # Get current dimensions
+        total_width = self.paned_window.winfo_width()
+        
+        # Check if window is ready (has meaningful dimensions)
+        if total_width <= 100:
+            if self.positioning_attempts < self.max_positioning_attempts:
+                # Try again with longer delay
+                delay = 100 * self.positioning_attempts  # Increasing delays
+                self.parent_frame.after(delay, self._attempt_splitter_positioning)
+            return
+        
+        # Calculate desired position (40/60 split favoring image display)
+        desired_position = int(total_width * 0.4)
+        
+        # Apply constraints to prevent collapse
+        min_left = 280  # Minimum for controls
+        max_left = total_width - 350  # Ensure right pane is at least 350px
+        
+        position = max(min_left, min(desired_position, max_left))
+        
+        # Set the position
+        try:
+            self.paned_window.sashpos(0, position)
+            
+            # Verify it was set correctly
+            self.parent_frame.after(50, lambda: self._verify_splitter_position(position))
+            
+            logger.info(f"ImprovedSeedreamLayout: Splitter positioned at {position}px (attempt {self.positioning_attempts})")
+            
+        except Exception as e:
+            logger.warning(f"ImprovedSeedreamLayout: Failed to set splitter position: {e}")
+            if self.positioning_attempts < self.max_positioning_attempts:
+                self.parent_frame.after(200, self._attempt_splitter_positioning)
+    
+    def _verify_splitter_position(self, expected_position):
+        """Verify splitter was positioned correctly and retry if needed"""
+        try:
+            actual_position = self.paned_window.sashpos(0)
+            tolerance = 50  # Allow some variation
+            
+            if abs(actual_position - expected_position) > tolerance:
+                logger.warning(f"ImprovedSeedreamLayout: Splitter position verification failed. Expected: {expected_position}, Actual: {actual_position}")
+                
+                # Try one more time with the expected position
+                self.paned_window.sashpos(0, expected_position)
+                
+                # Force update
+                self.paned_window.update_idletasks()
+            else:
+                logger.info(f"ImprovedSeedreamLayout: Splitter position verified successfully: {actual_position}px")
+                
+                # Initialize display after successful positioning
+                self.parent_frame.after(100, self.initialize_display)
+                
+        except Exception as e:
+            logger.error(f"ImprovedSeedreamLayout: Splitter verification error: {e}")
+    
+    def _on_panedwindow_configure(self, event):
+        """Handle PanedWindow resize events to maintain minimum sizes"""
+        # Only respond to size changes, not position changes
+        if event.widget == self.paned_window:
+            try:
+                # Ensure minimum sizes are maintained
+                total_width = self.paned_window.winfo_width()
+                
+                if total_width > 100:  # Valid width
+                    current_position = self.paned_window.sashpos(0)
+                    
+                    # Check if right pane is too small
+                    right_pane_width = total_width - current_position
+                    if right_pane_width < 300:  # Minimum for image display
+                        new_position = total_width - 350
+                        if new_position > 280:  # Ensure left pane isn't too small
+                            self.paned_window.sashpos(0, new_position)
+            except:
+                pass  # Silently handle any errors during resize
     
     def initialize_display(self):
         """Initialize the image display panels with default messages"""
         try:
             logger.info("ImprovedSeedreamLayout: Initializing display panels")
             
+            # Ensure both canvases are properly sized
+            self.parent_frame.update_idletasks()
+            
             # Show default messages in both panels
             self.show_panel_message("original")
             self.show_panel_message("result")
+            
+            # Verify panel visibility
+            left_width = self.left_pane.winfo_width()
+            right_width = self.right_pane.winfo_width()
+            logger.info(f"ImprovedSeedreamLayout: Panel widths - Left: {left_width}px, Right: {right_width}px")
             
             # Log that display is ready
             if hasattr(self, 'status_console') and self.status_console:
@@ -160,37 +257,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.error(f"ImprovedSeedreamLayout: Error initializing display: {e}", exc_info=True)
     
     def set_initial_splitter_position(self):
-        """Set the initial position of the splitter, loading saved position if available"""
-        try:
-            # Get the total width of the paned window
-            total_width = self.paned_window.winfo_width()
-
-            # If window not rendered yet, retry
-            if total_width <= 1:
-                self.parent_frame.after(100, self.set_initial_splitter_position)
-                return
-
-            # Always start at 50/50 split (saved position disabled for now to ensure consistency)
-            # saved_position = self.load_splitter_position()
-
-            # Calculate constraints: minimum 200px for left, 400px for right
-            min_position = 200
-            max_position = total_width - 400
-
-            # Always use 50% of total width (middle/center position)
-            position = int(total_width * 0.5)
-            # Constrain to ensure neither pane is too small
-            position = max(min_position, min(position, max_position))
-
-            self.paned_window.sashpos(0, position)
-            print(f"DEBUG: Setting splitter position to {position}px (50% of {total_width}px)")
-
-            # Bind event to save position when user drags splitter (disabled to always start at 50/50)
-            # self.paned_window.bind('<ButtonRelease-1>', self.on_splitter_moved)
-
-        except Exception as e:
-            # Fallback: try again after another delay if window isn't ready
-            self.parent_frame.after(100, self.set_initial_splitter_position)
+        """DEPRECATED: Old positioning method - now using setup_reliable_splitter_positioning()"""
+        # This method is kept for backwards compatibility but does nothing
+        # The new reliable positioning system handles this automatically
+        logger.info("ImprovedSeedreamLayout: Old positioning method called - using new reliable system instead")
     
     def load_splitter_position(self):
         """Load saved splitter position from file"""
@@ -3642,36 +3712,53 @@ class ImprovedSeedreamLayout(AIChatMixin):
             pass
     
     def show_panel_message(self, panel_type):
-        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
-        
-        # Get actual canvas dimensions
-        canvas_width = canvas.winfo_width()
-        canvas_height = canvas.winfo_height()
-        
-        # If canvas not ready, use defaults but center properly
-        if canvas_width <= 1:
-            canvas_width = 300
-            canvas_height = 400
-        
-        canvas.delete("all")
-        
-        # Calculate center coordinates dynamically
-        center_x = canvas_width // 2
-        center_y = canvas_height // 2
-        
-        # Show appropriate message
-        if panel_type == "original":
-            message = "Select an image to transform\n\nDrag & drop supported"
-        else:
-            message = "Results will appear here\nafter processing"
-        
-        canvas.create_text(
-            center_x, center_y,  # Use calculated center
-            text=message,
-            font=('Arial', 11),
-            fill='#888',
-            justify=tk.CENTER
-        )
+        """Show default message in panel with proper centering"""
+        try:
+            # Get canvas reference
+            canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+            
+            if not canvas.winfo_exists():
+                return
+            
+            # Force canvas to update its size
+            canvas.update_idletasks()
+            
+            # Get actual canvas dimensions
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            
+            # Use reasonable defaults if canvas not ready
+            if canvas_width <= 1:
+                canvas_width = 300
+            if canvas_height <= 1:
+                canvas_height = 400
+            
+            canvas.delete("all")
+            
+            # Calculate center coordinates
+            center_x = canvas_width // 2
+            center_y = canvas_height // 2
+            
+            # Show appropriate message with different colors
+            if panel_type == "original":
+                message = "Select an image to transform\n\nDrag & drop supported"
+                color = "#666"
+            else:
+                message = "Results will appear here\nafter processing"
+                color = "#888"
+            
+            canvas.create_text(
+                center_x, center_y,
+                text=message,
+                font=('Arial', 11),
+                fill=color,
+                justify=tk.CENTER
+            )
+            
+            logger.info(f"ImprovedSeedreamLayout: Panel message displayed for {panel_type} ({canvas_width}x{canvas_height})")
+            
+        except Exception as e:
+            logger.error(f"ImprovedSeedreamLayout: Error showing panel message for {panel_type}: {e}")
     
     def display_image_in_panel(self, image_path, panel_type):
         """Display image in specific panel"""
