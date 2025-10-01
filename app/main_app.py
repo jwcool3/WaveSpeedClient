@@ -24,9 +24,8 @@ from core.resource_manager import get_resource_manager
 from core.api_client import WaveSpeedAPIClient
 from ui.tabs.image_editor_tab import ImageEditorTab
 from ui.tabs.image_upscaler_tab import ImageUpscalerTab
-from ui.tabs.image_to_video_tab import ImageToVideoTab
+from ui.tabs.video_generation_tab import VideoGenerationTab
 from ui.tabs.seededit_tab import SeedEditTab
-from ui.tabs.seeddance_tab import SeedDanceTab
 from ui.components.balance_indicator import BalanceIndicator
 from ui.components.recent_results_panel import RecentResultsPanel
 from utils.utils import show_error, show_warning, show_success
@@ -87,7 +86,6 @@ class WaveSpeedAIApp:
         self.upscaler_tab = None
         self.video_tab = None
         self.seededit_tab = None
-        self.seeddance_tab = None
         self.notebook = None
         
         # Setup UI
@@ -126,8 +124,7 @@ class WaveSpeedAIApp:
                 (self.editor_tab, "nano_banana", "prompt_text"),
                 (self.seededit_tab, "seededit", "prompt_text"),
                 (self.upscaler_tab, "upscaler", None),  # Upscaler doesn't have prompts
-                (self.video_tab, "wan_22", "prompt_text"),
-                (self.seeddance_tab, "seeddance", "prompt_text")
+                (self.video_tab, "video_generation", "prompt_text")
             ]
             
             # Check if Seedream V4 tab exists
@@ -314,13 +311,9 @@ class WaveSpeedAIApp:
             self.upscaler_tab = ImageUpscalerTab(self.notebook, self.api_client, self)
             self.notebook.add(self.upscaler_tab.container, text="🔍 Image Upscaler")
             
-            # Image to Video Tab
-            self.video_tab = ImageToVideoTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.video_tab.container, text="🎬 Wan 2.2")
-            
-            # SeedDance Tab
-            self.seeddance_tab = SeedDanceTab(self.notebook, self.api_client, self)
-            self.notebook.add(self.seeddance_tab.container, text="🕺 SeedDance Pro")
+            # Unified Video Generation Tab (Wan 2.2 + SeedDance)
+            self.video_tab = VideoGenerationTab(self.notebook, self.api_client, self)
+            self.notebook.add(self.video_tab.container, text="🎬 Video Generation")
             
             # Try to add Seedream V4 tab if available
             try:
@@ -369,8 +362,7 @@ class WaveSpeedAIApp:
                 self.editor_tab,
                 self.seededit_tab, 
                 self.upscaler_tab,
-                self.video_tab,
-                self.seeddance_tab
+                self.video_tab
             ]
             
             # Add Seedream V4 tab if it exists
