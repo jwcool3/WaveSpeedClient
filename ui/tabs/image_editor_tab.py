@@ -311,29 +311,45 @@ class ImageEditorTab(BaseTab):
     
     def on_image_selected(self, image_path, replacing_image=False):
         """Handle image selection"""
+        print(f"DEBUG: on_image_selected called with: {image_path}")
+        
+        # Validate the image file first
+        is_valid, error = validate_image_file(image_path)
+        if not is_valid:
+            show_error("Invalid Image", f"Please select a valid image file.\n\n{error}")
+            return
+        
         # Check if replacing existing image (use parameter or detect automatically)
         if not replacing_image:
             replacing_image = hasattr(self, 'selected_image_path') and self.selected_image_path is not None
         
-        # Update the optimized layout with the new image
-        success = self.optimized_layout.update_input_image(image_path)
+        # ALWAYS set the selected_image_path if the file is valid
+        # This ensures validation passes even if display update fails
+        self.selected_image_path = image_path
+        print(f"DEBUG: Tab selected_image_path set to: {self.selected_image_path}")
         
-        if success:
-            self.selected_image_path = image_path
-            print(f"DEBUG: Image selected successfully: {image_path}")
-            print(f"DEBUG: Tab selected_image_path: {self.selected_image_path}")
+        # Try to update the optimized layout display (but don't fail if this has issues)
+        try:
+            success = self.optimized_layout.update_input_image(image_path)
+            print(f"DEBUG: update_input_image returned: {success}")
             
-            # Reset result buttons and clear previous results
-            self.optimized_layout.save_result_button.config(state="disabled")
-            self.optimized_layout.use_result_button.config(state="disabled")
+            if success:
+                # Reset result buttons and clear previous results
+                if hasattr(self.optimized_layout, 'save_result_button'):
+                    self.optimized_layout.save_result_button.config(state="disabled")
+                if hasattr(self.optimized_layout, 'use_result_button'):
+                    self.optimized_layout.use_result_button.config(state="disabled")
+        except Exception as e:
+            print(f"DEBUG: Exception in update_input_image: {e}")
+            # Continue anyway since we've already set selected_image_path
+        
+        # Provide feedback about image selection
+        if replacing_image:
+            self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready to edit")
         else:
-            print(f"DEBUG: Failed to update input image: {image_path}")
-            
-            # Provide feedback about image replacement
-            if replacing_image:
-                self.update_status(f"Image replaced: {os.path.basename(image_path)} - Ready to edit")
-            else:
-                self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready to edit")
+            self.update_status(f"Image selected: {os.path.basename(image_path)} - Ready to edit")
+        
+        print(f"DEBUG: on_image_selected completed. selected_image_path = {self.selected_image_path}")
     
     def on_drop(self, event):
         """Handle drag and drop with robust file path parsing"""

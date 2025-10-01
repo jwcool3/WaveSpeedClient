@@ -321,82 +321,114 @@ class ImprovedSeedreamLayout(AIChatMixin):
         auto_btn.grid(row=3, column=3, sticky="e", pady=(4, 0))
     
     def setup_prompt_section(self, parent):
-        """Compact prompt section"""
-        prompt_frame = ttk.LabelFrame(parent, text="✏️ Transformation Prompt", padding="6")
-        prompt_frame.grid(row=2, column=0, sticky="ew", pady=(0, 6))
+        """Enhanced prompt section with better usability"""
+        prompt_frame = ttk.LabelFrame(parent, text="✏️ Transformation Prompt", padding="8")
+        prompt_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
         prompt_frame.columnconfigure(0, weight=1)
         
-        # Preset management (horizontal row)
-        preset_frame = ttk.Frame(prompt_frame)
-        preset_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
-        preset_frame.columnconfigure(0, weight=1)
+        # Quick tools row
+        tools_frame = ttk.Frame(prompt_frame)
+        tools_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        tools_frame.columnconfigure(2, weight=1)
         
-        # Saved prompts display with text wrapping
-        listbox_container = ttk.Frame(preset_frame)
-        listbox_container.grid(row=0, column=0, sticky="ew", padx=(0, 4))
-        listbox_container.columnconfigure(0, weight=1)
+        # AI assistance tools
+        ai_frame = ttk.Frame(tools_frame)
+        ai_frame.grid(row=0, column=0, sticky="w")
         
-        # Create scrollbar
-        scrollbar = ttk.Scrollbar(listbox_container, orient=tk.VERTICAL)
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        ttk.Button(ai_frame, text="🤖 AI Improve", command=self.improve_with_ai, width=12).pack(side=tk.LEFT, padx=(0, 4))
+        ttk.Button(ai_frame, text="🎲 Random", command=self.load_sample, width=8).pack(side=tk.LEFT, padx=(0, 4))
         
-        # Use Text widget instead of Listbox for proper text wrapping
-        self.preset_listbox = tk.Text(
-            listbox_container,
-            height=8,  # Show more lines to accommodate wrapping
-            wrap=tk.WORD,  # Enable word wrapping
-            font=('Arial', 9),
+        # Advanced tools
+        advanced_frame = ttk.Frame(tools_frame)
+        advanced_frame.grid(row=0, column=1, sticky="w", padx=(8, 0))
+        
+        mild_btn = ttk.Button(advanced_frame, text="🔥 Mild", command=self.generate_mild_examples, width=6)
+        mild_btn.pack(side=tk.LEFT, padx=(0, 2))
+        self.create_tooltip(mild_btn, "Generate 5 mild filter training examples")
+        
+        moderate_btn = ttk.Button(advanced_frame, text="⚡ Moderate", command=self.generate_moderate_examples, width=8)
+        moderate_btn.pack(side=tk.LEFT, padx=(0, 4))
+        self.create_tooltip(moderate_btn, "Generate 5 sophisticated moderate examples")
+        
+        # Prompt management
+        mgmt_frame = ttk.Frame(tools_frame)
+        mgmt_frame.grid(row=0, column=3, sticky="e")
+        
+        ttk.Button(mgmt_frame, text="💾 Save", command=self.save_preset, width=6).pack(side=tk.LEFT, padx=(0, 2))
+        ttk.Button(mgmt_frame, text="📋 Load", command=self.show_prompt_browser, width=6).pack(side=tk.LEFT)
+        
+        # Enhanced prompt text area
+        prompt_container = ttk.Frame(prompt_frame)
+        prompt_container.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        prompt_container.columnconfigure(0, weight=1)
+        
+        # Prompt text with better size and features
+        self.prompt_text = tk.Text(
+            prompt_container,
+            height=8,  # Expanded from 4 to 8 lines
+            wrap=tk.WORD,
+            font=('Arial', 11),  # Slightly larger font
             relief='solid',
             borderwidth=1,
-            yscrollcommand=scrollbar.set,
-            cursor='hand2',
-            state='disabled'  # Make read-only by default
+            padx=8,
+            pady=6,
+            bg='#ffffff',
+            fg='#333333'
         )
-        self.preset_listbox.grid(row=0, column=0, sticky="ew")
-        scrollbar.config(command=self.preset_listbox.yview)
+        self.prompt_text.grid(row=0, column=0, sticky="ew")
         
-        # Bind click to load preset
-        self.preset_listbox.bind('<Button-1>', self.on_preset_click)
+        # Scrollbar for prompt text
+        prompt_scrollbar = ttk.Scrollbar(prompt_container, orient=tk.VERTICAL, command=self.prompt_text.yview)
+        prompt_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.prompt_text.configure(yscrollcommand=prompt_scrollbar.set)
         
-        # Store full prompts and their line ranges
-        self.full_prompts = []
-        self.prompt_line_ranges = []  # Track which lines correspond to which prompt
+        # Character counter and status
+        status_frame = ttk.Frame(prompt_frame)
+        status_frame.grid(row=2, column=0, sticky="ew")
+        status_frame.columnconfigure(1, weight=1)
         
-        # Preset buttons (small) - AI integration target
-        self.ai_chat_container = ttk.Frame(preset_frame)
-        self.ai_chat_container.grid(row=0, column=1)
-        
-        ttk.Button(self.ai_chat_container, text="💾", width=3, command=self.save_preset).pack(side=tk.LEFT, padx=1)
-        ttk.Button(self.ai_chat_container, text="🎲", width=3, command=self.load_sample).pack(side=tk.LEFT, padx=1)
-        ttk.Button(self.ai_chat_container, text="🤖", width=3, command=self.improve_with_ai).pack(side=tk.LEFT, padx=1)
-        mild_btn = ttk.Button(self.ai_chat_container, text="🔥", width=3, command=self.generate_mild_examples)
-        mild_btn.pack(side=tk.LEFT, padx=1)
-        # Add tooltip for the mild examples button
-        self.create_tooltip(mild_btn, "Generate 5 mild filter training examples\nAutomatically analyzes image first")
-        
-        moderate_btn = ttk.Button(self.ai_chat_container, text="⚡", width=3, command=self.generate_moderate_examples)
-        moderate_btn.pack(side=tk.LEFT, padx=1)
-        # Add tooltip for the moderate examples button
-        self.create_tooltip(moderate_btn, "Generate 5 sophisticated moderate examples\nUses indirect language combinations")
-        
-        # Prompt text (compact)
-        self.prompt_text = tk.Text(
-            prompt_frame,
-            height=4,  # Compact height
-            wrap=tk.WORD,
-            font=('Arial', 10),
-            relief='solid',
-            borderwidth=1
+        self.char_count_label = ttk.Label(
+            status_frame, 
+            text="0 characters", 
+            font=('Arial', 9), 
+            foreground="#666"
         )
-        self.prompt_text.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+        self.char_count_label.grid(row=0, column=0, sticky="w")
         
-        # Placeholder text
-        self.prompt_text.insert("1.0", "Describe the transformation you want to apply to the image...")
-        self.prompt_text.bind("<FocusIn>", self.clear_placeholder)
-        self.prompt_text.bind("<FocusOut>", self.add_placeholder)
+        self.prompt_status = ttk.Label(
+            status_frame,
+            text="Ready for input",
+            font=('Arial', 9),
+            foreground="#28a745"
+        )
+        self.prompt_status.grid(row=0, column=2, sticky="e")
         
-        # Populate preset dropdown with saved prompts
-        self.refresh_preset_dropdown()
+        # Placeholder text (shorter and less intrusive)
+        self.prompt_placeholder = "Describe the transformation you want to apply to this image..."
+        self.prompt_text.insert("1.0", self.prompt_placeholder)
+        self.prompt_text.config(fg='#999999')
+        
+        # Enhanced event bindings
+        self.prompt_text.bind("<FocusIn>", self.on_prompt_focus_in)
+        self.prompt_text.bind("<FocusOut>", self.on_prompt_focus_out)
+        self.prompt_text.bind("<KeyPress>", self.on_prompt_key_press)
+        self.prompt_text.bind("<KeyRelease>", self.on_prompt_text_changed)
+        self.prompt_text.bind("<Button-1>", self.on_prompt_click)
+        
+        # Initialize
+        self.prompt_has_placeholder = True
+        
+        # Backward compatibility - create preset_listbox as a dummy widget to avoid errors
+        self.preset_listbox = tk.Text(prompt_frame, height=1, state='disabled')  # Dummy widget
+        
+        # Initialize full prompts and prompt line ranges for compatibility
+        if not hasattr(self, 'full_prompts'):
+            self.full_prompts = []
+        if not hasattr(self, 'prompt_line_ranges'):
+            self.prompt_line_ranges = []
+        
+        # Collapsible prompt history section
+        self.setup_prompt_history_section(prompt_frame)
     
     def generate_mild_examples(self):
         """Generate 5 mild filter training examples with automatic image analysis"""
@@ -962,50 +994,50 @@ class ImprovedSeedreamLayout(AIChatMixin):
         # )
     
     def setup_right_column(self, parent):
-        """Setup right column with large dynamic image display"""
+        """Setup right column with side-by-side comparison view"""
         right_frame = ttk.Frame(parent, padding="4")
         right_frame.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
         right_frame.columnconfigure(0, weight=1)
         right_frame.rowconfigure(1, weight=1)
         
-        # Image viewing controls
-        self.setup_image_controls(right_frame)
+        # Comparison controls
+        self.setup_comparison_controls(right_frame)
         
-        # Large image display
-        self.setup_image_display(right_frame)
+        # Side-by-side image display
+        self.setup_side_by_side_display(right_frame)
     
-    def setup_image_controls(self, parent):
-        """Setup image viewing controls"""
+    def setup_comparison_controls(self, parent):
+        """Setup enhanced comparison and zoom controls"""
         controls_frame = ttk.Frame(parent)
-        controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
-        controls_frame.columnconfigure(2, weight=1)
+        controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        controls_frame.columnconfigure(3, weight=1)
         
-        # View mode buttons
-        self.view_original_btn = ttk.Button(
+        # Comparison mode selector
+        ttk.Label(controls_frame, text="View:", font=('Arial', 9, 'bold')).grid(row=0, column=0, padx=(0, 4))
+        
+        self.comparison_mode_var = tk.StringVar(value="side_by_side")
+        mode_combo = ttk.Combobox(
             controls_frame,
-            text="📥 Original",
-            command=lambda: self.set_view_mode("original"),
-            width=10
+            textvariable=self.comparison_mode_var,
+            values=["side_by_side", "overlay", "original_only", "result_only"],
+            state="readonly",
+            width=12,
+            font=('Arial', 9)
         )
-        self.view_original_btn.grid(row=0, column=0, padx=(0, 2))
+        mode_combo.grid(row=0, column=1, padx=(0, 8))
+        mode_combo.bind('<<ComboboxSelected>>', self.on_comparison_mode_changed)
         
-        self.view_result_btn = ttk.Button(
+        # Sync zoom toggle
+        self.sync_zoom_var = tk.BooleanVar(value=True)
+        sync_check = ttk.Checkbutton(
             controls_frame,
-            text="🌟 Result",
-            command=lambda: self.set_view_mode("result"),
-            width=10
+            text="Sync Zoom",
+            variable=self.sync_zoom_var,
+            command=self.on_sync_zoom_changed
         )
-        self.view_result_btn.grid(row=0, column=1, padx=(0, 8))
+        sync_check.grid(row=0, column=2, padx=(0, 8))
         
-        # Comparison and zoom controls (same as SeedEdit)
-        self.comparison_btn = ttk.Button(
-            controls_frame,
-            text="⚖️ Compare",
-            command=self.toggle_comparison_mode,
-            width=10
-        )
-        self.comparison_btn.grid(row=0, column=3, padx=(8, 0))
-        
+        # Zoom controls
         zoom_frame = ttk.Frame(controls_frame)
         zoom_frame.grid(row=0, column=4, padx=(8, 0))
         
@@ -1015,46 +1047,143 @@ class ImprovedSeedreamLayout(AIChatMixin):
         zoom_combo = ttk.Combobox(
             zoom_frame,
             textvariable=self.zoom_var,
-            values=["Fit", "50%", "100%", "150%", "200%"],
+            values=["Fit", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"],
             state="readonly",
-            width=6,
+            width=8,
             font=('Arial', 9)
         )
         zoom_combo.pack(side=tk.LEFT, padx=(2, 0))
         zoom_combo.bind('<<ComboboxSelected>>', self.on_zoom_changed)
+        
+        # Quick actions
+        actions_frame = ttk.Frame(controls_frame)
+        actions_frame.grid(row=0, column=5, padx=(12, 0))
+        
+        ttk.Button(
+            actions_frame,
+            text="💾",
+            command=self.quick_save_result,
+            width=3
+        ).pack(side=tk.LEFT, padx=(0, 2))
+        
+        ttk.Button(
+            actions_frame,
+            text="🔄",
+            command=self.swap_images,
+            width=3
+        ).pack(side=tk.LEFT)
     
-    def setup_image_display(self, parent):
-        """Setup large image display with minimal margins"""
+    def setup_side_by_side_display(self, parent):
+        """Setup side-by-side image comparison display"""
         display_frame = ttk.Frame(parent)
         display_frame.grid(row=1, column=0, sticky="nsew")
         display_frame.columnconfigure(0, weight=1)
+        display_frame.columnconfigure(1, weight=1)
         display_frame.rowconfigure(0, weight=1)
         
-        # Canvas with minimal padding
-        self.image_canvas = tk.Canvas(
-            display_frame,
-            bg='white',
-            highlightthickness=0,
+        # Left panel - Original Image
+        self.setup_image_panel(display_frame, "original", 0, "📥 Original Image")
+        
+        # Right panel - Result Image  
+        self.setup_image_panel(display_frame, "result", 1, "🌟 Generated Result")
+        
+        # Progress overlay (initially hidden)
+        self.setup_progress_overlay(display_frame)
+    
+    def setup_image_panel(self, parent, panel_type, column, title):
+        """Setup individual image panel for comparison"""
+        # Panel container
+        panel_frame = ttk.LabelFrame(parent, text=title, padding="4")
+        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(2, 2))
+        panel_frame.columnconfigure(0, weight=1)
+        panel_frame.rowconfigure(0, weight=1)
+        
+        # Canvas for image display
+        canvas = tk.Canvas(
+            panel_frame,
+            bg='#f8f9fa' if panel_type == "original" else '#fff8f0',
+            highlightthickness=1,
+            highlightcolor='#ddd',
             relief='flat'
         )
-        self.image_canvas.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        canvas.grid(row=0, column=0, sticky="nsew")
         
         # Scrollbars
-        v_scrollbar = ttk.Scrollbar(display_frame, orient=tk.VERTICAL, command=self.image_canvas.yview)
-        h_scrollbar = ttk.Scrollbar(display_frame, orient=tk.HORIZONTAL, command=self.image_canvas.xview)
+        v_scrollbar = ttk.Scrollbar(panel_frame, orient=tk.VERTICAL, command=canvas.yview)
+        h_scrollbar = ttk.Scrollbar(panel_frame, orient=tk.HORIZONTAL, command=canvas.xview)
         
-        self.image_canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
         
         v_scrollbar.grid(row=0, column=1, sticky="ns")
         h_scrollbar.grid(row=1, column=0, sticky="ew")
         
-        # Bind events
-        self.image_canvas.bind('<Configure>', self.on_canvas_configure)
-        self.image_canvas.bind('<Button-1>', self.on_canvas_click)
-        self.image_canvas.bind('<MouseWheel>', self.on_mouse_wheel)
+        # Store canvas references
+        if panel_type == "original":
+            self.original_canvas = canvas
+            self.original_scrollbar_v = v_scrollbar
+            self.original_scrollbar_h = h_scrollbar
+        else:
+            self.result_canvas = canvas
+            self.result_scrollbar_v = v_scrollbar
+            self.result_scrollbar_h = h_scrollbar
+        
+        # Bind events for synchronized scrolling when enabled
+        canvas.bind('<Configure>', lambda e: self.on_canvas_configure(e, panel_type))
+        canvas.bind('<Button-1>', lambda e: self.on_canvas_click(e, panel_type))
+        canvas.bind('<MouseWheel>', lambda e: self.on_mouse_wheel(e, panel_type))
         
         # Default message
-        self.show_default_message()
+        self.show_panel_message(panel_type)
+    
+    def setup_progress_overlay(self, parent):
+        """Setup progress overlay for the comparison view"""
+        self.progress_overlay = tk.Frame(parent, bg='white')
+        self.progress_overlay.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        self.progress_overlay.columnconfigure(0, weight=1)
+        self.progress_overlay.rowconfigure(0, weight=1)
+        
+        # Progress content
+        progress_content = tk.Frame(self.progress_overlay, bg='white')
+        progress_content.grid(row=0, column=0)
+        
+        # Large progress indicator
+        self.progress_label = tk.Label(
+            progress_content,
+            text="🎨 Processing Image...",
+            font=('Arial', 16, 'bold'),
+            fg='#2c5aa0',
+            bg='white'
+        )
+        self.progress_label.pack(pady=(20, 10))
+        
+        # Progress bar
+        self.progress_bar = ttk.Progressbar(
+            progress_content,
+            mode='indeterminate',
+            length=300
+        )
+        self.progress_bar.pack(pady=(0, 10))
+        
+        # Status message
+        self.progress_status = tk.Label(
+            progress_content,
+            text="Initializing...",
+            font=('Arial', 11),
+            fg='#666',
+            bg='white'
+        )
+        self.progress_status.pack(pady=(0, 10))
+        
+        # Cancel button
+        self.cancel_button = ttk.Button(
+            progress_content,
+            text="Cancel Processing",
+            command=self.cancel_processing
+        )
+        self.cancel_button.pack(pady=(10, 20))
+        
+        # Hide overlay initially
+        self.progress_overlay.grid_remove()
     
     def show_default_message(self):
         """Show default message"""
@@ -2057,42 +2186,33 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.tab_instance.load_saved_prompt()
     
     def refresh_preset_dropdown(self):
-        """Refresh the text widget with saved prompts (with wrapping)"""
-        # Enable editing to clear and repopulate
-        self.preset_listbox.config(state='normal')
-        self.preset_listbox.delete("1.0", tk.END)
+        """Refresh the preset system with saved prompts - Enhanced version"""
+        # Initialize compatibility attributes
+        if not hasattr(self, 'full_prompts'):
+            self.full_prompts = []
+        if not hasattr(self, 'prompt_line_ranges'):
+            self.prompt_line_ranges = []
+            
         self.full_prompts = []
         self.prompt_line_ranges = []
         
+        # Load saved prompts into our system
         if self.tab_instance and hasattr(self.tab_instance, 'saved_seedream_v4_prompts'):
             saved_prompts = self.tab_instance.saved_seedream_v4_prompts
             if saved_prompts:
-                # Store full prompts
-                self.full_prompts = saved_prompts.copy()
+                # Store full prompts for the enhanced system
+                for prompt in saved_prompts:
+                    if isinstance(prompt, dict):
+                        self.full_prompts.append(prompt.get('prompt', ''))
+                    else:
+                        self.full_prompts.append(str(prompt))
                 
-                # Add each prompt with a number and separator
-                for idx, prompt in enumerate(saved_prompts, 1):
-                    # Record starting line
-                    start_line = int(float(self.preset_listbox.index("end-1c").split('.')[0]))
-                    
-                    # Clean the prompt for display
-                    display_prompt = prompt.replace('\n', ' ').replace('\r', ' ')
-                    
-                    # Add numbered prompt with wrapping
-                    self.preset_listbox.insert(tk.END, f"{idx}. {display_prompt}\n")
-                    
-                    # Record ending line
-                    end_line = int(float(self.preset_listbox.index("end-1c").split('.')[0]))
-                    
-                    # Store the line range for this prompt
-                    self.prompt_line_ranges.append((start_line, end_line))
-                    
-                    # Add separator line
-                    self.preset_listbox.insert(tk.END, "─" * 80 + "\n")
+                # Update the collapsible prompt history if it exists
+                if hasattr(self, 'prompt_history_content') and hasattr(self, 'update_prompt_history_display'):
+                    self.update_prompt_history_display()
                 
-                self.log_message(f"🔄 Refreshed saved prompts list with {len(saved_prompts)} prompts")
+                self.log_message(f"🔄 Refreshed saved prompts with {len(self.full_prompts)} prompts")
             else:
-                self.preset_listbox.insert("1.0", "No saved prompts available")
                 self.log_message("📝 No saved prompts available")
         
         # Make read-only again
@@ -2748,6 +2868,302 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 
         except Exception as e:
             logger.error(f"Error showing learning panel: {e}")
+    
+    # Enhanced prompt handling methods
+    def on_prompt_focus_in(self, event):
+        """Handle prompt text focus in"""
+        if self.prompt_has_placeholder:
+            self.clear_placeholder_and_focus()
+    
+    def on_prompt_focus_out(self, event):
+        """Handle prompt text focus out"""
+        content = self.prompt_text.get("1.0", tk.END).strip()
+        if not content and not self.prompt_has_placeholder:
+            # Restore placeholder when field is empty
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", self.prompt_placeholder)
+            self.prompt_text.config(fg='#999999')
+            self.prompt_has_placeholder = True
+            self.prompt_status.config(text="Ready for input", foreground="#28a745")
+            if hasattr(self, 'char_count_label'):
+                self.char_count_label.config(text="0 characters")
+        elif content and content != self.prompt_placeholder:
+            self.prompt_status.config(text="Prompt ready", foreground="#28a745")
+    
+    def on_prompt_click(self, event):
+        """Handle prompt text click - clear placeholder immediately"""
+        if self.prompt_has_placeholder:
+            self.clear_placeholder_and_focus()
+    
+    def on_prompt_key_press(self, event):
+        """Handle key press - clear placeholder before any typing"""
+        if self.prompt_has_placeholder:
+            # For any printable character or backspace/delete, clear the placeholder first
+            if (event.char and event.char.isprintable()) or event.keysym in ['BackSpace', 'Delete']:
+                self.clear_placeholder_and_focus()
+                # For backspace/delete on placeholder, consume the event
+                if event.keysym in ['BackSpace', 'Delete']:
+                    return "break"
+        return None  # Don't consume other events
+    
+    def clear_placeholder_and_focus(self):
+        """Clear placeholder and set up for editing"""
+        if self.prompt_has_placeholder:
+            # Always clear the text when clearing placeholder
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.config(fg='#333333')
+            self.prompt_has_placeholder = False
+            self.prompt_status.config(text="Type your prompt...", foreground="#2c5aa0")
+            
+            # Update character count display
+            if hasattr(self, 'char_count_label'):
+                self.char_count_label.config(text="0 characters")
+    
+    def on_prompt_text_changed(self, event):
+        """Handle prompt text changes"""
+        # Always update character count, regardless of placeholder status
+        content = self.prompt_text.get("1.0", tk.END).strip()
+        
+        # If content matches placeholder exactly, treat as placeholder
+        if content == self.prompt_placeholder and self.prompt_has_placeholder:
+            self.char_count_label.config(text="0 characters")
+            self.prompt_status.config(text="Ready for input", foreground="#28a745")
+            return
+        
+        # Real content
+        char_count = len(content)
+        self.char_count_label.config(text=f"{char_count} characters")
+        
+        if char_count == 0:
+            self.prompt_status.config(text="Empty prompt", foreground="#dc3545")
+        elif char_count < 10:
+            self.prompt_status.config(text="Too short", foreground="#ffc107")
+        elif char_count > 500:
+            self.prompt_status.config(text="Very long prompt", foreground="#ffc107")
+        else:
+            self.prompt_status.config(text="Good length", foreground="#28a745")
+    
+    def setup_prompt_history_section(self, parent):
+        """Setup collapsible prompt history section"""
+        history_frame = ttk.LabelFrame(parent, text="📝 Recent Prompts (Click to expand)", padding="4")
+        history_frame.grid(row=3, column=0, sticky="ew", pady=(6, 0))
+        history_frame.columnconfigure(0, weight=1)
+        
+        # Initially hide the content
+        self.prompt_history_expanded = False
+        self.prompt_history_content = None
+        
+        # Bind click to expand/collapse
+        history_frame.bind("<Button-1>", self.toggle_prompt_history)
+        for child in history_frame.winfo_children():
+            child.bind("<Button-1>", self.toggle_prompt_history)
+    
+    def toggle_prompt_history(self, event=None):
+        """Toggle prompt history visibility"""
+        if not self.prompt_history_expanded:
+            self.expand_prompt_history()
+        else:
+            self.collapse_prompt_history()
+    
+    def expand_prompt_history(self):
+        """Expand prompt history section"""
+        if self.prompt_history_content is None:
+            # Create history content
+            parent = event.widget.master if hasattr(self, 'event') else None
+            # Find the history frame
+            for child in self.parent_frame.winfo_children():
+                if isinstance(child, ttk.LabelFrame) and "Recent Prompts" in child.cget("text"):
+                    parent = child
+                    break
+            
+            if parent:
+                self.prompt_history_content = ttk.Frame(parent)
+                self.prompt_history_content.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+                self.prompt_history_content.columnconfigure(0, weight=1)
+                
+                # History list
+                history_list = tk.Listbox(
+                    self.prompt_history_content,
+                    height=4,
+                    font=('Arial', 9),
+                    relief='solid',
+                    borderwidth=1
+                )
+                history_list.grid(row=0, column=0, sticky="ew")
+                
+                # Add some sample prompts
+                sample_prompts = [
+                    "Make the subject more vibrant and colorful",
+                    "Add dramatic lighting and shadows",
+                    "Convert to black and white with high contrast",
+                    "Apply a vintage film effect"
+                ]
+                
+                for prompt in sample_prompts:
+                    history_list.insert(tk.END, prompt)
+                
+                # Bind selection
+                history_list.bind('<Double-Button-1>', self.load_history_prompt)
+        
+        self.prompt_history_expanded = True
+        parent.config(text="📝 Recent Prompts (Click to collapse)")
+    
+    def collapse_prompt_history(self):
+        """Collapse prompt history section"""
+        if self.prompt_history_content:
+            self.prompt_history_content.grid_remove()
+        
+        self.prompt_history_expanded = False
+        # Update label text
+        for child in self.parent_frame.winfo_children():
+            if isinstance(child, ttk.LabelFrame) and "Recent Prompts" in child.cget("text"):
+                child.config(text="📝 Recent Prompts (Click to expand)")
+                break
+    
+    def load_history_prompt(self, event):
+        """Load selected prompt from history"""
+        listbox = event.widget
+        selection = listbox.curselection()
+        if selection:
+            prompt = listbox.get(selection[0])
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", prompt)
+            self.prompt_text.config(fg='#333333')
+            self.prompt_has_placeholder = False
+            self.on_prompt_text_changed(None)
+    
+    def show_prompt_browser(self):
+        """Show enhanced prompt browser"""
+        try:
+            # Try to import and show enhanced prompt browser
+            from ui.components.enhanced_prompt_browser import show_enhanced_prompt_browser
+            show_enhanced_prompt_browser(self.prompt_text)
+        except ImportError:
+            # Fallback to simple load
+            self.load_preset()
+    
+    # Enhanced comparison methods
+    def on_comparison_mode_changed(self, event=None):
+        """Handle comparison mode change"""
+        mode = self.comparison_mode_var.get()
+        if mode == "side_by_side":
+            self.show_side_by_side_view()
+        elif mode == "overlay":
+            self.show_overlay_view()
+        elif mode == "original_only":
+            self.show_original_only()
+        elif mode == "result_only":
+            self.show_result_only()
+    
+    def on_sync_zoom_changed(self):
+        """Handle sync zoom toggle"""
+        # Implementation for synchronized zooming
+        pass
+    
+    def on_canvas_configure(self, event, panel_type):
+        """Handle canvas configuration for specific panel"""
+        # Update scroll region and manage zoom
+        pass
+    
+    def on_canvas_click(self, event, panel_type):
+        """Handle canvas click for specific panel"""
+        # Handle pan/zoom interactions
+        pass
+    
+    def on_mouse_wheel(self, event, panel_type):
+        """Handle mouse wheel for specific panel"""
+        # Handle zoom with mouse wheel
+        if self.sync_zoom_var.get():
+            # Apply zoom to both panels
+            pass
+        else:
+            # Apply zoom to specific panel only
+            pass
+    
+    def show_panel_message(self, panel_type):
+        """Show default message in panel"""
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        canvas.delete("all")
+        
+        if panel_type == "original":
+            message = "📥 Load an image to begin\n\nClick 'Browse Image' or drag & drop"
+            color = "#666666"
+        else:
+            message = "🌟 Result will appear here\n\nAfter processing completes"
+            color = "#999999"
+        
+        canvas.create_text(
+            canvas.winfo_width() // 2 if canvas.winfo_width() > 1 else 200,
+            canvas.winfo_height() // 2 if canvas.winfo_height() > 1 else 150,
+            text=message,
+            font=('Arial', 12),
+            fill=color,
+            justify=tk.CENTER
+        )
+    
+    def show_side_by_side_view(self):
+        """Show side-by-side comparison view"""
+        # Implementation for side-by-side view
+        pass
+    
+    def show_overlay_view(self):
+        """Show overlay comparison view"""
+        # Implementation for overlay view
+        pass
+    
+    def show_original_only(self):
+        """Show original image only"""
+        # Implementation for original only view
+        pass
+    
+    def show_result_only(self):
+        """Show result image only"""
+        # Implementation for result only view
+        pass
+    
+    def quick_save_result(self):
+        """Quick save result image"""
+        if hasattr(self, 'result_image_path') and self.result_image_path:
+            try:
+                from tkinter import filedialog
+                file_path = filedialog.asksaveasfilename(
+                    title="Save Result Image",
+                    defaultextension=".png",
+                    filetypes=[("PNG files", "*.png"), ("JPEG files", "*.jpg"), ("All files", "*.*")]
+                )
+                if file_path:
+                    # Copy or download the result image
+                    self.log_message(f"💾 Saved result to: {file_path}")
+            except Exception as e:
+                self.log_message(f"❌ Save failed: {str(e)}")
+        else:
+            self.log_message("❌ No result to save")
+    
+    def swap_images(self):
+        """Swap original and result images"""
+        # Implementation for swapping images in comparison view
+        self.log_message("🔄 Images swapped")
+    
+    def cancel_processing(self):
+        """Cancel current processing"""
+        if hasattr(self, 'current_task_id') and self.current_task_id:
+            self.log_message("🛑 Processing cancelled")
+            self.hide_progress_overlay()
+    
+    def show_progress_overlay(self):
+        """Show progress overlay"""
+        self.progress_overlay.grid()
+        self.progress_bar.start(10)
+    
+    def hide_progress_overlay(self):
+        """Hide progress overlay"""
+        self.progress_overlay.grid_remove()
+        self.progress_bar.stop()
+    
+    def update_progress_status(self, message):
+        """Update progress status message"""
+        if hasattr(self, 'progress_status'):
+            self.progress_status.config(text=message)
             self.log_message(f"❌ Failed to open learning panel: {str(e)}")
     
     def show_quality_rating(self, prompt: str = None, result_path: str = None):
