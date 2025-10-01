@@ -58,27 +58,44 @@ class WaveSpeedAPIClient:
             "Authorization": f"Bearer {self.api_key}",
         }
     
-    def convert_image_to_base64(self, image_path: Union[str, Path]) -> Optional[str]:
-        """Convert image file to base64 string"""
+    def convert_image_to_base64(self, image_path: Union[str, Path], preserve_colors: bool = True) -> Optional[str]:
+        """
+        Convert image file to base64 string
+        
+        Args:
+            image_path: Path to the image file
+            preserve_colors: If True, reads file directly without color conversion (preserves original colors)
+                           If False, applies color mode conversion and EXIF correction
+        """
         try:
             # Validate image file first
             is_valid, error = validate_image_file(image_path)
             if not is_valid:
                 raise ImageProcessingError(f"Invalid image file: {error}", str(image_path))
             
-            with Image.open(image_path) as img:
-                # Apply EXIF orientation correction
-                from PIL import ImageOps
-                img = ImageOps.exif_transpose(img)
-                
-                if img.mode in ("RGBA", "P"):
-                    img = img.convert("RGB")
-                
-                buffer = io.BytesIO()
-                img.save(buffer, format="PNG")
-                
-                image_base64 = base64.b64encode(buffer.getvalue()).decode()
+            if preserve_colors:
+                # Direct file reading - preserves original colors perfectly (no conversion)
+                with open(image_path, 'rb') as f:
+                    image_data = f.read()
+                image_base64 = base64.b64encode(image_data).decode()
+                logger.info("Image encoded directly (colors preserved, no conversion)")
                 return image_base64
+            else:
+                # Legacy method with color conversion and EXIF correction
+                with Image.open(image_path) as img:
+                    # Apply EXIF orientation correction
+                    from PIL import ImageOps
+                    img = ImageOps.exif_transpose(img)
+                    
+                    if img.mode in ("RGBA", "P"):
+                        img = img.convert("RGB")
+                    
+                    buffer = io.BytesIO()
+                    img.save(buffer, format="PNG")
+                    
+                    image_base64 = base64.b64encode(buffer.getvalue()).decode()
+                    logger.info("Image encoded with color conversion and EXIF correction")
+                    return image_base64
                 
         except ImageProcessingError:
             raise
@@ -134,17 +151,24 @@ class WaveSpeedAPIClient:
             
             logger.info(f"Submitting image edit task for: {image_path}")
             
-            # Convert image to base64
-            image_base64 = self.convert_image_to_base64(image_path)
+            # Convert image to base64 (preserve colors by default)
+            image_base64 = self.convert_image_to_base64(image_path, preserve_colors=True)
             if not image_base64:
                 raise ImageProcessingError("Failed to convert image to base64", str(image_path))
+            
+            # Detect original image format for proper MIME type
+            img_path = Path(image_path)
+            img_format = img_path.suffix.lower().lstrip('.')
+            # Map common extensions to MIME types
+            mime_map = {'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png', 'webp': 'webp', 'gif': 'gif'}
+            mime_type = mime_map.get(img_format, 'png')
             
             url = Config.ENDPOINTS['image_edit']
             headers = self.get_headers()
             payload = {
                 "enable_base64_output": False,
                 "enable_sync_mode": False,
-                "images": [f"data:image/png;base64,{image_base64}"],
+                "images": [f"data:image/{mime_type};base64,{image_base64}"],
                 "output_format": output_format,
                 "prompt": prompt
             }
