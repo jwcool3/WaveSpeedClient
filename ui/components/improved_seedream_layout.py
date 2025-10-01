@@ -30,6 +30,167 @@ from core.logger import get_logger
 logger = get_logger()
 
 
+class SynchronizedImagePanels:
+    """Handles synchronized zooming and panning between two image panels with different sized images"""
+    
+    def __init__(self, original_canvas, result_canvas, sync_zoom_var):
+        self.original_canvas = original_canvas
+        self.result_canvas = result_canvas
+        self.sync_zoom_var = sync_zoom_var
+        
+        # Store image information for coordinate mapping
+        self.original_image_info = {
+            'path': None,
+            'pil_image': None,
+            'display_scale': 1.0,
+            'display_offset': (0, 0),
+            'natural_size': (0, 0),
+            'display_size': (0, 0)
+        }
+        
+        self.result_image_info = {
+            'path': None,
+            'pil_image': None,
+            'display_scale': 1.0,
+            'display_offset': (0, 0),
+            'natural_size': (0, 0),
+            'display_size': (0, 0)
+        }
+        
+        # Track which panel is being dragged
+        self.currently_dragging = None
+        self.drag_start_data = None
+    
+    def update_image_info(self, panel_type, image_path, pil_image, display_scale, display_offset, display_size):
+        """Update image information for coordinate calculations"""
+        info = self.original_image_info if panel_type == 'original' else self.result_image_info
+        
+        info['path'] = image_path
+        info['pil_image'] = pil_image
+        info['display_scale'] = display_scale
+        info['display_offset'] = display_offset
+        info['natural_size'] = pil_image.size if pil_image else (0, 0)
+        info['display_size'] = display_size
+        
+        logger.debug(f"Updated {panel_type} image info: scale={display_scale:.3f}, offset={display_offset}, display_size={display_size}")
+    
+    def on_synchronized_drag_start(self, event, source_panel):
+        """Handle start of synchronized drag"""
+        if not self.sync_zoom_var.get():
+            return False  # Let normal drag handling proceed
+        
+        if self.currently_dragging:
+            return True  # Already dragging
+        
+        self.currently_dragging = source_panel
+        
+        # Store initial positions
+        self.drag_start_data = {
+            'source_panel': source_panel,
+            'mouse_x': event.x,
+            'mouse_y': event.y,
+            'original_scroll': (self.original_canvas.canvasx(0), self.original_canvas.canvasy(0)),
+            'result_scroll': (self.result_canvas.canvasx(0), self.result_canvas.canvasy(0))
+        }
+        
+        # Set scan marks for both canvases
+        self.original_canvas.scan_mark(event.x, event.y)
+        self.result_canvas.scan_mark(event.x, event.y)
+        
+        # Change cursors
+        self.original_canvas.configure(cursor="fleur")
+        self.result_canvas.configure(cursor="fleur")
+        
+        return True  # Handled
+    
+    def on_synchronized_drag_motion(self, event, source_panel):
+        """Handle synchronized drag motion"""
+        if not self.sync_zoom_var.get():
+            return False
+        
+        if self.currently_dragging != source_panel:
+            return False
+        
+        # Calculate movement delta
+        dx = event.x - self.drag_start_data['mouse_x']
+        dy = event.y - self.drag_start_data['mouse_y']
+        
+        # Apply synchronized movement with scale compensation
+        self.apply_synchronized_pan(dx, dy, source_panel)
+        
+        return True  # Handled
+    
+    def apply_synchronized_pan(self, dx, dy, source_panel):
+        """Apply panning to both canvases with scale compensation"""
+        orig_scale = self.original_image_info['display_scale']
+        result_scale = self.result_image_info['display_scale']
+        
+        if orig_scale <= 0 or result_scale <= 0:
+            # Fallback to simple synchronized panning
+            self.original_canvas.scan_dragto(
+                self.drag_start_data['mouse_x'] + dx,
+                self.drag_start_data['mouse_y'] + dy,
+                gain=1
+            )
+            self.result_canvas.scan_dragto(
+                self.drag_start_data['mouse_x'] + dx,
+                self.drag_start_data['mouse_y'] + dy,
+                gain=1
+            )
+            return
+        
+        # Calculate scale ratio for synchronized movement
+        if source_panel == 'original':
+            scale_ratio = result_scale / orig_scale
+            result_dx = dx * scale_ratio
+            result_dy = dy * scale_ratio
+            
+            self.original_canvas.scan_dragto(
+                self.drag_start_data['mouse_x'] + dx,
+                self.drag_start_data['mouse_y'] + dy,
+                gain=1
+            )
+            self.result_canvas.scan_dragto(
+                self.drag_start_data['mouse_x'] + result_dx,
+                self.drag_start_data['mouse_y'] + result_dy,
+                gain=1
+            )
+        else:
+            scale_ratio = orig_scale / result_scale
+            orig_dx = dx * scale_ratio
+            orig_dy = dy * scale_ratio
+            
+            self.result_canvas.scan_dragto(
+                self.drag_start_data['mouse_x'] + dx,
+                self.drag_start_data['mouse_y'] + dy,
+                gain=1
+            )
+            self.original_canvas.scan_dragto(
+                self.drag_start_data['mouse_x'] + orig_dx,
+                self.drag_start_data['mouse_y'] + orig_dy,
+                gain=1
+            )
+    
+    def on_synchronized_drag_end(self, event, source_panel):
+        """Handle end of synchronized drag"""
+        if not self.sync_zoom_var.get():
+            return False
+        
+        if self.currently_dragging != source_panel:
+            return False
+        
+        self.currently_dragging = None
+        
+        # Reset cursors
+        self.original_canvas.configure(cursor="")
+        self.result_canvas.configure(cursor="")
+        
+        # Clear drag data
+        self.drag_start_data = None
+        
+        return True  # Handled
+
+
 class ImprovedSeedreamLayout(AIChatMixin):
     """Improved Seedream V4 layout with efficient space usage and better UX"""
     
@@ -43,7 +204,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         # Resize performance optimization
         self.resize_timer = None
-        self.resize_delay = 300  # ms delay for debouncing
+        self.resize_delay = 750  # ms delay for debouncing (increased for better performance)
+        self._paned_resize_timer = None  # Timer for paned window resize debouncing
+        self._last_canvas_size = {"original": (0, 0), "result": (0, 0)}  # Track canvas sizes
         
         # Splitter position persistence
         self.splitter_position_file = "data/seedream_splitter_position.txt"
@@ -213,23 +376,29 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def _on_panedwindow_configure(self, event):
         """Handle PanedWindow resize events to maintain minimum sizes"""
-        # Only respond to size changes, not position changes
-        if event.widget == self.paned_window:
-            try:
-                # Ensure minimum sizes are maintained
-                total_width = self.paned_window.winfo_width()
+        # PERFORMANCE FIX: Debounce this expensive operation
+        if hasattr(self, '_paned_resize_timer') and self._paned_resize_timer:
+            self.parent_frame.after_cancel(self._paned_resize_timer)
+        
+        # Only check minimum sizes after resize is complete (500ms delay)
+        self._paned_resize_timer = self.parent_frame.after(500, self._check_pane_minimum_sizes)
+    
+    def _check_pane_minimum_sizes(self):
+        """Check and enforce minimum pane sizes (called after resize completes)"""
+        try:
+            total_width = self.paned_window.winfo_width()
+            
+            if total_width > 100:  # Valid width
+                current_position = self.paned_window.sashpos(0)
                 
-                if total_width > 100:  # Valid width
-                    current_position = self.paned_window.sashpos(0)
-                    
-                    # Check if right pane is too small
-                    right_pane_width = total_width - current_position
-                    if right_pane_width < 300:  # Minimum for image display
-                        new_position = total_width - 350
-                        if new_position > 280:  # Ensure left pane isn't too small
-                            self.paned_window.sashpos(0, new_position)
-            except:
-                pass  # Silently handle any errors during resize
+                # Check if right pane is too small
+                right_pane_width = total_width - current_position
+                if right_pane_width < 300:  # Minimum for image display
+                    new_position = total_width - 350
+                    if new_position > 280:  # Ensure left pane isn't too small
+                        self.paned_window.sashpos(0, new_position)
+        except:
+            pass  # Silently handle any errors
     
     def initialize_display(self):
         """Initialize the image display panels with default messages"""
@@ -1189,6 +1358,21 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.status_console.grid(row=5, column=0, sticky="ew", pady=(0, 4))
         self.status_console.log_ready("Seedream V4")
     
+    def setup_synchronized_panels(self):
+        """Setup synchronized image panels for coordinated zooming and panning"""
+        try:
+            if hasattr(self, 'original_canvas') and hasattr(self, 'result_canvas') and hasattr(self, 'sync_zoom_var'):
+                self.sync_manager = SynchronizedImagePanels(
+                    self.original_canvas,
+                    self.result_canvas,
+                    self.sync_zoom_var
+                )
+                logger.info("Synchronized image panel system initialized")
+            else:
+                logger.warning("Cannot initialize sync manager - canvases or sync_zoom_var not ready")
+        except Exception as e:
+            logger.error(f"Error initializing synchronized panels: {e}", exc_info=True)
+    
     def setup_enhanced_features(self):
         """Setup keyboard manager and enhanced functionality"""
         # Setup keyboard manager
@@ -1341,6 +1525,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
 
         # Progress overlay (initially hidden)
         self.setup_progress_overlay(display_frame)
+        
+        # Initialize synchronized panel system
+        self.setup_synchronized_panels()
     
     def setup_image_panel(self, parent, panel_type, column, title):
         """Setup individual image panel for comparison"""
@@ -3630,7 +3817,27 @@ class ImprovedSeedreamLayout(AIChatMixin):
         # Reset timer
         self.resize_timer = None
         
-        # Re-display images if we're in a mode that needs refreshing
+        # PERFORMANCE FIX: Only redraw if zoom is "Fit" mode
+        # Fixed zoom percentages don't need redrawing on resize
+        if not hasattr(self, 'zoom_var') or self.zoom_var.get() != "Fit":
+            return  # Skip expensive redraw if not in Fit mode
+        
+        # PERFORMANCE FIX: Only redraw if canvas size changed significantly (>50px)
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        current_size = (canvas.winfo_width(), canvas.winfo_height())
+        last_size = self._last_canvas_size.get(panel_type, (0, 0))
+        
+        # Check if size changed significantly
+        width_diff = abs(current_size[0] - last_size[0])
+        height_diff = abs(current_size[1] - last_size[1])
+        
+        if width_diff < 50 and height_diff < 50:
+            return  # Size change too small to matter, skip redraw
+        
+        # Update tracked size
+        self._last_canvas_size[panel_type] = current_size
+        
+        # Re-display images only in Fit mode and significant size change
         if hasattr(self, 'current_view_mode') and self.current_view_mode:
             if self.current_view_mode == "original" and self.selected_image_path:
                 self.display_image_in_panel(self.selected_image_path, "original")
@@ -3646,15 +3853,28 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def on_canvas_drag_start(self, event, panel_type):
         """Handle start of potential canvas drag for panning"""
+        # Try synchronized drag first if sync manager exists
+        if hasattr(self, 'sync_manager'):
+            handled = self.sync_manager.on_synchronized_drag_start(event, panel_type)
+            if handled:
+                return  # Sync manager is handling it
+        
+        # Fall back to normal drag handling
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
-        self.drag_data["dragging"] = False  # Don't set dragging immediately
+        self.drag_data["dragging"] = False
         self.drag_data["threshold_met"] = False
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
-        # Don't change cursor or set scan mark until actual dragging starts
     
     def on_canvas_drag_motion(self, event, panel_type):
         """Handle canvas drag motion for panning"""
+        # Try synchronized drag first if sync manager exists
+        if hasattr(self, 'sync_manager'):
+            handled = self.sync_manager.on_synchronized_drag_motion(event, panel_type)
+            if handled:
+                return  # Sync manager is handling it
+        
+        # Fall back to normal drag handling
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
         
         # Calculate how much the mouse moved
@@ -3674,9 +3894,15 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
     def on_canvas_drag_end(self, event, panel_type):
         """Handle end of canvas drag"""
+        # Try synchronized drag first if sync manager exists
+        if hasattr(self, 'sync_manager'):
+            handled = self.sync_manager.on_synchronized_drag_end(event, panel_type)
+            if handled:
+                return  # Sync manager is handling it
+        
+        # Fall back to normal drag handling
         self.drag_data["dragging"] = False
         self.drag_data["threshold_met"] = False
-        # Reset cursor
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
         canvas.configure(cursor="")
     
@@ -3803,6 +4029,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
             canvas.image = photo  # Keep reference
             
             canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            # Update sync manager with image information
+            if hasattr(self, 'sync_manager'):
+                self.sync_manager.update_image_info(
+                    panel_type=panel_type,
+                    image_path=image_path,
+                    pil_image=img,
+                    display_scale=scale_factor,
+                    display_offset=(x, y),
+                    display_size=(new_width, new_height)
+                )
             
         except Exception as e:
             canvas.delete("all")
