@@ -48,7 +48,7 @@ class SeedEditTab(BaseTab):
         
         # Use the new improved SeedEdit layout instead of the generic optimized layout
         from ui.components.improved_seededit_layout import ImprovedSeedEditLayout
-        self.optimized_layout = ImprovedSeedEditLayout(self.container)
+        self.optimized_layout = ImprovedSeedEditLayout(self.container, self)
         
         # Connect the improved layout methods to our existing functionality
         self.connect_improved_layout()
@@ -86,6 +86,7 @@ class SeedEditTab(BaseTab):
         # Store references to layout components for easy access
         self.prompt_text = self.optimized_layout.prompt_text
         self.seed_var = self.optimized_layout.seed_var
+        self.guidance_scale_var = self.optimized_layout.guidance_scale_var
         self.format_var = self.optimized_layout.format_var
         self.status_label = self.optimized_layout.status_label
         self.progress_bar = self.optimized_layout.progress_bar

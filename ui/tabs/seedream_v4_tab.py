@@ -97,6 +97,10 @@ class SeedreamV4Tab(BaseTab):
         
         # Store references to layout components for easy access
         self.prompt_text = self.improved_layout.prompt_text
+        
+        # Refresh the dropdown with any existing saved prompts
+        if hasattr(self.improved_layout, 'refresh_preset_dropdown'):
+            self.improved_layout.refresh_preset_dropdown()
         self.width_var = self.improved_layout.width_var
         self.height_var = self.improved_layout.height_var
         self.seed_var = self.improved_layout.seed_var
@@ -306,11 +310,12 @@ class SeedreamV4Tab(BaseTab):
         
         ttk.Label(preset_frame, text="Preset Sizes:", font=('Arial', 8, 'bold')).grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
         
-        # Common sizes
+        # Common sizes - now using multipliers (legacy support)
         preset_sizes = [
-            ("1K", "1024*1024"),
-            ("2K", "2048*2048"), 
-            ("4K", "4096*4096"),
+            ("1.5x", "multiplier_1.5"),
+            ("2x", "multiplier_2.0"), 
+            ("2.5x", "multiplier_2.5"),
+            ("Custom", "custom_scale"),
             ("HD", "1920*1080"),
             ("2K HD", "2560*1440"),
             ("4K UHD", "3840*2160")
@@ -524,13 +529,28 @@ class SeedreamV4Tab(BaseTab):
     def set_preset_size(self, size_string):
         """Set size from preset button"""
         try:
-            width_str, height_str = size_string.split('*')
-            width = int(width_str)
-            height = int(height_str)
-            
-            self.width_var.set(width)
-            self.height_var.set(height)
-            self.update_size_display()
+            if size_string.startswith("multiplier_"):
+                # Handle multiplier presets
+                multiplier = float(size_string.split("_")[1])
+                if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'set_size_multiplier'):
+                    self.improved_layout.set_size_multiplier(multiplier)
+                else:
+                    logger.warning("Improved layout not available for multiplier presets")
+            elif size_string == "custom_scale":
+                # Handle custom scale
+                if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'show_custom_scale_dialog'):
+                    self.improved_layout.show_custom_scale_dialog()
+                else:
+                    logger.warning("Improved layout not available for custom scale")
+            else:
+                # Handle traditional size presets
+                width_str, height_str = size_string.split('*')
+                width = int(width_str)
+                height = int(height_str)
+                
+                self.width_var.set(width)
+                self.height_var.set(height)
+                self.update_size_display()
             
             logger.info(f"Set preset size: {size_string}")
         except (ValueError, AttributeError) as e:
@@ -595,11 +615,11 @@ class SeedreamV4Tab(BaseTab):
             self.update_size_display()
     
     def browse_image(self):
-        """Browse for image file"""
+        """Browse for image files (supports multiple selection)"""
         from tkinter import filedialog
         
-        file_path = filedialog.askopenfilename(
-            title="Select Image for Seedream V4",
+        file_paths = filedialog.askopenfilenames(
+            title="Select Images for Seedream V4 (up to 10 images)",
             filetypes=[
                 ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
                 ("PNG files", "*.png"),
@@ -607,11 +627,49 @@ class SeedreamV4Tab(BaseTab):
                 ("All files", "*.*")
             ]
         )
-        if file_path:
-            self.on_image_selected(file_path)
+        if file_paths:
+            self.on_images_selected(file_paths)
+    
+    def on_images_selected(self, file_paths):
+        """Handle multiple image selection"""
+        try:
+            # Validate all images
+            valid_paths = []
+            for file_path in file_paths:
+                if validate_image_file(file_path):
+                    valid_paths.append(file_path)
+                else:
+                    show_error("Invalid Image", f"Invalid image file: {os.path.basename(file_path)}")
+            
+            if not valid_paths:
+                show_error("No Valid Images", "No valid image files selected.")
+                return
+            
+            # Limit to 10 images as per API specification
+            if len(valid_paths) > 10:
+                show_warning("Too Many Images", f"Maximum 10 images allowed. Using first 10 of {len(valid_paths)} selected.")
+                valid_paths = valid_paths[:10]
+            
+            # Update the improved layout with multiple images
+            if hasattr(self, 'improved_layout'):
+                self.improved_layout.load_images(valid_paths)
+            else:
+                # Fallback to single image (first one)
+                self.on_image_selected(valid_paths[0])
+            
+            # Update status
+            if len(valid_paths) == 1:
+                filename = os.path.basename(valid_paths[0])
+                self.update_status(f"📁 Image loaded: {filename}")
+            else:
+                self.update_status(f"📁 {len(valid_paths)} images loaded")
+                
+        except Exception as e:
+            logger.error(f"Error selecting images: {e}")
+            show_error("Error", f"Failed to load images: {str(e)}")
     
     def on_image_selected(self, file_path, replacing_image=False):
-        """Handle image selection with auto-resolution and rotation fix"""
+        """Handle single image selection with auto-resolution and rotation fix"""
         try:
             if not validate_image_file(file_path):
                 show_error("Invalid Image", "Please select a valid image file.")
@@ -794,6 +852,10 @@ class SeedreamV4Tab(BaseTab):
         # Save to file
         save_json_file(self.seedream_v4_prompts_file, self.saved_seedream_v4_prompts)
         
+        # Refresh the improved layout dropdown
+        if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'refresh_preset_dropdown'):
+            self.improved_layout.refresh_preset_dropdown()
+        
         show_success("Prompt Saved", f"Prompt saved successfully!\nTotal saved: {len(self.saved_seedream_v4_prompts)}")
     
     def load_saved_prompt(self):
@@ -848,6 +910,11 @@ class SeedreamV4Tab(BaseTab):
             if messagebox.askyesno("Confirm Delete", f"Delete this prompt?\n\n{prompt_to_delete}"):
                 self.saved_seedream_v4_prompts.pop(selection - 1)
                 save_json_file(self.seedream_v4_prompts_file, self.saved_seedream_v4_prompts)
+                
+                # Refresh the improved layout dropdown
+                if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'refresh_preset_dropdown'):
+                    self.improved_layout.refresh_preset_dropdown()
+                
                 show_success("Prompt Deleted", "Prompt deleted successfully.")
     
     def load_sample_prompt(self):
@@ -897,9 +964,14 @@ class SeedreamV4Tab(BaseTab):
         # Update display
         self.update_size_display()
         
-        # Clear images
+        # Clear images (both single and multiple)
         self.selected_image_path = None
         self.result_image = None
+        
+        # Clear multiple images if using improved layout
+        if hasattr(self, 'improved_layout'):
+            self.improved_layout.selected_image_paths = []
+            self.improved_layout.update_image_count_display()
         
         if hasattr(self, 'improved_layout'):
             # Clear improved layout images

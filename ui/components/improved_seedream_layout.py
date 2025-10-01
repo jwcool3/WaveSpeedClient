@@ -15,6 +15,13 @@ from PIL import Image, ImageTk
 import os
 import threading
 import asyncio
+
+# Try to import drag and drop support
+try:
+    from tkinterdnd2 import DND_FILES
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
 from ui.components.unified_status_console import UnifiedStatusConsole
 from ui.components.keyboard_manager import KeyboardManager
 from ui.components.ai_chat_integration_helper import AIChatMixin
@@ -30,7 +37,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.parent_frame = parent_frame
         self.api_client = api_client
         self.tab_instance = tab_instance
-        self.selected_image_path = None
+        self.selected_image_paths = []  # Changed to support multiple images
         self.result_image_path = None
         self.result_url = None
         self.current_task_id = None
@@ -47,15 +54,16 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.aspect_lock_var = tk.BooleanVar(value=False)
         self.locked_aspect_ratio = None
         
-        # Size presets
+        # Size presets - now using multipliers based on input image
         self.size_presets = [
-            ("1K", 1024, 1024),
-            ("2K", 2048, 2048), 
-            ("4K", 3840, 2160),
-            ("Square", 1024, 1024),
-            ("Portrait", 768, 1024),
-            ("Landscape", 1024, 768)
+            ("1.5x", 1.5),
+            ("2x", 2.0),
+            ("2.5x", 2.5)
         ]
+        
+        # Store original image dimensions for multiplier calculations
+        self.original_image_width = None
+        self.original_image_height = None
         
         # Enhanced components
         self.status_console = None
@@ -64,6 +72,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.setup_layout()
         self.setup_enhanced_features()
         self.setup_learning_components()
+    
+    @property
+    def selected_image_path(self):
+        """Backward compatibility property for single image access"""
+        return self.selected_image_paths[0] if self.selected_image_paths else None
     
     def setup_layout(self):
         """Setup the improved 2-column layout"""
@@ -144,6 +157,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.thumbnail_label.grid(row=0, column=0, padx=(0, 8), rowspan=2)
         self.thumbnail_label.bind("<Button-1>", lambda e: self.browse_image())
         
+        # Setup drag and drop
+        self.setup_drag_drop()
+        
         # Image info
         self.image_name_label = ttk.Label(
             input_frame,
@@ -206,7 +222,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             width_frame,
             textvariable=self.width_var,
             width=5,
-            font=('Arial', 8)
+            font=('Arial', 8),
+            validate='key',
+            validatecommand=(self.parent_frame.register(self.validate_integer), '%P')
         )
         self.width_entry.pack(side=tk.RIGHT, padx=(2, 0))
         
@@ -235,7 +253,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             height_frame,
             textvariable=self.height_var,
             width=5,
-            font=('Arial', 8)
+            font=('Arial', 8),
+            validate='key',
+            validatecommand=(self.parent_frame.register(self.validate_integer), '%P')
         )
         self.height_entry.pack(side=tk.RIGHT, padx=(2, 0))
         
@@ -246,18 +266,27 @@ class ImprovedSeedreamLayout(AIChatMixin):
         preset_frame = ttk.Frame(settings_frame)
         preset_frame.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(4, 2))
         
-        # Preset buttons in a 3x2 grid
-        for i, (name, width, height) in enumerate(self.size_presets):
+        # Preset buttons in a 1x4 grid for multipliers + custom
+        for i, (name, multiplier) in enumerate(self.size_presets):
             btn = ttk.Button(
                 preset_frame,
                 text=name,
-                command=lambda w=width, h=height: self.set_size_preset(w, h),
+                command=lambda m=multiplier: self.set_size_multiplier(m),
                 width=6
             )
-            btn.grid(row=i//3, column=i%3, padx=1, pady=1, sticky="ew")
+            btn.grid(row=0, column=i, padx=1, pady=1, sticky="ew")
+        
+        # Custom scale button
+        custom_btn = ttk.Button(
+            preset_frame,
+            text="Custom",
+            command=self.show_custom_scale_dialog,
+            width=6
+        )
+        custom_btn.grid(row=0, column=3, padx=1, pady=1, sticky="ew")
         
         # Configure preset frame columns
-        for i in range(3):
+        for i in range(4):
             preset_frame.columnconfigure(i, weight=1)
         
         # Row 3: Seed + Options (horizontal)
@@ -302,16 +331,36 @@ class ImprovedSeedreamLayout(AIChatMixin):
         preset_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         preset_frame.columnconfigure(0, weight=1)
         
-        # Preset dropdown
-        self.preset_var = tk.StringVar()
-        self.preset_combo = ttk.Combobox(
-            preset_frame,
-            textvariable=self.preset_var,
+        # Saved prompts display with text wrapping
+        listbox_container = ttk.Frame(preset_frame)
+        listbox_container.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        listbox_container.columnconfigure(0, weight=1)
+        
+        # Create scrollbar
+        scrollbar = ttk.Scrollbar(listbox_container, orient=tk.VERTICAL)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        
+        # Use Text widget instead of Listbox for proper text wrapping
+        self.preset_listbox = tk.Text(
+            listbox_container,
+            height=8,  # Show more lines to accommodate wrapping
+            wrap=tk.WORD,  # Enable word wrapping
             font=('Arial', 9),
-            width=20
+            relief='solid',
+            borderwidth=1,
+            yscrollcommand=scrollbar.set,
+            cursor='hand2',
+            state='disabled'  # Make read-only by default
         )
-        self.preset_combo.grid(row=0, column=0, sticky="ew", padx=(0, 4))
-        self.preset_combo.bind('<<ComboboxSelected>>', self.load_preset)
+        self.preset_listbox.grid(row=0, column=0, sticky="ew")
+        scrollbar.config(command=self.preset_listbox.yview)
+        
+        # Bind click to load preset
+        self.preset_listbox.bind('<Button-1>', self.on_preset_click)
+        
+        # Store full prompts and their line ranges
+        self.full_prompts = []
+        self.prompt_line_ranges = []  # Track which lines correspond to which prompt
         
         # Preset buttons (small) - AI integration target
         self.ai_chat_container = ttk.Frame(preset_frame)
@@ -329,6 +378,25 @@ class ImprovedSeedreamLayout(AIChatMixin):
         moderate_btn.pack(side=tk.LEFT, padx=1)
         # Add tooltip for the moderate examples button
         self.create_tooltip(moderate_btn, "Generate 5 sophisticated moderate examples\nUses indirect language combinations")
+        
+        # Prompt text (compact)
+        self.prompt_text = tk.Text(
+            prompt_frame,
+            height=4,  # Compact height
+            wrap=tk.WORD,
+            font=('Arial', 10),
+            relief='solid',
+            borderwidth=1
+        )
+        self.prompt_text.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+        
+        # Placeholder text
+        self.prompt_text.insert("1.0", "Describe the transformation you want to apply to the image...")
+        self.prompt_text.bind("<FocusIn>", self.clear_placeholder)
+        self.prompt_text.bind("<FocusOut>", self.add_placeholder)
+        
+        # Populate preset dropdown with saved prompts
+        self.refresh_preset_dropdown()
     
     def generate_mild_examples(self):
         """Generate 5 mild filter training examples with automatic image analysis"""
@@ -645,22 +713,6 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"Error showing analysis: {e}")
             self.show_tooltip(f"❌ Analysis error: {str(e)}")
-        
-        # Prompt text (compact)
-        self.prompt_text = tk.Text(
-            prompt_frame,
-            height=4,  # Compact height
-            wrap=tk.WORD,
-            font=('Arial', 10),
-            relief='solid',
-            borderwidth=1
-        )
-        self.prompt_text.grid(row=1, column=0, sticky="ew", pady=(4, 0))
-        
-        # Placeholder text
-        self.prompt_text.insert("1.0", "Describe the transformation you want to apply to the image...")
-        self.prompt_text.bind("<FocusIn>", self.clear_placeholder)
-        self.prompt_text.bind("<FocusOut>", self.add_placeholder)
     
     def setup_primary_action(self, parent):
         """Primary action button RIGHT under prompt - key UX improvement!"""
@@ -1017,10 +1069,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     # Event handlers and utility methods
     def browse_image(self):
-        """Browse for image file"""
+        """Browse for image files (supports multiple selection)"""
         from tkinter import filedialog
-        file_path = filedialog.askopenfilename(
-            title="Select Image for Seedream V4",
+        file_paths = filedialog.askopenfilenames(
+            title="Select Images for Seedream V4 (up to 10 images)",
             filetypes=[
                 ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
                 ("PNG files", "*.png"),
@@ -1028,17 +1080,64 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 ("All files", "*.*")
             ]
         )
-        if file_path:
+        if file_paths:
+            # Limit to 10 images as per API specification
+            if len(file_paths) > 10:
+                from tkinter import messagebox
+                messagebox.showwarning(
+                    "Too Many Images", 
+                    f"Maximum 10 images allowed. Selected {len(file_paths)} images. Using first 10."
+                )
+                file_paths = file_paths[:10]
+            
             # If we have a connected tab instance, use its image selection handler
-            if self.tab_instance and hasattr(self.tab_instance, 'on_image_selected'):
-                self.tab_instance.on_image_selected(file_path)
+            if self.tab_instance and hasattr(self.tab_instance, 'on_images_selected'):
+                self.tab_instance.on_images_selected(file_paths)
             else:
                 # Fallback to direct loading
-                self.load_image(file_path)
+                self.load_images(file_paths)
+    
+    def load_images(self, image_paths):
+        """Load and display multiple input images"""
+        self.selected_image_paths = list(image_paths)
+        
+        if not self.selected_image_paths:
+            return
+        
+        # Use the first image for display and scale calculations
+        first_image_path = self.selected_image_paths[0]
+        self.load_image(first_image_path)
+        
+        # Update the image count display
+        self.update_image_count_display()
+    
+    def update_image_count_display(self):
+        """Update the display to show number of selected images"""
+        if not hasattr(self, 'image_name_label'):
+            return
+        
+        if len(self.selected_image_paths) == 0:
+            self.image_name_label.config(text="No images selected", foreground="gray")
+        elif len(self.selected_image_paths) == 1:
+            filename = os.path.basename(self.selected_image_paths[0])
+            if len(filename) > 25:
+                filename = filename[:22] + "..."
+            self.image_name_label.config(text=filename, foreground="black")
+        else:
+            # Show count and first image name
+            first_filename = os.path.basename(self.selected_image_paths[0])
+            if len(first_filename) > 15:
+                first_filename = first_filename[:12] + "..."
+            self.image_name_label.config(
+                text=f"{len(self.selected_image_paths)} images ({first_filename} +{len(self.selected_image_paths)-1} more)", 
+                foreground="blue"
+            )
     
     def load_image(self, image_path):
-        """Load and display input image"""
-        self.selected_image_path = image_path
+        """Load and display input image (single image - for backward compatibility)"""
+        # If this is called directly, treat as single image
+        if image_path not in self.selected_image_paths:
+            self.selected_image_paths = [image_path]
         
         try:
             # Update thumbnail
@@ -1055,8 +1154,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 filename = filename[:22] + "..."
             self.image_name_label.config(text=filename, foreground="black")
             
-            # Get image size
+            # Get image size and store original dimensions
             original = Image.open(image_path)
+            self.original_image_width = original.width
+            self.original_image_height = original.height
             self.image_size_label.config(text=f"{original.width}×{original.height}")
             
             # Auto-set resolution if enabled
@@ -1068,11 +1169,93 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             self.status_label.config(text=f"Error loading image: {str(e)}", foreground="red")
     
+    def set_size_multiplier(self, multiplier):
+        """Set size using multiplier of original image dimensions"""
+        if not self.original_image_width or not self.original_image_height:
+            self.log_message("❌ No input image loaded. Please select an image first.")
+            return
+        
+        # Calculate new dimensions maintaining aspect ratio
+        new_width = int(self.original_image_width * multiplier)
+        new_height = int(self.original_image_height * multiplier)
+        
+        # Ensure dimensions are within valid range (256-4096)
+        new_width = max(256, min(4096, new_width))
+        new_height = max(256, min(4096, new_height))
+        
+        # If we had to clamp, maintain aspect ratio
+        if new_width != int(self.original_image_width * multiplier) or new_height != int(self.original_image_height * multiplier):
+            aspect_ratio = self.original_image_width / self.original_image_height
+            if new_width != int(self.original_image_width * multiplier):
+                new_height = int(new_width / aspect_ratio)
+            else:
+                new_width = int(new_height * aspect_ratio)
+        
+        self.width_var.set(new_width)
+        self.height_var.set(new_height)
+        self.log_message(f"Size set to {new_width}×{new_height} ({multiplier}x of input)")
+    
     def set_size_preset(self, width, height):
-        """Set size preset"""
+        """Set size preset (legacy method for compatibility)"""
         self.width_var.set(width)
         self.height_var.set(height)
         self.log_message(f"Size preset set to {width}×{height}")
+    
+    def show_custom_scale_dialog(self):
+        """Show dialog for custom scale input"""
+        if not self.original_image_width or not self.original_image_height:
+            self.log_message("❌ No input image loaded. Please select an image first.")
+            return
+        
+        from tkinter import simpledialog
+        
+        # Show current dimensions for reference
+        current_width = self.width_var.get()
+        current_height = self.height_var.get()
+        current_scale = (current_width / self.original_image_width) if self.original_image_width > 0 else 1.0
+        
+        dialog_text = (
+            f"Enter custom scale multiplier (0.1x - 5.0x)\n\n"
+            f"Original: {self.original_image_width}×{self.original_image_height}\n"
+            f"Current: {current_width}×{current_height} ({current_scale:.2f}x)\n\n"
+            f"Examples:\n"
+            f"• 0.5x = half size\n"
+            f"• 1.0x = original size\n"
+            f"• 3.0x = triple size"
+        )
+        
+        while True:
+            try:
+                scale_input = simpledialog.askstring(
+                    "Custom Scale",
+                    dialog_text,
+                    initialvalue=f"{current_scale:.2f}"
+                )
+                
+                if scale_input is None:  # User cancelled
+                    return
+                
+                # Parse and validate the scale
+                scale = float(scale_input)
+                
+                if 0.1 <= scale <= 5.0:
+                    self.set_size_multiplier(scale)
+                    return
+                else:
+                    from tkinter import messagebox
+                    messagebox.showerror(
+                        "Invalid Scale",
+                        f"Scale must be between 0.1x and 5.0x\nYou entered: {scale}x"
+                    )
+                    # Continue the loop to ask again
+                    
+            except ValueError:
+                from tkinter import messagebox
+                messagebox.showerror(
+                    "Invalid Input",
+                    f"Please enter a valid number between 0.1 and 5.0\nYou entered: {scale_input}"
+                )
+                # Continue the loop to ask again
     
     def auto_set_resolution(self):
         """Auto-set resolution based on input image"""
@@ -1183,6 +1366,16 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"Error processing entry change: {e}")
     
+    def validate_integer(self, value):
+        """Validate that the input is a positive integer"""
+        if value == "":
+            return True  # Allow empty field
+        try:
+            int_value = int(value)
+            return int_value > 0 and int_value <= 4096
+        except ValueError:
+            return False
+    
     def process_seedream(self):
         """Process with Seedream V4 API"""
         if not self.api_client:
@@ -1190,9 +1383,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.log_message("❌ Error: API client not configured")
             return
             
-        if not self.selected_image_path:
-            self.status_label.config(text="Please select an image first", foreground="red")
-            self.log_message("❌ Error: No image selected")
+        if not self.selected_image_paths:
+            self.status_label.config(text="Please select at least one image", foreground="red")
+            self.log_message("❌ Error: No images selected")
             return
         
         prompt = self.prompt_text.get("1.0", tk.END).strip()
@@ -1216,21 +1409,25 @@ class ImprovedSeedreamLayout(AIChatMixin):
         # Process in background thread
         def process_in_background():
             try:
-                # Upload image and get URL using privacy uploader
-                self.log_message("📤 Uploading image...")
+                # Upload all images and get URLs using privacy uploader
+                self.log_message(f"📤 Uploading {len(self.selected_image_paths)} image(s)...")
                 from core.secure_upload import privacy_uploader
-                success, image_url, privacy_info = privacy_uploader.upload_with_privacy_warning(
-                    self.selected_image_path, 'seedream_v4'
-                )
                 
-                if not success or not image_url:
-                    error_msg = privacy_info or "Failed to upload image"
+                image_urls = []
+                for i, image_path in enumerate(self.selected_image_paths):
+                    self.log_message(f"📤 Uploading image {i+1}/{len(self.selected_image_paths)}...")
+                    success, image_url, privacy_info = privacy_uploader.upload_with_privacy_warning(
+                        image_path, 'seedream_v4'
+                    )
+                    
+                    if not success or not image_url:
+                        error_msg = privacy_info or f"Failed to upload image {i+1}"
+                        self.parent_frame.after(0, lambda: self.handle_processing_error(f"Failed to upload image {i+1}: {error_msg}"))
+                        return
+                    
+                    image_urls.append(image_url)
                 
-                if not image_url:
-                    self.parent_frame.after(0, lambda: self.handle_processing_error(f"Failed to upload image: {error_msg}"))
-                    return
-                
-                self.log_message("✅ Image uploaded successfully")
+                self.log_message(f"✅ All {len(image_urls)} images uploaded successfully")
                 
                 # Prepare parameters
                 size_str = f"{self.width_var.get()}*{self.height_var.get()}"
@@ -1240,10 +1437,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 
                 self.log_message(f"🔧 Submitting task with size: {size_str}, sync: {sync_mode}")
                 
-                # Submit task
+                # Submit task with multiple images
                 result = self.api_client.submit_seedream_v4_task(
                     prompt=prompt,
-                    images=[image_url],
+                    images=image_urls,  # Now using array of image URLs
                     size=size_str,
                     seed=seed,
                     enable_sync_mode=sync_mode,
@@ -1824,15 +2021,142 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.log_message(f"🔍 Zoom changed: {self.current_zoom}%")
     
     # Preset and sample methods
-    def load_preset(self, event=None): 
-        """Load preset settings"""
-        if self.tab_instance and hasattr(self.tab_instance, 'load_saved_prompt'):
-            self.tab_instance.load_saved_prompt()
+    def on_preset_click(self, event):
+        """Handle click on preset text widget"""
+        # Get the line number that was clicked
+        index = self.preset_listbox.index(f"@{event.x},{event.y}")
+        line_num = int(float(index))
+        
+        # Find which prompt this line belongs to
+        for idx, (start_line, end_line) in enumerate(self.prompt_line_ranges):
+            if start_line <= line_num <= end_line:
+                self.load_preset_by_index(idx)
+                break
+    
+    def load_preset(self, event=None):
+        """Load preset settings - kept for compatibility"""
+        # This is now handled by on_preset_click
+        pass
+    
+    def load_preset_by_index(self, idx):
+        """Load preset by index"""
+        # Get the full prompt from our stored list
+        if idx < len(self.full_prompts):
+            full_prompt = self.full_prompts[idx]
+            
+            # Load the full prompt into the text field
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", full_prompt)
+            
+            # Show truncated version in log
+            truncated = full_prompt[:100] + "..." if len(full_prompt) > 100 else full_prompt
+            self.log_message(f"📋 Loaded preset: {truncated}")
+        else:
+            # Fallback to old method
+            if self.tab_instance and hasattr(self.tab_instance, 'load_saved_prompt'):
+                self.tab_instance.load_saved_prompt()
+    
+    def refresh_preset_dropdown(self):
+        """Refresh the text widget with saved prompts (with wrapping)"""
+        # Enable editing to clear and repopulate
+        self.preset_listbox.config(state='normal')
+        self.preset_listbox.delete("1.0", tk.END)
+        self.full_prompts = []
+        self.prompt_line_ranges = []
+        
+        if self.tab_instance and hasattr(self.tab_instance, 'saved_seedream_v4_prompts'):
+            saved_prompts = self.tab_instance.saved_seedream_v4_prompts
+            if saved_prompts:
+                # Store full prompts
+                self.full_prompts = saved_prompts.copy()
+                
+                # Add each prompt with a number and separator
+                for idx, prompt in enumerate(saved_prompts, 1):
+                    # Record starting line
+                    start_line = int(float(self.preset_listbox.index("end-1c").split('.')[0]))
+                    
+                    # Clean the prompt for display
+                    display_prompt = prompt.replace('\n', ' ').replace('\r', ' ')
+                    
+                    # Add numbered prompt with wrapping
+                    self.preset_listbox.insert(tk.END, f"{idx}. {display_prompt}\n")
+                    
+                    # Record ending line
+                    end_line = int(float(self.preset_listbox.index("end-1c").split('.')[0]))
+                    
+                    # Store the line range for this prompt
+                    self.prompt_line_ranges.append((start_line, end_line))
+                    
+                    # Add separator line
+                    self.preset_listbox.insert(tk.END, "─" * 80 + "\n")
+                
+                self.log_message(f"🔄 Refreshed saved prompts list with {len(saved_prompts)} prompts")
+            else:
+                self.preset_listbox.insert("1.0", "No saved prompts available")
+                self.log_message("📝 No saved prompts available")
+        
+        # Make read-only again
+        self.preset_listbox.config(state='disabled')
     
     def save_preset(self): 
         """Save current settings as preset"""
         if self.tab_instance and hasattr(self.tab_instance, 'save_current_prompt'):
             self.tab_instance.save_current_prompt()
+            # Refresh dropdown after saving
+            self.refresh_preset_dropdown()
+    
+    def setup_drag_drop(self):
+        """Setup drag and drop functionality"""
+        if DND_AVAILABLE:
+            try:
+                # Enable drag and drop on thumbnail
+                self.thumbnail_label.drop_target_register(DND_FILES)
+                self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                
+                # Enable drag and drop on image info area
+                self.image_name_label.drop_target_register(DND_FILES)
+                self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                
+            except Exception as e:
+                print(f"Drag and drop setup failed: {e}")
+    
+    def on_drop(self, event):
+        """Handle drag and drop"""
+        # Try parent tab's on_drop first
+        if self.tab_instance and hasattr(self.tab_instance, 'on_drop'):
+            self.tab_instance.on_drop(event)
+        else:
+            # Fallback to direct handling
+            from utils.utils import parse_drag_drop_data, validate_image_file, show_error
+            
+            success, result = parse_drag_drop_data(event.data)
+            
+            if not success:
+                show_error("Drag & Drop Error", result)
+                return
+            
+            file_path = result
+            
+            # Validate the image file
+            is_valid, error = validate_image_file(file_path)
+            if not is_valid:
+                show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+                return
+            
+            # Load the image
+            self.load_image(file_path)
+    
+    def on_drag_enter(self, event):
+        """Handle drag enter"""
+        self.thumbnail_label.config(bg='#e0e0e0')
+    
+    def on_drag_leave(self, event):
+        """Handle drag leave"""
+        self.thumbnail_label.config(bg='#f5f5f5')
     
     def load_sample(self): 
         """Load sample prompt"""

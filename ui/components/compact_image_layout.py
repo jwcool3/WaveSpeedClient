@@ -13,13 +13,21 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 
+# Try to import drag and drop support
+try:
+    from tkinterdnd2 import DND_FILES
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+
 
 class CompactImageLayout:
     """Compact, efficient layout that maximizes space usage"""
     
-    def __init__(self, parent_frame, title="Image Processing"):
+    def __init__(self, parent_frame, title="Image Processing", parent_tab=None):
         self.parent_frame = parent_frame
         self.title = title
+        self.parent_tab = parent_tab
         self.selected_image_path = None
         self.result_image = None
         
@@ -92,6 +100,9 @@ class CompactImageLayout:
         )
         self.thumbnail_label.grid(row=0, column=0, padx=(0, 5))
         self.thumbnail_label.bind("<Button-1>", lambda e: self.browse_image())
+        
+        # Setup drag and drop
+        self.setup_drag_drop()
         
         # Image info (compact)
         info_frame = ttk.Frame(image_frame)
@@ -400,6 +411,19 @@ class CompactImageLayout:
         except Exception as e:
             self.status_label.config(text=f"Error: {str(e)}", foreground="red")
     
+    def update_input_image(self, image_path):
+        """Update the input image display - compatibility method for tabs"""
+        try:
+            print(f"DEBUG: update_input_image called with: {image_path}")
+            self.load_image(image_path)
+            print(f"DEBUG: update_input_image - load_image completed successfully")
+            print(f"DEBUG: update_input_image - compact layout selected_image_path: {self.selected_image_path}")
+            return True
+        except Exception as e:
+            print(f"DEBUG: update_input_image - error: {str(e)}")
+            self.status_label.config(text=f"Error updating image: {str(e)}", foreground="red")
+            return False
+    
     def display_image_in_canvas(self, image_path):
         """Display image in the main canvas with proper scaling"""
         try:
@@ -457,12 +481,14 @@ class CompactImageLayout:
         """Switch between input and result image views"""
         if view_type == 'input' and self.selected_image_path:
             self.display_image_in_canvas(self.selected_image_path)
-            self.input_tab_btn.config(relief='sunken')
-            self.result_tab_btn.config(relief='raised')
+            # Update button text to indicate selection
+            self.input_tab_btn.config(text="📥 Input Image ✓")
+            self.result_tab_btn.config(text="✨ Result")
         elif view_type == 'result' and self.result_image:
             self.display_image_in_canvas(self.result_image)
-            self.result_tab_btn.config(relief='sunken')
-            self.input_tab_btn.config(relief='raised')
+            # Update button text to indicate selection
+            self.result_tab_btn.config(text="✨ Result ✓")
+            self.input_tab_btn.config(text="📥 Input Image")
     
     def process_image(self):
         """Process the image"""
@@ -516,6 +542,88 @@ class CompactImageLayout:
     def save_result(self): pass
     def load_result(self): pass
     def on_result_selected(self, event): pass
+    
+    def update_result_image(self, result_url):
+        """Update the result image display from URL"""
+        try:
+            # Download the image from URL
+            import requests
+            from PIL import Image
+            from io import BytesIO
+            
+            response = requests.get(result_url)
+            response.raise_for_status()
+            
+            # Load image from bytes
+            image = Image.open(BytesIO(response.content))
+            
+            # Store the result image
+            self.result_image = image
+            
+            # Display the result image
+            self.display_image_in_canvas(image)
+            
+            # Switch to result view
+            self.switch_image_view('result')
+            
+            return True
+            
+        except Exception as e:
+            self.status_label.config(text=f"Error loading result: {str(e)}", foreground="red")
+            return False
+    
+    def setup_drag_drop(self):
+        """Setup drag and drop functionality"""
+        if DND_AVAILABLE:
+            try:
+                # Enable drag and drop on thumbnail
+                self.thumbnail_label.drop_target_register(DND_FILES)
+                self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                
+                # Enable drag and drop on image info area
+                self.image_name_label.drop_target_register(DND_FILES)
+                self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                
+            except Exception as e:
+                print(f"Drag and drop setup failed: {e}")
+    
+    def on_drop(self, event):
+        """Handle drag and drop"""
+        # Try parent tab's on_drop first
+        if self.parent_tab and hasattr(self.parent_tab, 'on_drop'):
+            self.parent_tab.on_drop(event)
+        else:
+            # Fallback to direct handling
+            from utils.utils import parse_drag_drop_data, validate_image_file, show_error
+            
+            success, result = parse_drag_drop_data(event.data)
+            
+            if not success:
+                show_error("Drag & Drop Error", result)
+                return
+            
+            file_path = result
+            
+            # Validate the image file
+            is_valid, error = validate_image_file(file_path)
+            if not is_valid:
+                show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+                return
+            
+            # Load the image
+            self.load_image(file_path)
+    
+    def on_drag_enter(self, event):
+        """Handle drag enter"""
+        self.thumbnail_label.config(bg='#e0e0e0')
+    
+    def on_drag_leave(self, event):
+        """Handle drag leave"""
+        self.thumbnail_label.config(bg='#f0f0f0')
 
 
 # Example usage in your tab class:

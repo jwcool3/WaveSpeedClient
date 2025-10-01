@@ -13,12 +13,20 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import os
 
+# Try to import drag and drop support
+try:
+    from tkinterdnd2 import DND_FILES
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+
 
 class ImprovedSeedEditLayout:
     """Improved SeedEdit layout with efficient space usage and better UX"""
     
-    def __init__(self, parent_frame):
+    def __init__(self, parent_frame, tab_instance=None):
         self.parent_frame = parent_frame
+        self.tab_instance = tab_instance
         self.selected_image_path = None
         self.result_image_path = None
         self.comparison_mode = "side_by_side"  # "side_by_side" or "overlay"
@@ -96,6 +104,9 @@ class ImprovedSeedEditLayout:
         self.thumbnail_label.grid(row=0, column=0, padx=(0, 8), rowspan=2)
         self.thumbnail_label.bind("<Button-1>", lambda e: self.browse_image())
         
+        # Setup drag and drop
+        self.setup_drag_drop()
+        
         # Image info (compact)
         self.image_name_label = ttk.Label(
             input_frame,
@@ -138,6 +149,8 @@ class ImprovedSeedEditLayout:
         )
         
         self.guidance_var = tk.StringVar(value="0.5")
+        # Also create guidance_scale_var for compatibility with tab
+        self.guidance_scale_var = self.guidance_var
         guidance_combo = ttk.Combobox(
             settings_frame,
             textvariable=self.guidance_var,
@@ -402,19 +415,19 @@ class ImprovedSeedEditLayout:
         """Set image viewing mode"""
         self.current_view_mode = mode
         
-        # Update button states
+        # Update button states using text indicators
         if mode == "original":
-            self.view_original_btn.config(relief='sunken')
-            self.view_result_btn.config(relief='raised')
+            self.view_original_btn.config(text="📥 Original ✓")
+            self.view_result_btn.config(text="✨ Result")
             if self.selected_image_path:
                 self.display_image(self.selected_image_path)
         elif mode == "result":
-            self.view_result_btn.config(relief='sunken')
-            self.view_original_btn.config(relief='raised')
+            self.view_result_btn.config(text="✨ Result ✓")
+            self.view_original_btn.config(text="📥 Original")
             if self.result_image_path:
                 self.display_image(self.result_image_path)
         
-        self.comparison_btn.config(relief='raised')
+        self.comparison_btn.config(text="🔄 Compare")
     
     def toggle_comparison_mode(self):
         """Toggle comparison mode (side-by-side or overlay)"""
@@ -422,12 +435,65 @@ class ImprovedSeedEditLayout:
             self.status_label.config(text="Need both images for comparison", foreground="orange")
             return
         
-        self.comparison_btn.config(relief='sunken')
-        self.view_original_btn.config(relief='raised')
-        self.view_result_btn.config(relief='raised')
+        self.comparison_btn.config(text="🔄 Compare ✓")
+        self.view_original_btn.config(text="📥 Original")
+        self.view_result_btn.config(text="✨ Result")
         
         # Show side-by-side comparison
         self.display_comparison()
+    
+    def setup_drag_drop(self):
+        """Setup drag and drop functionality"""
+        if DND_AVAILABLE:
+            try:
+                # Enable drag and drop on thumbnail
+                self.thumbnail_label.drop_target_register(DND_FILES)
+                self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                
+                # Enable drag and drop on image info area
+                self.image_name_label.drop_target_register(DND_FILES)
+                self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+                
+            except Exception as e:
+                print(f"Drag and drop setup failed: {e}")
+    
+    def on_drop(self, event):
+        """Handle drag and drop"""
+        # Try parent tab's on_drop first
+        if self.tab_instance and hasattr(self.tab_instance, 'on_drop'):
+            self.tab_instance.on_drop(event)
+        else:
+            # Fallback to direct handling
+            from utils.utils import parse_drag_drop_data, validate_image_file, show_error
+            
+            success, result = parse_drag_drop_data(event.data)
+            
+            if not success:
+                show_error("Drag & Drop Error", result)
+                return
+            
+            file_path = result
+            
+            # Validate the image file
+            is_valid, error = validate_image_file(file_path)
+            if not is_valid:
+                show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+                return
+            
+            # Load the image
+            self.load_image(file_path)
+    
+    def on_drag_enter(self, event):
+        """Handle drag enter"""
+        self.thumbnail_label.config(bg='#e0e0e0')
+    
+    def on_drag_leave(self, event):
+        """Handle drag leave"""
+        self.thumbnail_label.config(bg='#f5f5f5')
     
     def display_image(self, image_path, position="center"):
         """Display image with dynamic scaling and minimal margins"""
@@ -602,25 +668,22 @@ class ImprovedSeedEditLayout:
             self.status_label.config(text=f"Error loading image: {str(e)}", foreground="red")
     
     def process_seededit(self):
-        """Process with SeedEdit"""
-        if not self.selected_image_path:
-            self.status_label.config(text="Please select an image first", foreground="red")
-            return
-        
-        prompt = self.prompt_text.get("1.0", tk.END).strip()
-        if not prompt or prompt == "Describe the changes you want to make to the image...":
-            self.status_label.config(text="Please enter edit instructions", foreground="red")
-            return
-        
-        # Show processing state
-        self.status_label.config(text="Processing with SeedEdit...", foreground="blue")
-        self.progress_bar.grid(row=2, column=0, sticky="ew", pady=(4, 0))
-        self.progress_bar.start()
-        self.primary_btn.config(state='disabled', text="Processing...")
-        
-        # Here you would call your actual SeedEdit API
-        # For demo, simulate processing
-        self.after_processing()
+        """Process with SeedEdit - delegates to tab instance"""
+        if self.tab_instance and hasattr(self.tab_instance, 'process_task'):
+            # Call the tab's real process method
+            self.tab_instance.process_task()
+        else:
+            # Fallback to basic validation
+            if not self.selected_image_path:
+                self.status_label.config(text="Please select an image first", foreground="red")
+                return
+            
+            prompt = self.prompt_text.get("1.0", tk.END).strip()
+            if not prompt or prompt == "Describe the changes you want to make to the image...":
+                self.status_label.config(text="Please enter edit instructions", foreground="red")
+                return
+            
+            self.status_label.config(text="No processing method available", foreground="orange")
     
     def after_processing(self):
         """Called after processing completes"""
@@ -668,6 +731,43 @@ class ImprovedSeedEditLayout:
                 self.display_image(self.selected_image_path)
             elif self.current_view_mode == "result" and self.result_image_path:
                 self.display_image(self.result_image_path)
+    
+    def update_result_image(self, image_url):
+        """Update the result image display with downloaded image"""
+        try:
+            import requests
+            import tempfile
+            
+            # Download image from URL
+            response = requests.get(image_url)
+            response.raise_for_status()
+            
+            # Save to temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+                tmp_file.write(response.content)
+                temp_path = tmp_file.name
+            
+            # Load image and create a copy, then clean up temp file
+            with Image.open(temp_path) as temp_image:
+                image = temp_image.copy()
+            os.unlink(temp_path)  # Clean up temp file
+            
+            # Save result image path
+            self.result_image_path = temp_path.replace('.png', '_result.png')
+            image.save(self.result_image_path)
+            
+            # Update display
+            self.set_view_mode("result")
+            self.display_image(self.result_image_path)
+            
+            # Update status
+            self.status_label.config(text="✅ Result image loaded successfully!", foreground="green")
+            
+            return True
+            
+        except Exception as e:
+            self.status_label.config(text=f"❌ Error loading result: {str(e)}", foreground="red")
+            return False
     
     # Placeholder methods for functionality
     def load_preset(self, event=None): pass
