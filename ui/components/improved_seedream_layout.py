@@ -126,9 +126,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.left_pane = ttk.Frame(self.paned_window, width=300)
         self.right_pane = ttk.Frame(self.paned_window, width=600)
         
-        # Add panes to PanedWindow
+        # Add panes to PanedWindow with equal weights for 50/50 split
         self.paned_window.add(self.left_pane, weight=1)  # Controls pane
-        self.paned_window.add(self.right_pane, weight=3)  # Images pane (3x weight = 75%)
+        self.paned_window.add(self.right_pane, weight=1)  # Images pane (equal weight = 50/50 split)
         
         # Left Column - Compact Controls
         self.setup_left_column_paned(self.left_pane)
@@ -170,18 +170,23 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(100, self.set_initial_splitter_position)
                 return
 
-            # Try to load saved position
-            saved_position = self.load_splitter_position()
-            if saved_position and 200 <= saved_position <= total_width - 200:
-                position = saved_position
-            else:
-                # Default to 25% of total width (approximately 300-400px for controls)
-                position = max(280, int(total_width * 0.25))
+            # Always start at 50/50 split (saved position disabled for now to ensure consistency)
+            # saved_position = self.load_splitter_position()
+
+            # Calculate constraints: minimum 200px for left, 400px for right
+            min_position = 200
+            max_position = total_width - 400
+
+            # Always use 50% of total width (middle/center position)
+            position = int(total_width * 0.5)
+            # Constrain to ensure neither pane is too small
+            position = max(min_position, min(position, max_position))
 
             self.paned_window.sashpos(0, position)
+            print(f"DEBUG: Setting splitter position to {position}px (50% of {total_width}px)")
 
-            # Bind event to save position when user drags splitter
-            self.paned_window.bind('<ButtonRelease-1>', self.on_splitter_moved)
+            # Bind event to save position when user drags splitter (disabled to always start at 50/50)
+            # self.paned_window.bind('<ButtonRelease-1>', self.on_splitter_moved)
 
         except Exception as e:
             # Fallback: try again after another delay if window isn't ready
@@ -2760,7 +2765,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 # Example text (larger for longer prompts)
                 text_widget = tk.Text(example_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
                 text_widget.insert("1.0", example)
-                text_widget.config(state="readonly")
+                text_widget.config(state=tk.DISABLED)  # Fixed: Text widgets use DISABLED not readonly
                 text_widget.grid(row=0, column=0, sticky="ew", pady=(0, 5))
                 
                 # Word count label
@@ -2833,7 +2838,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             example_text = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
             example_text.insert("1.0", example)
-            example_text.config(state="readonly", background="#f0f0f0")
+            example_text.config(state=tk.DISABLED, background="#f0f0f0")  # Fixed: Text widgets use DISABLED not readonly
             example_text.pack(fill="x")
             
             # Analysis
@@ -2859,7 +2864,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             analysis_content += "\nThis combination of techniques makes the harmful intent less obvious to filters while still achieving the desired result through implication and context manipulation."
             
             analysis_text.insert("1.0", analysis_content)
-            analysis_text.config(state="readonly")
+            analysis_text.config(state=tk.DISABLED)  # Fixed: Text widgets use DISABLED not readonly
             analysis_text.pack(fill="both", expand=True)
             
             # Close button
@@ -2917,7 +2922,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 # Example text
                 text_widget = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
                 text_widget.insert("1.0", example)
-                text_widget.config(state="readonly")
+                text_widget.config(state=tk.DISABLED)  # Fixed: Text widgets use DISABLED not readonly
                 text_widget.grid(row=0, column=0, sticky="ew", pady=(0, 5))
                 
                 # Buttons frame
