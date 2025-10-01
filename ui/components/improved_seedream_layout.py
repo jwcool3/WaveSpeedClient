@@ -191,6 +191,197 @@ class SynchronizedImagePanels:
         return True  # Handled
 
 
+class EnhancedSyncManager:
+    """Enhanced synchronization manager with separate zoom and drag controls"""
+    
+    def __init__(self, layout_instance):
+        self.layout = layout_instance
+        self.original_canvas = layout_instance.original_canvas
+        self.result_canvas = layout_instance.result_canvas
+        
+        # Drag state tracking
+        self.drag_active = False
+        self.drag_source = None
+        self.last_drag_x = 0
+        self.last_drag_y = 0
+        
+        # Image information for scaling calculations
+        self.image_info = {
+            'original': {'width': 0, 'height': 0, 'scale': 1.0, 'offset_x': 0, 'offset_y': 0},
+            'result': {'width': 0, 'height': 0, 'scale': 1.0, 'offset_x': 0, 'offset_y': 0}
+        }
+        
+        logger.info("EnhancedSyncManager initialized")
+    
+    def setup_enhanced_events(self):
+        """Setup proper event bindings with conflict resolution"""
+        try:
+            # Store existing non-sync bindings we want to preserve
+            preserved_bindings = {}
+            for event_type in ['<MouseWheel>', '<Button-4>', '<Button-5>']:
+                for canvas_name, canvas in [('original', self.original_canvas), ('result', self.result_canvas)]:
+                    binding = canvas.bind(event_type)
+                    if binding:
+                        preserved_bindings[f"{canvas_name}_{event_type}"] = binding
+            
+            # Bind new synchronized events for drag
+            self.original_canvas.bind('<Button-1>', lambda e: self.start_sync_drag(e, 'original'), add='+')
+            self.original_canvas.bind('<B1-Motion>', lambda e: self.handle_sync_drag(e, 'original'), add='+')
+            self.original_canvas.bind('<ButtonRelease-1>', lambda e: self.end_sync_drag(e, 'original'), add='+')
+            
+            self.result_canvas.bind('<Button-1>', lambda e: self.start_sync_drag(e, 'result'), add='+')
+            self.result_canvas.bind('<B1-Motion>', lambda e: self.handle_sync_drag(e, 'result'), add='+')
+            self.result_canvas.bind('<ButtonRelease-1>', lambda e: self.end_sync_drag(e, 'result'), add='+')
+            
+            # Mouse wheel for zoom sync (add to existing bindings)
+            self.original_canvas.bind('<MouseWheel>', lambda e: self.handle_sync_zoom(e, 'original'), add='+')
+            self.result_canvas.bind('<MouseWheel>', lambda e: self.handle_sync_zoom(e, 'result'), add='+')
+            
+            logger.info("Enhanced sync events bound successfully")
+        except Exception as e:
+            logger.error(f"Error binding enhanced sync events: {e}", exc_info=True)
+    
+    def update_image_info(self, panel_type, width, height, scale, offset_x, offset_y):
+        """Update image information for sync calculations"""
+        self.image_info[panel_type] = {
+            'width': width,
+            'height': height,
+            'scale': scale,
+            'offset_x': offset_x,
+            'offset_y': offset_y
+        }
+        logger.debug(f"Updated {panel_type} info: {width}x{height}, scale={scale:.3f}")
+    
+    def start_sync_drag(self, event, source_panel):
+        """Start synchronized drag operation"""
+        # Only handle if sync drag is enabled
+        if not hasattr(self.layout, 'sync_drag_var') or not self.layout.sync_drag_var.get():
+            return
+        
+        if self.drag_active:
+            return
+        
+        self.drag_active = True
+        self.drag_source = source_panel
+        self.last_drag_x = event.x
+        self.last_drag_y = event.y
+        
+        # Set cursor for both canvases
+        self.original_canvas.configure(cursor="fleur")
+        self.result_canvas.configure(cursor="fleur")
+        
+        # Set scan mark for both canvases
+        self.original_canvas.scan_mark(event.x, event.y)
+        self.result_canvas.scan_mark(event.x, event.y)
+        
+        logger.debug(f"Started sync drag from {source_panel} at ({event.x}, {event.y})")
+    
+    def handle_sync_drag(self, event, source_panel):
+        """Handle synchronized drag motion"""
+        # Only handle if sync drag is enabled and this is the active drag source
+        if not hasattr(self.layout, 'sync_drag_var') or not self.layout.sync_drag_var.get():
+            return
+        
+        if not self.drag_active or self.drag_source != source_panel:
+            return
+        
+        # Calculate movement delta
+        dx = event.x - self.last_drag_x
+        dy = event.y - self.last_drag_y
+        
+        # Always move the source canvas
+        source_canvas = self.original_canvas if source_panel == 'original' else self.result_canvas
+        source_canvas.scan_dragto(event.x, event.y, gain=1)
+        
+        # Move the other canvas with scale compensation
+        other_panel = 'result' if source_panel == 'original' else 'original'
+        other_canvas = self.result_canvas if source_panel == 'original' else self.original_canvas
+        
+        # Calculate synchronized movement
+        sync_x, sync_y = self.calculate_sync_movement(event.x, event.y, source_panel, other_panel)
+        
+        if sync_x is not None and sync_y is not None:
+            other_canvas.scan_dragto(sync_x, sync_y, gain=1)
+        else:
+            # Fallback to simple 1:1 movement
+            other_canvas.scan_dragto(event.x, event.y, gain=1)
+        
+        self.last_drag_x = event.x
+        self.last_drag_y = event.y
+    
+    def calculate_sync_movement(self, x, y, source_panel, target_panel):
+        """Calculate synchronized movement accounting for different image sizes"""
+        source_info = self.image_info[source_panel]
+        target_info = self.image_info[target_panel]
+        
+        # If we don't have valid image info, use 1:1 movement
+        if (source_info['width'] <= 0 or target_info['width'] <= 0 or
+            source_info['height'] <= 0 or target_info['height'] <= 0):
+            return x, y
+        
+        # Calculate scale ratios
+        width_ratio = target_info['width'] / source_info['width']
+        height_ratio = target_info['height'] / source_info['height']
+        
+        # Apply scale compensation
+        sync_x = x * width_ratio
+        sync_y = y * height_ratio
+        
+        return int(sync_x), int(sync_y)
+    
+    def end_sync_drag(self, event, source_panel):
+        """End synchronized drag operation"""
+        if not self.drag_active or self.drag_source != source_panel:
+            return
+        
+        self.drag_active = False
+        self.drag_source = None
+        
+        # Reset cursors
+        self.original_canvas.configure(cursor="")
+        self.result_canvas.configure(cursor="")
+        
+        logger.debug(f"Ended sync drag from {source_panel}")
+    
+    def handle_sync_zoom(self, event, source_panel):
+        """Handle synchronized zoom"""
+        if not hasattr(self.layout, 'sync_zoom_var') or not self.layout.sync_zoom_var.get():
+            return
+        
+        # Get zoom direction
+        if hasattr(event, 'delta'):
+            delta = event.delta
+        elif hasattr(event, 'num'):
+            delta = 120 if event.num == 4 else -120
+        else:
+            return
+        
+        # Apply zoom to layout's zoom system
+        current_zoom = self.layout.zoom_var.get()
+        zoom_levels = ["25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"]
+        
+        try:
+            if current_zoom == "Fit":
+                current_index = 3  # 100%
+            else:
+                current_index = zoom_levels.index(current_zoom)
+        except ValueError:
+            current_index = 3
+        
+        # Adjust zoom level
+        if delta > 0:  # Zoom in
+            new_index = min(current_index + 1, len(zoom_levels) - 1)
+        else:  # Zoom out
+            new_index = max(current_index - 1, 0)
+        
+        new_zoom = zoom_levels[new_index]
+        self.layout.zoom_var.set(new_zoom)
+        if hasattr(self.layout, 'on_zoom_changed'):
+            self.layout.on_zoom_changed()
+        
+        logger.debug(f"Sync zoom from {source_panel}: {current_zoom} -> {new_zoom}")
+
+
 class ImprovedSeedreamLayout(AIChatMixin):
     """Improved Seedream V4 layout with efficient space usage and better UX"""
     
@@ -1361,15 +1552,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def setup_synchronized_panels(self):
         """Setup synchronized image panels for coordinated zooming and panning"""
         try:
-            if hasattr(self, 'original_canvas') and hasattr(self, 'result_canvas') and hasattr(self, 'sync_zoom_var'):
-                self.sync_manager = SynchronizedImagePanels(
-                    self.original_canvas,
-                    self.result_canvas,
-                    self.sync_zoom_var
-                )
-                logger.info("Synchronized image panel system initialized")
+            if hasattr(self, 'original_canvas') and hasattr(self, 'result_canvas'):
+                # Use enhanced sync manager with separate zoom and drag controls
+                self.enhanced_sync_manager = EnhancedSyncManager(self)
+                self.enhanced_sync_manager.setup_enhanced_events()
+                
+                # Keep old sync_manager for backward compatibility
+                self.sync_manager = self.enhanced_sync_manager
+                
+                logger.info("Enhanced synchronized image panel system initialized")
             else:
-                logger.warning("Cannot initialize sync manager - canvases or sync_zoom_var not ready")
+                logger.warning("Cannot initialize sync manager - canvases not ready")
         except Exception as e:
             logger.error(f"Error initializing synchronized panels: {e}", exc_info=True)
     
@@ -1442,15 +1635,29 @@ class ImprovedSeedreamLayout(AIChatMixin):
         mode_combo.grid(row=0, column=1, padx=(0, 8))
         mode_combo.bind('<<ComboboxSelected>>', self.on_comparison_mode_changed)
         
+        # Sync controls frame (ENHANCED - separate zoom and drag sync)
+        sync_frame = ttk.Frame(controls_frame)
+        sync_frame.grid(row=0, column=2, padx=(0, 8))
+        
         # Sync zoom toggle
         self.sync_zoom_var = tk.BooleanVar(value=True)
-        sync_check = ttk.Checkbutton(
-            controls_frame,
+        sync_zoom_check = ttk.Checkbutton(
+            sync_frame,
             text="Sync Zoom",
             variable=self.sync_zoom_var,
             command=self.on_sync_zoom_changed
         )
-        sync_check.grid(row=0, column=2, padx=(0, 8))
+        sync_zoom_check.pack(side=tk.LEFT, padx=(0, 4))
+        
+        # Sync drag toggle (NEW)
+        self.sync_drag_var = tk.BooleanVar(value=True)
+        sync_drag_check = ttk.Checkbutton(
+            sync_frame,
+            text="Sync Drag",
+            variable=self.sync_drag_var,
+            command=self.on_sync_drag_changed
+        )
+        sync_drag_check.pack(side=tk.LEFT)
         
         # Opacity slider (for overlay mode)
         opacity_frame = ttk.Frame(controls_frame)
@@ -2430,8 +2637,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.log_message("✅ Processing completed successfully!")
         
         # Enable result view
-        self.view_result_btn.config(state='normal')
-        self.comparison_btn.config(state='normal')
+        if hasattr(self, 'view_result_btn'):
+            self.view_result_btn.config(state='normal')
+        if hasattr(self, 'comparison_btn'):
+            self.comparison_btn.config(state='normal')
     
     def log_message(self, message):
         """Add message to progress log"""
@@ -2486,7 +2695,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.display_overlay_view()
         
         # Clear comparison button state if not in comparison mode
-        if mode != "comparison":
+        if mode != "comparison" and hasattr(self, 'comparison_btn'):
             self.comparison_btn.state(['!pressed'])
     
     def set_panel_visibility(self, panel_type, visible):
@@ -3787,8 +3996,21 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def on_sync_zoom_changed(self):
         """Handle sync zoom toggle"""
-        # Implementation for synchronized zooming
-        pass
+        enabled = self.sync_zoom_var.get()
+        logger.info(f"Sync zoom {'enabled' if enabled else 'disabled'}")
+        
+        if hasattr(self, 'status_console') and self.status_console:
+            status = "enabled" if enabled else "disabled"
+            self.status_console.log_status(f"Zoom synchronization {status}")
+    
+    def on_sync_drag_changed(self):
+        """Handle sync drag toggle"""
+        enabled = self.sync_drag_var.get()
+        logger.info(f"Sync drag {'enabled' if enabled else 'disabled'}")
+        
+        if hasattr(self, 'status_console') and self.status_console:
+            status = "enabled" if enabled else "disabled"
+            self.status_console.log_status(f"Drag synchronization {status}")
     
     def on_opacity_changed(self, value=None):
         """Handle opacity slider change"""
@@ -3853,13 +4075,13 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def on_canvas_drag_start(self, event, panel_type):
         """Handle start of potential canvas drag for panning"""
-        # Try synchronized drag first if sync manager exists
-        if hasattr(self, 'sync_manager'):
-            handled = self.sync_manager.on_synchronized_drag_start(event, panel_type)
-            if handled:
-                return  # Sync manager is handling it
+        # NOTE: EnhancedSyncManager handles synchronization through its own event bindings
+        # This handler is for non-synchronized or fallback dragging only
         
-        # Fall back to normal drag handling
+        # Skip if sync drag is enabled (EnhancedSyncManager will handle it)
+        if hasattr(self, 'sync_drag_var') and self.sync_drag_var.get():
+            return
+        
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
         self.drag_data["dragging"] = False
@@ -3868,13 +4090,13 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def on_canvas_drag_motion(self, event, panel_type):
         """Handle canvas drag motion for panning"""
-        # Try synchronized drag first if sync manager exists
-        if hasattr(self, 'sync_manager'):
-            handled = self.sync_manager.on_synchronized_drag_motion(event, panel_type)
-            if handled:
-                return  # Sync manager is handling it
+        # NOTE: EnhancedSyncManager handles synchronization through its own event bindings
+        # This handler is for non-synchronized or fallback dragging only
         
-        # Fall back to normal drag handling
+        # Skip if sync drag is enabled (EnhancedSyncManager will handle it)
+        if hasattr(self, 'sync_drag_var') and self.sync_drag_var.get():
+            return
+        
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
         
         # Calculate how much the mouse moved
@@ -3894,13 +4116,13 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
     def on_canvas_drag_end(self, event, panel_type):
         """Handle end of canvas drag"""
-        # Try synchronized drag first if sync manager exists
-        if hasattr(self, 'sync_manager'):
-            handled = self.sync_manager.on_synchronized_drag_end(event, panel_type)
-            if handled:
-                return  # Sync manager is handling it
+        # NOTE: EnhancedSyncManager handles synchronization through its own event bindings
+        # This handler is for non-synchronized or fallback dragging only
         
-        # Fall back to normal drag handling
+        # Skip if sync drag is enabled (EnhancedSyncManager will handle it)
+        if hasattr(self, 'sync_drag_var') and self.sync_drag_var.get():
+            return
+        
         self.drag_data["dragging"] = False
         self.drag_data["threshold_met"] = False
         canvas = self.original_canvas if panel_type == "original" else self.result_canvas
@@ -4030,15 +4252,15 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             canvas.configure(scrollregion=canvas.bbox("all"))
             
-            # Update sync manager with image information
-            if hasattr(self, 'sync_manager'):
-                self.sync_manager.update_image_info(
+            # Update enhanced sync manager with image information
+            if hasattr(self, 'enhanced_sync_manager'):
+                self.enhanced_sync_manager.update_image_info(
                     panel_type=panel_type,
-                    image_path=image_path,
-                    pil_image=img,
-                    display_scale=scale_factor,
-                    display_offset=(x, y),
-                    display_size=(new_width, new_height)
+                    width=new_width,
+                    height=new_height,
+                    scale=scale_factor,
+                    offset_x=x,
+                    offset_y=y
                 )
             
         except Exception as e:
