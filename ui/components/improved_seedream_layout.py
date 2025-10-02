@@ -1508,6 +1508,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         secondary_frame.grid(row=7, column=0, sticky="ew")
         secondary_frame.columnconfigure(0, weight=1)
         secondary_frame.columnconfigure(1, weight=1)
+        secondary_frame.columnconfigure(2, weight=1)
         
         # Row 1: Clear and Sample
         ttk.Button(
@@ -1532,12 +1533,22 @@ class ImprovedSeedreamLayout(AIChatMixin):
             width=10
         ).grid(row=1, column=0, sticky="ew", padx=(0, 1), pady=1)
         
+        # Use as Input button
+        self.use_result_button = ttk.Button(
+            secondary_frame,
+            text="🔄 Use as Input",
+            command=self.use_result_as_input,
+            width=10,
+            state="disabled"
+        )
+        self.use_result_button.grid(row=1, column=1, sticky="ew", padx=(1, 1), pady=1)
+        
         ttk.Button(
             secondary_frame,
             text="📂 Load",
             command=self.load_result,
             width=10
-        ).grid(row=1, column=1, sticky="ew", padx=(1, 0), pady=1)
+        ).grid(row=1, column=2, sticky="ew", padx=(1, 0), pady=1)
     
     def setup_status_console(self, parent):
         """Setup unified status console for professional feedback"""
@@ -2512,6 +2523,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.view_result_btn.config(state='normal')
         if hasattr(self, 'comparison_btn'):
             self.comparison_btn.config(state='normal')
+        if hasattr(self, 'use_result_button'):
+            self.use_result_button.config(state='normal')
         
         # Enhanced logging for successful completion
         try:
@@ -3579,6 +3592,13 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.tab_instance.save_result_image()
         else:
             self.log_message("💡 Save result feature - implement result saving")
+    
+    def use_result_as_input(self):
+        """Use the current result as new input"""
+        if self.tab_instance and hasattr(self.tab_instance, 'use_result_as_input'):
+            self.tab_instance.use_result_as_input()
+        else:
+            self.log_message("❌ No result to use as input")
 
     def setup_learning_components(self):
         """Setup AI learning components and widgets"""

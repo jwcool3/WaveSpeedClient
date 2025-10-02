@@ -49,8 +49,8 @@ class Config:
     ]
     
     # UI Configuration
-    WINDOW_SIZE = "1200x900"
-    WINDOW_MIN_SIZE = (800, 600)  # Minimum window size
+    WINDOW_SIZE = "1400x900"
+    WINDOW_MIN_SIZE = (1000, 600)  # Minimum window size
     WINDOW_TITLE = "WaveSpeed AI - Complete Creative Suite"
     
     # Image Processing
