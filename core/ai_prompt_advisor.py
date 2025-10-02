@@ -672,14 +672,10 @@ class ClaudeAPI:
             
             payload = {
                 "model": "claude-3-5-sonnet-20241022",
-                "max_tokens": 1000,
+                "max_tokens": 2000,
                 "messages": [{
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": prompt
-                        },
                         {
                             "type": "image",
                             "source": {
@@ -687,6 +683,10 @@ class ClaudeAPI:
                                 "media_type": media_type,
                                 "data": image_base64
                             }
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
                         }
                     ]
                 }]
@@ -722,7 +722,7 @@ class OpenAIAPI:
         
         payload = {
             "model": "gpt-4",
-            "max_tokens": 1000,
+            "max_tokens": 750,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -737,7 +737,8 @@ class OpenAIAPI:
                         content = data["choices"][0]["message"]["content"]
                         return self._parse_suggestions(content)
                     else:
-                        logger.error(f"OpenAI API error: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"OpenAI API error {response.status}: {error_text}")
                         return []
         except Exception as e:
             logger.error(f"OpenAI API request failed: {e}")
@@ -766,7 +767,8 @@ class OpenAIAPI:
                         data = await response.json()
                         return data["choices"][0]["message"]["content"]
                     else:
-                        logger.error(f"OpenAI API error: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"OpenAI API error {response.status}: {error_text}")
                         return "I'm sorry, I'm having trouble connecting right now. Please try again."
         except Exception as e:
             logger.error(f"OpenAI API request failed: {e}")
@@ -836,7 +838,7 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4o",
+            "model": "gpt-4",
             "max_tokens": 1000,
             "messages": [{
                 "role": "user",
@@ -1042,14 +1044,17 @@ class AIPromptAdvisor:
             if detailed_analysis:
                 # Enhanced prompt for filter training - provides comprehensive specific details
                 prompt = """
-                ⚠️ CRITICAL: Your response will be REJECTED if you use "someone", "person", "individual", "subject", or "they".
-
-                MANDATORY FIRST LINE: "This image shows [X] woman/women and [Y] man/men."
+                ⚠️ CRITICAL INSTRUCTIONS - READ CAREFULLY:
+                1. Your response will be REJECTED if you use "someone", "person", "individual", "subject/s", or "they"
+                2. COUNT the exact number of people in this image CAREFULLY
+                3. MANDATORY FIRST LINE FORMAT: "This image shows [exact count] woman/women and/or [exact count] man/men."
+                   Examples: "This image shows 1 woman." or "This image shows 2 women." or "This image shows 1 woman and 1 man."
 
                 ### REQUIRED COMPREHENSIVE DETAILS:
                 
                 1. GENDER & AGE (MANDATORY - be specific):
                    - Count and gender: "1 woman", "2 women", "1 man", "3 women and 2 men"
+                   - If MULTIPLE PEOPLE: Describe EACH person individually: "Subject 1: woman in her 20s...; Subject 2: man in his 30s..."
                    - Age range: "woman in her early-to-mid 30s", "young adult woman (20s-30s)", "adult woman in her 40s"
                    - NEVER write: "someone", "person", "individual", "subject", "they", "the person"
                 
@@ -1090,8 +1095,13 @@ class AIPromptAdvisor:
                    - Furniture/objects: "sitting at wooden table", "standing near wall", "table with iced coffee drink"
                    - Lighting: "bright natural daylight", "soft indoor lighting", "dappled sunlight", "dim warm lighting"
                 
-                ### FORMAT EXAMPLE (THIS IS THE QUALITY STANDARD):
+                ### FORMAT EXAMPLES (THESE ARE THE QUALITY STANDARDS):
+                
+                **Single Person Example:**
                 "This image shows 1 woman. The woman is in her early-to-mid 30s with light-fair skin and long center-parted blonde hair that flows past her shoulders in loose waves. She has a medium build. She is wearing a black long-sleeve sweatshirt with crew neck and blue denim jeans. She is wearing no visible jewelry. She is standing facing the camera with arms relaxed at her sides and a neutral expression, looking directly at the camera. The setting is an indoor environment with a plain neutral-beige wall background and soft, even indoor lighting."
+                
+                **Multiple People Example:**
+                "This image shows 2 women. Subject 1: woman in her mid-20s with medium-tan skin and long dark brown hair pulled into a high ponytail. She has a slim build. She is wearing a white tank top and denim shorts. She has small gold hoop earrings. Subject 2: woman in her early 30s with light skin and shoulder-length blonde hair loose and wavy. She has a medium build. She is wearing a red floral sundress. She has a silver necklace and bracelet. Both women are standing side by side facing the camera with arms around each other's shoulders, smiling warmly. The setting is an outdoor beach environment with sandy beach and ocean waves in the background, bright natural sunlight."
                 
                 ### VALIDATION CHECKLIST (Must include ALL):
                 ✅ Gender and specific age range

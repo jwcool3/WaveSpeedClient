@@ -3,8 +3,8 @@
     "created": "2025-09-11T20:23:33.680213",
     "description": "Enhanced failed prompt tracking with categorized errors",
     "version": "2.0",
-    "last_updated": "2025-09-20T08:19:23.069807",
-    "total_failures": 16
+    "last_updated": "2025-10-01T06:22:21.058547",
+    "total_failures": 17
   },
   "prompts": [
     {
@@ -449,6 +449,34 @@
       "all_caps_ratio": 0.0,
       "has_multiple_sentences": false,
       "avg_word_length": 4.6923076923076925
+    },
+    {
+      "timestamp": "2025-10-01T06:22:21.058547",
+      "prompt": "Remove the dress off each woman, achieving a topless presentation with exposed breasts and nipples. Maintain the dress's bottom half for each individual. Reconstruct the newly revealed areas using each woman's light skin tone, ensuring a natural texture with visible pores and subtle imperfections. Keep all else unchanged. Do not modify their facial identities, expressions, or body proportions.",
+      "ai_model": "seedream_v4",
+      "error_message": "Content flagged as potentially sensitive. Please try different prompts or images",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:\\Users\\itssa\\Downloads\\jodi\\IMG_8056.JPEG",
+        "width": 2268,
+        "height": 3024,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": "7b1daaa6b82048d682db313f6179a5ab",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 396,
+      "word_count": 58,
+      "prompt_hash": -5733492208717303579,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.012626262626262626,
+      "has_multiple_sentences": true,
+      "avg_word_length": 5.844827586206897
     }
   ]
 }

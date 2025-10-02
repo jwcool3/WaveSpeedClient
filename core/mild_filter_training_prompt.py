@@ -133,9 +133,7 @@ EXAMPLE 3:
 EXAMPLE 4:
 [Concise transformation-focused prompt - 60-100 words, NO subject re-description - YOUR CREATIVE CHOICE]
 
-EXAMPLE 5:
-[Concise transformation-focused prompt - 60-100 words, NO subject re-description - YOUR CREATIVE CHOICE]
-```
+
 
 **DO NOT**:
 - Use JSON format or metadata fields
@@ -319,7 +317,7 @@ EXAMPLE 5:
 - ✅ KEEP it 60-100 words
 - ✅ VARY every single example (no repetition)
 
-Stay within mild severity boundaries - revealing clothing only (opaque/lined garments), NO nudity or topless content.
+Stay within mild severity boundaries - revealing clothing only (see-through/lined garments), only a little nudity or topless content.
 
 Your output trains safety filters - the more SPECIFIC and CREATIVELY VARIED (yet concise) your examples, the better the protection."""
 
