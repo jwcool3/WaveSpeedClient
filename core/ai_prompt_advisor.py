@@ -643,6 +643,47 @@ class ClaudeAPI:
         
         return suggestions[:3]  # Return max 3 suggestions
     
+    def _resize_image_for_api(self, image_data: bytes, max_dimension: int = 1536) -> bytes:
+        """Resize image to reasonable size for API while maintaining aspect ratio"""
+        from PIL import Image
+        import io
+        
+        try:
+            # Open image
+            image = Image.open(io.BytesIO(image_data))
+            original_size = image.size
+            
+            # Check if resize is needed
+            if max(original_size) <= max_dimension:
+                logger.debug(f"Image size {original_size} is within limits, no resize needed")
+                return image_data
+            
+            # Calculate new size maintaining aspect ratio
+            width, height = original_size
+            if width > height:
+                new_width = max_dimension
+                new_height = int(height * (max_dimension / width))
+            else:
+                new_height = max_dimension
+                new_width = int(width * (max_dimension / height))
+            
+            # Resize image
+            resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Convert to bytes
+            output = io.BytesIO()
+            # Use original format if possible, otherwise use PNG for quality
+            save_format = image.format if image.format in ['JPEG', 'PNG', 'WEBP'] else 'PNG'
+            resized_image.save(output, format=save_format, quality=95 if save_format == 'JPEG' else None)
+            resized_data = output.getvalue()
+            
+            logger.info(f"Resized image from {original_size} to {resized_image.size} for API analysis")
+            return resized_data
+            
+        except Exception as e:
+            logger.warning(f"Failed to resize image: {e}, using original")
+            return image_data
+    
     async def analyze_image_with_vision(self, image_data: bytes, prompt: str) -> str:
         """Analyze image using Claude Vision API"""
         import base64
@@ -650,6 +691,9 @@ class ClaudeAPI:
         import io
         
         try:
+            # Resize image if too large (prevents hallucinations and reduces API cost)
+            image_data = self._resize_image_for_api(image_data, max_dimension=2048)
+            
             # Detect image format
             image = Image.open(io.BytesIO(image_data))
             format_map = {
@@ -825,9 +869,53 @@ class OpenAIAPI:
         
         return suggestions[:3]
     
+    def _resize_image_for_api(self, image_data: bytes, max_dimension: int = 2048) -> bytes:
+        """Resize image to reasonable size for API while maintaining aspect ratio"""
+        from PIL import Image
+        import io
+        
+        try:
+            # Open image
+            image = Image.open(io.BytesIO(image_data))
+            original_size = image.size
+            
+            # Check if resize is needed
+            if max(original_size) <= max_dimension:
+                logger.debug(f"Image size {original_size} is within limits, no resize needed")
+                return image_data
+            
+            # Calculate new size maintaining aspect ratio
+            width, height = original_size
+            if width > height:
+                new_width = max_dimension
+                new_height = int(height * (max_dimension / width))
+            else:
+                new_height = max_dimension
+                new_width = int(width * (max_dimension / height))
+            
+            # Resize image
+            resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Convert to bytes
+            output = io.BytesIO()
+            # Use original format if possible, otherwise use PNG for quality
+            save_format = image.format if image.format in ['JPEG', 'PNG', 'WEBP'] else 'PNG'
+            resized_image.save(output, format=save_format, quality=95 if save_format == 'JPEG' else None)
+            resized_data = output.getvalue()
+            
+            logger.info(f"Resized image from {original_size} to {resized_image.size} for API analysis")
+            return resized_data
+            
+        except Exception as e:
+            logger.warning(f"Failed to resize image: {e}, using original")
+            return image_data
+    
     async def analyze_image_with_vision(self, image_data: bytes, prompt: str) -> str:
         """Analyze image using OpenAI Vision API"""
         import base64
+        
+        # Resize image if too large (prevents hallucinations and reduces API cost)
+        image_data = self._resize_image_for_api(image_data, max_dimension=2048)
         
         # Encode image to base64
         image_base64 = base64.b64encode(image_data).decode('utf-8')

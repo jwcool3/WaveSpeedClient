@@ -211,6 +211,11 @@ class EnhancedSyncManager:
             'result': {'width': 0, 'height': 0, 'scale': 1.0, 'offset_x': 0, 'offset_y': 0}
         }
         
+        # Zoom debouncing
+        self.zoom_timer = None
+        self.zoom_delay = 150  # ms delay to debounce scroll events
+        self.pending_zoom_delta = 0
+        
         logger.info("EnhancedSyncManager initialized")
     
     def setup_enhanced_events(self):
@@ -285,10 +290,6 @@ class EnhancedSyncManager:
         if not self.drag_active or self.drag_source != source_panel:
             return
         
-        # Calculate movement delta
-        dx = event.x - self.last_drag_x
-        dy = event.y - self.last_drag_y
-        
         # Always move the source canvas
         source_canvas = self.original_canvas if source_panel == 'original' else self.result_canvas
         source_canvas.scan_dragto(event.x, event.y, gain=1)
@@ -297,11 +298,20 @@ class EnhancedSyncManager:
         other_panel = 'result' if source_panel == 'original' else 'original'
         other_canvas = self.result_canvas if source_panel == 'original' else self.original_canvas
         
-        # Calculate synchronized movement
-        sync_x, sync_y = self.calculate_sync_movement(event.x, event.y, source_panel, other_panel)
+        # Get scale information for both images
+        source_info = self.image_info[source_panel]
+        target_info = self.image_info[other_panel]
         
-        if sync_x is not None and sync_y is not None:
-            other_canvas.scan_dragto(sync_x, sync_y, gain=1)
+        # Calculate scale ratio (how much bigger/smaller the target is)
+        if source_info.get('scale', 0) > 0 and target_info.get('scale', 0) > 0:
+            # Use the actual displayed scale to calculate movement ratio
+            scale_ratio = target_info['scale'] / source_info['scale']
+            
+            # Adjust the drag position based on scale ratio
+            adjusted_x = self.last_drag_x + (event.x - self.last_drag_x) * scale_ratio
+            adjusted_y = self.last_drag_y + (event.y - self.last_drag_y) * scale_ratio
+            
+            other_canvas.scan_dragto(int(adjusted_x), int(adjusted_y), gain=1)
         else:
             # Fallback to simple 1:1 movement
             other_canvas.scan_dragto(event.x, event.y, gain=1)
@@ -344,7 +354,7 @@ class EnhancedSyncManager:
         logger.debug(f"Ended sync drag from {source_panel}")
     
     def handle_sync_zoom(self, event, source_panel):
-        """Handle synchronized zoom"""
+        """Handle synchronized zoom accounting for different image sizes with debouncing"""
         if not hasattr(self.layout, 'sync_zoom_var') or not self.layout.sync_zoom_var.get():
             return
         
@@ -356,7 +366,39 @@ class EnhancedSyncManager:
         else:
             return
         
-        # Apply zoom to layout's zoom system
+        # Accumulate zoom delta (normalize to +1 or -1)
+        zoom_direction = 1 if delta > 0 else -1
+        self.pending_zoom_delta += zoom_direction
+        
+        # Cancel existing timer
+        if self.zoom_timer:
+            try:
+                self.original_canvas.after_cancel(self.zoom_timer)
+            except:
+                pass
+        
+        # Set new timer to apply zoom after delay
+        self.zoom_timer = self.original_canvas.after(
+            self.zoom_delay, 
+            lambda: self._apply_debounced_zoom(source_panel)
+        )
+    
+    def _apply_debounced_zoom(self, source_panel):
+        """Apply the accumulated zoom changes after debounce delay"""
+        if self.pending_zoom_delta == 0:
+            return
+        
+        # Get image size information
+        orig_info = self.image_info.get('original', {})
+        result_info = self.image_info.get('result', {})
+        
+        orig_width = orig_info.get('width', 1)
+        result_width = result_info.get('width', 1)
+        
+        # Calculate size ratio (result/original)
+        size_ratio = result_width / orig_width if orig_width > 0 else 1.0
+        
+        # Get current zoom level
         current_zoom = self.layout.zoom_var.get()
         zoom_levels = ["25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"]
         
@@ -368,18 +410,28 @@ class EnhancedSyncManager:
         except ValueError:
             current_index = 3
         
-        # Adjust zoom level
-        if delta > 0:  # Zoom in
-            new_index = min(current_index + 1, len(zoom_levels) - 1)
-        else:  # Zoom out
-            new_index = max(current_index - 1, 0)
+        # Calculate step size based on accumulated delta and image size ratio
+        base_step = 1 if abs(self.pending_zoom_delta) <= 2 else 2
         
+        # Don't adjust step size for different image sizes - it makes it too jumpy
+        step_size = base_step
+        
+        # Calculate new index (cap the zoom step to prevent extreme jumps)
+        zoom_change = max(-2, min(2, self.pending_zoom_delta)) * step_size
+        new_index = current_index + zoom_change
+        new_index = max(0, min(new_index, len(zoom_levels) - 1))
+        
+        # Reset pending delta
+        self.pending_zoom_delta = 0
+        
+        # Apply the zoom
         new_zoom = zoom_levels[new_index]
-        self.layout.zoom_var.set(new_zoom)
-        if hasattr(self.layout, 'on_zoom_changed'):
-            self.layout.on_zoom_changed()
-        
-        logger.debug(f"Sync zoom from {source_panel}: {current_zoom} -> {new_zoom}")
+        if new_zoom != current_zoom:
+            self.layout.zoom_var.set(new_zoom)
+            if hasattr(self.layout, 'on_zoom_changed'):
+                self.layout.on_zoom_changed()
+            
+            logger.debug(f"Applied debounced zoom: {current_zoom} -> {new_zoom} (size_ratio: {size_ratio:.2f})")
 
 
 class ImprovedSeedreamLayout(AIChatMixin):
@@ -398,6 +450,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.resize_delay = 750  # ms delay for debouncing (increased for better performance)
         self._paned_resize_timer = None  # Timer for paned window resize debouncing
         self._last_canvas_size = {"original": (0, 0), "result": (0, 0)}  # Track canvas sizes
+        
+        # Zoom debouncing
+        self.zoom_timer = None
+        self.zoom_delay = 150  # ms delay for zoom debouncing
+        self.pending_zoom_direction = 0
         
         # Splitter position persistence
         self.splitter_position_file = "data/seedream_splitter_position.txt"
@@ -1660,6 +1717,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
         )
         sync_zoom_check.pack(side=tk.LEFT, padx=(0, 4))
         
+        # Add tooltip for sync zoom
+        try:
+            from tkinter import ToolTip
+        except:
+            pass  # Tooltip not available
+        else:
+            try:
+                ToolTip(sync_zoom_check, "Synchronize zoom levels between images\n(Adjusts for different image sizes)")
+            except:
+                pass
+        
         # Sync drag toggle (NEW)
         self.sync_drag_var = tk.BooleanVar(value=True)
         sync_drag_check = ttk.Checkbutton(
@@ -1669,6 +1737,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
             command=self.on_sync_drag_changed
         )
         sync_drag_check.pack(side=tk.LEFT)
+        
+        # Add tooltip for sync drag
+        try:
+            from tkinter import ToolTip
+        except:
+            pass
+        else:
+            try:
+                ToolTip(sync_drag_check, "Synchronize panning between images\n(Compensates for different image sizes)")
+            except:
+                pass
         
         # Opacity slider (for overlay mode)
         opacity_frame = ttk.Frame(controls_frame)
@@ -2870,7 +2949,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.log_message("📍 Image clicked - feature could be expanded for interactive editing")
     
     def on_mouse_wheel_zoom(self, event, panel_type):
-        """Handle mouse wheel zoom for specific panel"""
+        """Handle mouse wheel zoom for specific panel with debouncing"""
         try:
             # Determine zoom direction
             if hasattr(event, 'delta'):
@@ -2882,6 +2961,32 @@ class ImprovedSeedreamLayout(AIChatMixin):
             else:
                 return
             
+            # Accumulate zoom direction (normalize to +1 or -1)
+            zoom_direction = 1 if delta > 0 else -1
+            self.pending_zoom_direction += zoom_direction
+            
+            # Cancel existing timer
+            if self.zoom_timer:
+                try:
+                    self.parent_frame.after_cancel(self.zoom_timer)
+                except:
+                    pass
+            
+            # Set new timer to apply zoom after delay
+            self.zoom_timer = self.parent_frame.after(
+                self.zoom_delay,
+                self._apply_debounced_zoom
+            )
+            
+        except Exception as e:
+            pass  # Silently handle any zoom errors
+    
+    def _apply_debounced_zoom(self):
+        """Apply the accumulated zoom changes after debounce delay"""
+        if self.pending_zoom_direction == 0:
+            return
+        
+        try:
             # Get current zoom level
             current_zoom = self.zoom_var.get()
             zoom_levels = ["25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"]
@@ -2894,20 +2999,26 @@ class ImprovedSeedreamLayout(AIChatMixin):
             except ValueError:
                 current_index = 3  # Default to 100%
             
-            # Adjust zoom level
-            if delta > 0:  # Zoom in
-                new_index = min(current_index + 1, len(zoom_levels) - 1)
-            else:  # Zoom out
-                new_index = max(current_index - 1, 0)
+            # Cap the zoom step to prevent extreme jumps (max 2 levels per scroll burst)
+            zoom_change = max(-2, min(2, self.pending_zoom_direction))
             
+            # Calculate new zoom level
+            new_index = current_index + zoom_change
+            new_index = max(0, min(new_index, len(zoom_levels) - 1))
+            
+            # Reset pending direction
+            self.pending_zoom_direction = 0
+            
+            # Apply the zoom if it changed
             new_zoom = zoom_levels[new_index]
-            
-            # Update zoom and refresh display
-            self.zoom_var.set(new_zoom)
-            self.on_zoom_changed()
+            if new_zoom != current_zoom:
+                self.zoom_var.set(new_zoom)
+                self.on_zoom_changed()
+                logger.debug(f"Applied debounced zoom: {current_zoom} -> {new_zoom}")
             
         except Exception as e:
-            pass  # Silently handle any zoom errors
+            logger.error(f"Error applying debounced zoom: {e}")
+            self.pending_zoom_direction = 0  # Reset on error
     
     def on_zoom_changed(self, event=None):
         """Handle zoom change"""

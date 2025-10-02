@@ -1563,17 +1563,29 @@ class SeedreamV4Tab(BaseTab):
             return
         
         try:
-            # Save result to temporary file
+            from PIL import Image
             import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
-                temp_path = temp_file.name
-                self.result_image.save(temp_path, 'PNG')
             
-            # Use as new input - call the method directly without replacing_image parameter
-            self.on_image_selected(temp_path)
+            # Handle both string path and PIL Image object
+            if isinstance(self.result_image, str):
+                # It's already a path, use it directly if it exists
+                if os.path.exists(self.result_image):
+                    result_path = self.result_image
+                else:
+                    # Try to get from improved layout
+                    if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'result_image_path'):
+                        result_path = self.improved_layout.result_image_path
+                    else:
+                        show_error("Error", "Result image file not found.")
+                        return
+            else:
+                # It's a PIL Image object, save to temp file
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                    result_path = temp_file.name
+                    self.result_image.save(result_path, 'PNG')
             
-            # Clean up temp file after a longer delay to ensure it's processed
-            self.frame.after(10000, lambda: self.cleanup_temp_file(temp_path))
+            # Use as new input
+            self.on_image_selected(result_path)
             
             # Update status
             self.update_status("✅ Result image set as new input")
