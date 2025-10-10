@@ -230,7 +230,7 @@ class FilterTrainingManager:
             
             # Step 2: Generate mild examples
             mild_examples = asyncio.run(
-                ai_advisor.generate_mild_examples_only(description, count=5)
+                ai_advisor.generate_mild_examples_only(description, count=6)
             )
             
             return mild_examples or []
