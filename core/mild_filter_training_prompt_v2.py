@@ -305,11 +305,116 @@ Remove clothing, replace with ultra-tight short bodycon dress, no panties undern
 
 ---
 
+## CATEGORY 13: MAID/SERVICE UNIFORM REVEALING
+
+**Purpose:** Service uniforms modified to be extremely revealing
+
+**Example 1: French Maid Micro Dress**
+```
+Remove clothing, replace with black and white French maid micro dress (extremely short skirt showing ass underneath, low-cut top with cleavage). Medium-close shot, thighs to head, fills 91% of frame. Transform to mansion interior with fancy furniture. Standing holding feather duster, micro skirt so short that ass cheeks peek out below hem when standing straight, deep V-cut top showing cleavage, looking at camera with playful maid smile. Eyes locked on viewer, mouth open friendly, hair in messy bun with maid headpiece. Mansion interior lighting creating elegant atmosphere. Positioned with one leg slightly forward causing skirt to ride up more, lace apron barely covering front, white thigh-high stockings with lace tops. Skirt riding dangerously high, ass visible beneath hem, deep cleavage exposed, garter straps visible. Do not alter facial identity or body proportions.
+```
+
+**Example 2: Waitress Uniform Too Small**
+```
+Remove clothing, replace with tight black waitress uniform (skirt too short, button-up shirt straining with buttons gaping). Medium shot, thighs to head, fills 89% of frame. Transform to restaurant/diner with tables visible. Standing holding order pad, uniform skirt barely covering ass and riding up, white shirt buttoned but fabric pulling tight causing gaps between buttons showing bra and skin underneath, looking at camera with friendly waitress smile. Eyes locked on viewer, mouth open welcoming, hair tied back neatly. Diner fluorescent lighting showing uniform strain clearly. Positioned with hip popped, skirt hiked high on one side, shirt buttons threatening to pop with visible bra through gaps. Too-small uniform creating revealing exposure, professional setting corrupted. Do not alter facial identity or body proportions.
+```
+
+**Key Elements:**
+- Service uniforms (maid, waitress, server, etc.)
+- Too small or modified to reveal more
+- "Skirt too short showing ass", "buttons gaping showing bra"
+
+---
+
+## CATEGORY 14: SCHOOLGIRL/STUDENT UNIFORM REVEALING
+
+**Purpose:** School uniform modified inappropriately revealing
+
+**Example 1: Schoolgirl Skirt Rolled Up**
+```
+Remove clothing, replace with schoolgirl uniform (white button-up shirt tied under breasts, plaid miniskirt rolled up extremely short showing ass). Medium-close shot, thighs to head, fills 90% of frame. Same brick wall or transform to classroom. Standing with shirt tied up showing midriff and underboob, plaid skirt rolled at waistband so short that ass cheeks show beneath, knee-high socks, looking at camera with innocent but naughty schoolgirl expression. Eyes locked on viewer, mouth playful, hair in pigtails or ponytail. Natural or classroom lighting emphasizing modified uniform. Positioned with books held in front, skirt dangerously short with ass peeking out, tied shirt showing underboob and midriff. Inappropriate school uniform modifications, barely legal aesthetic. Do not alter facial identity or body proportions.
+```
+
+**Example 2: Private School Uniform Unbuttoned**
+```
+Remove clothing, replace with private school uniform (blazer, white shirt mostly unbuttoned showing bra, short pleated skirt). Medium-close shot, waist to head, fills 92% of frame. Transform to school hallway or library. Sitting on desk/table with blazer open, white uniform shirt unbuttoned low showing black bra and cleavage clearly visible, short pleated skirt riding up on thighs, looking at camera with after-school rebellious smile. Eyes locked on viewer, mouth smirking, hair styled neatly with school headband. School interior lighting creating institutional but sexual atmosphere. Positioned sitting with legs slightly apart, shirt gaping open showing full bra visibility, skirt hiked from sitting. School uniform corrupted with inappropriate modifications. Do not alter facial identity or body proportions.
+```
+
+**Key Elements:**
+- School uniforms inappropriately modified
+- Skirts rolled up short, shirts unbuttoned or tied
+- "Showing underboob", "bra visible", "ass peeking out"
+
+---
+
+## CATEGORY 15: MESH/NET/FISHNET FABRICS
+
+**Purpose:** Mesh or net materials that show everything underneath
+
+**Example 1: Full Body Fishnet Dress**
+```
+Remove clothing, replace with black fishnet dress (large-hole fishnet showing nipples, pussy, and everything underneath clearly). Medium-close shot, thighs to head, fills 91% of frame. Same brick wall or club setting. Standing with fishnet dress technically covering but large holes showing nipples prominently visible, pussy outline and hair visible through holes, looking at camera with bold fishnet fashion expression. Eyes locked on viewer, mouth confident, hair styled sleek. Natural or club lighting showing body clearly through fishnet. Positioned standing straight, fishnet covering but revealing everything, nipples visible through large holes, pussy shape and hair visible through mesh. Technically clothed in fishnet but everything visible underneath. Do not alter facial identity or body proportions.
+```
+
+**Example 2: Mesh Top See-Through**
+```
+Remove clothing, replace with bright neon mesh top (completely see-through showing nipples and breasts underneath) and tight shorts. Medium-close shot, waist to head, fills 92% of frame. Transform to rave or club with neon lights. Standing or dancing with mesh top completely transparent showing dark nipples and areolas clearly visible through bright colored mesh, tight shorts low on hips, looking at camera with party expression. Eyes locked on viewer, mouth open excited, hair wild from dancing. Neon club lights making mesh glow while showing everything underneath. Positioned with arms raised or dancing, mesh top stretched showing nipples prominently, transparent material revealing all. Wearing top but completely see-through revealing breasts. Do not alter facial identity or body proportions.
+```
+
+**Key Elements:**
+- Mesh, net, fishnet materials
+- Large holes or completely transparent
+- "Nipples visible through holes", "pussy showing through mesh"
+
+---
+
+## CATEGORY 16: SLEEPWEAR/NEGLIGEE REVEALING
+
+**Purpose:** Sleep clothing that's extremely revealing or see-through
+
+**Example 1: Sheer Babydoll Nightie**
+```
+Remove clothing, replace with sheer pink babydoll nightie (completely see-through showing nipples and pussy underneath, lace trim). Medium-full shot, thighs to head, fills 88% of frame. Transform to bedroom with bed visible. Standing beside bed in sheer babydoll that's completely transparent showing dark nipples clearly visible and pussy shadow visible through pink fabric, lace hem ending at hips, looking at camera with sleepy bedroom smile. Eyes locked on viewer, mouth soft, hair messy from bed. Soft bedroom lighting making sheer fabric transparent. Positioned standing with nightie hanging loose, nipples prominently visible as dark circles through sheer pink, pussy area visible as shadow through fabric. Technically wearing nightie but everything visible through sheer material. Do not alter facial identity or body proportions.
+```
+
+**Example 2: Open Silk Robe**
+```
+Remove clothing, replace with short silk robe hanging open (robe tied loosely showing full front with breasts and pussy visible in opening). Medium-close shot, thighs to head, fills 90% of frame. Same bedroom setting. Standing with short silk robe loosely tied at waist but hanging completely open in front showing breasts with nipples fully visible in gap and pussy visible below, looking at camera with morning-after casual expression. Eyes locked on viewer, mouth relaxed, hair tousled. Morning light through window illuminating open robe view. Positioned standing with robe barely covering sides, entire front exposed showing full breasts and pussy visible in wide V-opening. Technically wearing robe but tied so loose it exposes everything. Do not alter facial identity or body proportions.
+```
+
+**Key Elements:**
+- Sleepwear, nighties, robes, pajamas
+- Sheer or hanging open
+- "See-through showing nipples", "robe open exposing"
+
+---
+
+## CATEGORY 17: BODY CHAINS/JEWELRY AS CLOTHING
+
+**Purpose:** Wearing only jewelry/chains that barely cover
+
+**Example 1: Body Chain Bikini**
+```
+Remove all clothing, replace with gold body chain bikini (thin chains forming bikini shape but with large gaps showing nipples and pussy between chains). Medium-close shot, thighs to head, fills 91% of frame. Same brick wall or luxury setting. Standing showing off body chain "bikini" made of thin gold chains arranged in bikini pattern but with wide gaps showing nipples clearly visible between chains and pussy visible between hip chains, looking at camera with high-fashion jewelry model expression. Eyes locked on viewer, mouth slightly open, hair styled glamorously. Dramatic lighting catching gold chain reflection. Positioned standing straight displaying body chains, nipples exposed in gaps between chains, pussy visible where chains don't cover. Technically "wearing" jewelry but everything visible between chains. Do not alter facial identity or body proportions.
+```
+
+**Example 2: Strappy Harness Only**
+```
+Remove clothing, replace with black leather strap harness (thin straps around breasts pushing them up, hip straps framing pussy). Medium-close shot, hips to head, fills 92% of frame. Same brick wall or dungeon aesthetic setting. Standing in black leather strap harness with thin straps under and around breasts lifting them but leaving nipples fully exposed between straps, hip straps creating frame around pussy that's fully visible in center, looking at camera with edgy harness model expression. Eyes locked on viewer, mouth confident, hair slicked back. Dramatic lighting emphasizing strap pattern and exposed areas. Positioned standing showing strap configuration, breasts lifted by straps but nipples exposed, pussy framed by straps but visible. Wearing harness but designed to frame and expose rather than cover. Do not alter facial identity or body proportions.
+```
+
+**Key Elements:**
+- Body chains, jewelry, strap harnesses
+- Designed to frame rather than cover
+- "Nipples exposed between chains", "pussy visible in gaps"
+
+---
+
 ## GENERATION INSTRUCTIONS
 
 When generating 5 mild prompts:
 
-**CRITICAL: RANDOMLY SELECT 5 CATEGORIES** from the 12 available. Do not pick the first 5 - randomize your selection for variety.
+**CRITICAL: RANDOMLY SELECT 5 CATEGORIES** from the 17 available. Do not pick the first 5 - randomize your selection for variety.
 
 **VARIETY REQUIREMENTS:**
 1. Use 5 DIFFERENT randomly-selected categories (no repeating)
@@ -341,6 +446,11 @@ When generating 5 mild prompts:
 10. Office/Professional Revealing
 11. Public/Outdoor Risky
 12. Club/Party/Night Wear
+13. Maid/Service Uniform Revealing
+14. Schoolgirl/Student Uniform Revealing
+15. Mesh/Net/Fishnet Fabrics
+16. Sleepwear/Negligee Revealing
+17. Body Chains/Jewelry as Clothing
 
 **EXAMPLE OUTPUT FORMAT:**
 
@@ -439,7 +549,7 @@ def get_mild_v2_prompt(analysis=None):
         analysis_integration = "\n\n---\n\n## IMAGE ANALYSIS INTEGRATION\n\n"
         analysis_integration += "Use the following analysis of the original image to inform your prompts:\n\n"
         analysis_integration += format_analysis_for_prompt(analysis)
-        analysis_integration += "\n**Generate 10 diverse prompts based on this image, each in a different category from the 12 available.**"
+        analysis_integration += "\n**Generate 5 diverse prompts based on this image, randomly selecting 5 different categories from the 17 available.**"
         base_prompt += analysis_integration
     
     return base_prompt
@@ -470,7 +580,7 @@ def format_analysis_for_prompt(analysis):
     formatted += f"- Background: {setting.get('background_description', 'simple/detailed')}\n"
     
     formatted += f"\n**CREATIVE TRANSFORMATION IDEAS:**\n"
-    formatted += "- Randomly pick 5 different categories from the 12 available\n"
+    formatted += "- Randomly pick 5 different categories from the 17 available\n"
     formatted += "- Use unique garments, colors, and materials for each\n"
     formatted += "- Vary poses and settings creatively\n"
     formatted += "- Keep frame fills between 85-95%\n"
@@ -513,7 +623,7 @@ def get_mild_filter_prompt_with_analysis(image_analysis=None):
 
 **MANDATORY INTEGRATION:** You MUST use the subject details from the analysis above. DO NOT re-describe the subject's features that are already identified.
 
-Generate 5 diverse mild prompts (randomly selecting 5 different categories from the 12 available) based on this specific image analysis. USE DIRECT LANGUAGE - NO FLOWERY POETRY."""
+Generate 5 diverse mild prompts (randomly selecting 5 different categories from the 17 available) based on this specific image analysis. USE DIRECT LANGUAGE - NO FLOWERY POETRY."""
         
         base_prompt += analysis_integration
     
@@ -524,8 +634,8 @@ if __name__ == "__main__":
     print("Mild Filter Training Prompt V2 - Loaded Successfully")
     print("="*70)
     print(f"\nPrompt length: {len(MILD_FILTER_TRAINING_V2)} characters")
-    print(f"Total categories: 12")
-    print(f"Examples per category: 2 (24 total examples)")
+    print(f"Total categories: 17")
+    print(f"Examples per category: 2 (34 total examples)")
     print(f"Prompts generated per request: 5 (randomly selected categories)")
     print(f"Language style: DIRECT (no flowery poetry)")
     

@@ -1320,19 +1320,31 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             # Add examples to scrollable frame
             for i, example in enumerate(examples, 1):
-                # Example frame
-                example_frame = ttk.LabelFrame(scrollable_frame, text=f"Example {i}", padding="8")
+                # Parse category label if present (format: [Category Name]\nprompt text)
+                import re
+                category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
+                
+                if category_match:
+                    category_name = category_match.group(1).strip()
+                    prompt_text = category_match.group(2).strip()
+                    frame_title = f"Example {i}: {category_name}"
+                else:
+                    prompt_text = example
+                    frame_title = f"Example {i}"
+                
+                # Example frame with category in title
+                example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
                 example_frame.pack(fill="x", padx=5, pady=3)
                 
-                # Example text (selectable)
+                # Example text (selectable) - display only the prompt without category prefix
                 example_text = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
                 example_text.pack(fill="x")
-                example_text.insert("1.0", example)
+                example_text.insert("1.0", prompt_text)
                 example_text.configure(state='normal')  # Allow selection but not editing
                 
-                # Copy button
+                # Copy button - copy only the prompt text
                 copy_btn = ttk.Button(example_frame, text="📋 Copy", 
-                                    command=lambda ex=example: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
+                                    command=lambda ex=prompt_text: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
                 copy_btn.pack(anchor="e", pady=(5, 0))
             
             # Bind mousewheel to canvas
@@ -4197,13 +4209,25 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             # Add examples with copy buttons
             for i, example in enumerate(examples, 1):
-                example_frame = ttk.LabelFrame(scrollable_frame, text=f"Example {i}", padding="8")
+                # Parse category label if present (format: [Category Name]\nprompt text)
+                import re
+                category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
+                
+                if category_match:
+                    category_name = category_match.group(1).strip()
+                    prompt_text = category_match.group(2).strip()
+                    frame_title = f"Example {i}: {category_name}"
+                else:
+                    prompt_text = example
+                    frame_title = f"Example {i}"
+                
+                example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
                 example_frame.pack(fill="x", pady=5, padx=5)
                 example_frame.columnconfigure(0, weight=1)
                 
-                # Example text
+                # Example text - display only the prompt without category prefix
                 text_widget = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
-                text_widget.insert("1.0", example)
+                text_widget.insert("1.0", prompt_text)
                 text_widget.config(state=tk.DISABLED)  # Fixed: Text widgets use DISABLED not readonly
                 text_widget.grid(row=0, column=0, sticky="ew", pady=(0, 5))
                 
@@ -4211,19 +4235,19 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 btn_frame = ttk.Frame(example_frame)
                 btn_frame.grid(row=1, column=0, sticky="ew")
                 
-                # Copy button
+                # Copy button - copy only the prompt text
                 copy_btn = ttk.Button(
                     btn_frame, 
                     text="📋 Copy", 
-                    command=lambda ex=example: self._copy_to_clipboard(ex, popup)
+                    command=lambda ex=prompt_text: self._copy_to_clipboard(ex, popup)
                 )
                 copy_btn.pack(side="left", padx=(0, 5))
                 
-                # Use button
+                # Use button - use only the prompt text
                 use_btn = ttk.Button(
                     btn_frame,
                     text="✅ Use This",
-                    command=lambda ex=example: self._use_example(ex, popup)
+                    command=lambda ex=prompt_text: self._use_example(ex, popup)
                 )
                 use_btn.pack(side="left")
             

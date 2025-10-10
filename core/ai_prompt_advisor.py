@@ -1380,7 +1380,7 @@ class AIPromptAdvisor:
         Based on the image analysis provided, generate exactly {count} diverse mild prompts (140-160 words each) following the structure and examples in the system prompt.
         
         **CRITICAL REQUIREMENTS:**
-        1. RANDOMLY SELECT {count} DIFFERENT categories from the 12 available (don't pick first {count}, randomize selection)
+        1. RANDOMLY SELECT {count} DIFFERENT categories from the 17 available (don't pick first {count}, randomize selection)
         2. Each prompt must be 140-160 words following the 7-part optimal formula
         3. **USE DIRECT LANGUAGE - NO FLOWERY POETRY OR ARTISTIC METAPHORS**
         4. Start directly with "Remove [clothing], replace with..." - DO NOT re-describe the subject
@@ -1395,15 +1395,17 @@ class AIPromptAdvisor:
         - ✅ Simple: "Standing with hand on hip, looking at camera with smile"
         - ❌ Flowery: "Her smile punctuates her daring moves as she gazes alluringly"
         
-        Output format (DO NOT include category names in output, just the prompts):
+        Output format (include category label on separate line before each prompt):
         
+        CATEGORY: [Category Name]
         EXAMPLE 1:
         [Full 140-160 word prompt - direct language, unique garment/setting/pose]
         
+        CATEGORY: [Different Category Name]
         EXAMPLE 2:
         [Full 140-160 word prompt - direct language, different category, unique garment/setting/pose]
         
-        (Continue for all {count} examples)
+        (Continue for all {count} examples, each with CATEGORY: label first)
         
         Remember: Use DIRECT, TECHNICAL language. NO poetry, artistic descriptions, or flowery metaphors.
         """
@@ -1421,8 +1423,28 @@ class AIPromptAdvisor:
             # Parse simple numbered format
             import re
             
-            # Try to extract examples using EXAMPLE N: pattern
-            # This also handles category labels like "EXAMPLE 1: [Category Name]"
+            # Try to extract examples with category labels using CATEGORY: ... EXAMPLE N: pattern
+            # Pattern captures both category and prompt
+            category_example_pattern = r'CATEGORY:\s*([^\n]+)\s*\n?EXAMPLE\s+\d+:?\s*\n?(.*?)(?=CATEGORY:|$)'
+            category_matches = re.findall(category_example_pattern, response, re.DOTALL | re.IGNORECASE)
+            
+            if category_matches:
+                # Clean up and format with category labels
+                prompts = []
+                for category, prompt_text in category_matches:
+                    category_clean = category.strip()
+                    prompt = prompt_text.strip()
+                    # Remove any remaining category labels from prompt text
+                    prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
+                    if prompt.strip():
+                        # Include category as a prefix for UI display
+                        prompts.append(f"[{category_clean}]\n{prompt.strip()}")
+                
+                if prompts:
+                    logger.info(f"Successfully parsed {len(prompts)} mild examples with categories")
+                    return prompts[:count]
+            
+            # Fallback: Try to extract examples using EXAMPLE N: pattern without categories
             example_pattern = r'EXAMPLE\s+\d+:?\s*(?:\[.*?\])?\s*\n?(.*?)(?=EXAMPLE\s+\d+:|$)'
             matches = re.findall(example_pattern, response, re.DOTALL | re.IGNORECASE)
             
@@ -1431,7 +1453,7 @@ class AIPromptAdvisor:
                 prompts = []
                 for match in matches:
                     prompt = match.strip()
-                    # Remove category label if it appears at the start (e.g., "[Category Name - e.g., Micro Bikini]")
+                    # Remove category label if it appears at the start
                     prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
                     if prompt.strip():
                         prompts.append(prompt.strip())
