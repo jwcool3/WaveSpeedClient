@@ -1183,13 +1183,19 @@ class AIPromptAdvisor:
                    - Furniture/objects: "sitting at wooden table", "standing near wall", "table with iced coffee drink"
                    - Lighting: "bright natural daylight", "soft indoor lighting", "dappled sunlight", "dim warm lighting"
                 
+                9. CAMERA FRAMING & COMPOSITION (REQUIRED - technical details):
+                   - Shot type: "full body shot", "medium shot (waist to head)", "close-up (chest to head)", "headshot", "3/4 body shot"
+                   - Frame fill: "subject fills 85% of frame", "centered composition", "subject takes up most of frame"
+                   - Camera angle: "eye level", "slightly elevated", "from above", "low angle", "straight-on"
+                   - Orientation: "portrait orientation", "landscape orientation"
+                
                 ### FORMAT EXAMPLES (THESE ARE THE QUALITY STANDARDS):
                 
                 **Single Person Example:**
-                "This image shows 1 woman. The woman is in her early-to-mid 30s with light-fair skin and long center-parted blonde hair that flows past her shoulders in loose waves. She has a medium build. She is wearing a black long-sleeve sweatshirt with crew neck and blue denim jeans. She is wearing no visible jewelry. She is standing facing the camera with arms relaxed at her sides and a neutral expression, looking directly at the camera. The setting is an indoor environment with a plain neutral-beige wall background and soft, even indoor lighting."
+                "This image shows 1 woman. The woman is in her early-to-mid 30s with light-fair skin and long center-parted blonde hair that flows past her shoulders in loose waves. She has a medium build. She is wearing a black long-sleeve sweatshirt with crew neck and blue denim jeans. She is wearing no visible jewelry. She is standing facing the camera with arms relaxed at her sides and a neutral expression, looking directly at the camera. The setting is an indoor environment with a plain neutral-beige wall background and soft, even indoor lighting. The framing is a medium shot from waist to head, shot at eye level in portrait orientation, with the subject filling approximately 85% of the frame."
                 
                 **Multiple People Example:**
-                "This image shows 2 women. Subject 1: woman in her mid-20s with medium-tan skin and long dark brown hair pulled into a high ponytail. She has a slim build. She is wearing a white tank top and denim shorts. She has small gold hoop earrings. Subject 2: woman in her early 30s with light skin and shoulder-length blonde hair loose and wavy. She has a medium build. She is wearing a red floral sundress. She has a silver necklace and bracelet. Both women are standing side by side facing the camera with arms around each other's shoulders, smiling warmly. The setting is an outdoor beach environment with sandy beach and ocean waves in the background, bright natural sunlight."
+                "This image shows 2 women. Subject 1: woman in her mid-20s with medium-tan skin and long dark brown hair pulled into a high ponytail. She has a slim build. She is wearing a white tank top and denim shorts. She has small gold hoop earrings. Subject 2: woman in her early 30s with light skin and shoulder-length blonde hair loose and wavy. She has a medium build. She is wearing a red floral sundress. She has a silver necklace and bracelet. Both women are standing side by side facing the camera with arms around each other's shoulders, smiling warmly. The setting is an outdoor beach environment with sandy beach and ocean waves in the background, bright natural sunlight. The framing is a full body shot at eye level in landscape orientation, with both subjects centered and filling approximately 75% of the frame."
                 
                 ### VALIDATION CHECKLIST (Must include ALL):
                 ✅ Gender and specific age range
@@ -1202,6 +1208,7 @@ class AIPromptAdvisor:
                 ✅ Facial expression
                 ✅ Setting and background specifics
                 ✅ Lighting description
+                ✅ Camera framing (shot type, angle, frame fill percentage)
                 
                 ❌ FORBIDDEN: "person", "someone", "individual", "subject", "they", generic descriptions
                 
@@ -1500,6 +1507,89 @@ EXAMPLE 2:
             
             f"Remove all clothing, fully nude. Medium shot from behind, fills 90% of frame. Same location. Bent over with ass up, pussy visible from behind. Looking back at camera. Do not alter facial identity or body proportions. Detailed ass, pussy."
         ][:count]
+    
+    async def generate_undress_transformations(self, description: str) -> List[str]:
+        """Generate 3 clothing transformation prompts: bikini, lingerie, nude"""
+        from core.undress_transformation_prompt import get_undress_transformation_prompt
+        import re
+        
+        # Get the undress transformation prompt with integrated analysis
+        system_prompt = get_undress_transformation_prompt(description)
+        
+        logger.info("🔄 Generating 3 undress transformation prompts (bikini, lingerie, nude)")
+        
+        # Single request for all 3 transformations
+        try:
+            user_message = "Generate the 3 transformation prompts now (bikini, lingerie, nude)."
+            
+            if self.api_provider == "openai" and self.openai_api:
+                response = await self.openai_api.generate_response(system_prompt + "\n\n" + user_message)
+                logger.info(f"📤 OpenAI undress response length: {len(response)} chars")
+            elif self.api_provider == "claude" and self.claude_api:
+                response = await self.claude_api.generate_response(system_prompt + "\n\n" + user_message)
+                logger.info(f"📤 Claude undress response length: {len(response)} chars")
+            else:
+                logger.error("No API available for undress transformations")
+                return []
+            
+            if not response or not response.strip():
+                logger.error("Empty response from API for undress transformations")
+                return []
+            
+            logger.info(f"📥 Received response: {response[:200]}...")
+            
+            # Parse the 3 transformations
+            prompts = []
+            
+            # Pattern to match each transformation section
+            transformation_pattern = r'(?:TRANSFORMATION \d+:|##\s*TRANSFORMATION \d+:)\s*(?:BIKINI|LINGERIE|NUDE)\s*[*]*\s*\n(.+?)(?=(?:TRANSFORMATION \d+:|##\s*TRANSFORMATION \d+:)|$)'
+            
+            matches = re.findall(transformation_pattern, response, re.DOTALL | re.IGNORECASE)
+            
+            for match in matches:
+                prompt_text = match.strip()
+                # Clean up any markdown formatting
+                prompt_text = re.sub(r'^[*`]+|[*`]+$', '', prompt_text)
+                prompt_text = prompt_text.strip()
+                
+                if prompt_text and len(prompt_text) > 20:
+                    prompts.append(prompt_text)
+                    logger.info(f"✅ Parsed transformation prompt: {prompt_text[:100]}...")
+            
+            # If pattern matching failed, try splitting by common delimiters
+            if len(prompts) < 3:
+                logger.warning("Pattern matching found fewer than 3 prompts, trying alternative parsing...")
+                prompts = []
+                
+                # Split by numbered sections
+                sections = re.split(r'\n\s*(?:\d+\.|TRANSFORMATION \d+:|##)', response)
+                for section in sections:
+                    section = section.strip()
+                    # Extract just the prompt text (remove labels like "BIKINI:", "LINGERIE:")
+                    section = re.sub(r'^(?:BIKINI|LINGERIE|NUDE)[:\s*]*', '', section, flags=re.IGNORECASE)
+                    section = section.strip()
+                    
+                    if len(section) > 30 and ('replace' in section.lower() or 'remove' in section.lower()):
+                        prompts.append(section)
+            
+            if len(prompts) >= 3:
+                logger.info(f"✅ Successfully generated {len(prompts)} undress transformation prompts")
+                return prompts[:3]  # Return exactly 3
+            else:
+                logger.warning(f"⚠️ Only generated {len(prompts)} prompts, expected 3")
+                # Return what we have plus fallbacks
+                while len(prompts) < 3:
+                    if len(prompts) == 0:
+                        prompts.append(f"For the subject, replace current outfit with a black bikini. Preserve pose, setting, and facial features.")
+                    elif len(prompts) == 1:
+                        prompts.append(f"For the subject, replace current outfit with red lace lingerie. Preserve pose, setting, and facial features.")
+                    else:
+                        prompts.append(f"For the subject, remove all clothing, fully nude with tits and pussy exposed. Preserve pose, setting, and facial features.")
+                return prompts[:3]
+                
+        except Exception as e:
+            logger.error(f"Error generating undress transformations: {e}")
+            return []
     
     async def generate_mild_examples_only(self, description: str, count: int = 6) -> List[str]:
         """Generate multiple mild examples using batched requests to avoid token limits (default: 6 prompts via 2 requests of 3 each)"""

@@ -1092,8 +1092,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.create_tooltip(mild_btn, "Generate 6 mild filter training examples (3 batches of 2 to avoid token limits)")
         
         moderate_btn = ttk.Button(advanced_frame, text="⚡ Moderate", command=self.generate_moderate_examples, width=8)
-        moderate_btn.pack(side=tk.LEFT, padx=(0, 4))
+        moderate_btn.pack(side=tk.LEFT, padx=(0, 2))
         self.create_tooltip(moderate_btn, "Generate 5 sophisticated moderate examples")
+        
+        undress_btn = ttk.Button(advanced_frame, text="👙 Undress", command=self.generate_undress_transformations, width=8)
+        undress_btn.pack(side=tk.LEFT, padx=(0, 4))
+        self.create_tooltip(undress_btn, "Generate 3 outfit transformations: bikini, lingerie, nude")
         
         # Prompt management
         mgmt_frame = ttk.Frame(tools_frame)
@@ -1199,6 +1203,18 @@ class ImprovedSeedreamLayout(AIChatMixin):
         thread = threading.Thread(target=self._generate_moderate_examples_thread, daemon=True)
         thread.start()
     
+    def generate_undress_transformations(self):
+        """Generate 3 outfit transformation prompts: bikini, lingerie, nude"""
+        if not self.selected_image_path:
+            self.show_tooltip("❌ Please select an image first")
+            return
+        
+        self.show_tooltip("👙 Generating outfit transformations...")
+        
+        # Start background thread for undress transformations
+        thread = threading.Thread(target=self._generate_undress_transformations_thread, daemon=True)
+        thread.start()
+    
     def _generate_mild_examples_thread(self):
         """Background thread for generating mild examples"""
         try:
@@ -1282,6 +1298,39 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
         except Exception as e:
             logger.error(f"Error in moderate examples thread: {e}")
+            self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
+    
+    def _generate_undress_transformations_thread(self):
+        """Background thread for generating undress transformations"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            ai_advisor = get_ai_advisor()
+            if not ai_advisor.is_available():
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ AI service not available"))
+                return
+            
+            # Step 1: Analyze image (detailed analysis)
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
+            description = asyncio.run(ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True))
+            
+            if not description or "error" in description.lower():
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                return
+            
+            # Step 2: Generate 3 undress transformations
+            self.parent_frame.after(0, lambda: self.show_tooltip("👙 Generating transformations..."))
+            transformations = asyncio.run(ai_advisor.generate_undress_transformations(description))
+            
+            if not transformations or len(transformations) == 0:
+                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Generation failed"))
+                return
+            
+            # Show results in UI thread
+            self.parent_frame.after(0, lambda: self._display_undress_transformations(transformations))
+            
+        except Exception as e:
+            logger.error(f"Error in undress transformations thread: {e}")
             self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
     
     def _generate_more_mild_examples(self, popup_state, add_examples_callback, button):
@@ -1641,6 +1690,107 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"Error displaying moderate examples: {e}")
             self.show_tooltip(f"❌ Error: {str(e)}")
+    
+    def _display_undress_transformations(self, transformations):
+        """Display 3 undress transformation prompts in a popup window"""
+        try:
+            # Create popup window
+            popup = tk.Toplevel(self.parent_frame)
+            popup.title("👙 Outfit Transformations")
+            popup.geometry("750x550")
+            popup.resizable(True, True)
+            
+            # Main frame
+            main_frame = ttk.Frame(popup)
+            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Title
+            title_label = ttk.Label(main_frame, text="👙 Undress Transformations (Bikini → Lingerie → Nude)", font=("Arial", 12, "bold"))
+            title_label.pack(pady=(0, 5))
+            
+            # Subtitle
+            subtitle_label = ttk.Label(main_frame, text="Outfit replacement prompts that preserve subject identity and scene", font=("Arial", 9), foreground="gray")
+            subtitle_label.pack(pady=(0, 10))
+            
+            # Transformation labels
+            transformation_types = ["BIKINI", "LINGERIE", "NUDE"]
+            transformation_icons = ["👙", "💄", "🔞"]
+            
+            # Scrollable frame for transformations
+            canvas = tk.Canvas(main_frame, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack scrollbar and canvas
+            scrollbar.pack(side="right", fill="y")
+            canvas.pack(side="left", fill="both", expand=True)
+            
+            # Display each transformation
+            for i, prompt in enumerate(transformations[:3]):  # Ensure max 3
+                transformation_type = transformation_types[i] if i < len(transformation_types) else f"Transform {i+1}"
+                icon = transformation_icons[i] if i < len(transformation_icons) else "🔄"
+                
+                # Transformation frame
+                trans_frame = ttk.LabelFrame(scrollable_frame, text=f"{icon} {transformation_type}", padding="8")
+                trans_frame.pack(fill="x", padx=5, pady=4)
+                
+                # Prompt text
+                prompt_text_widget = tk.Text(trans_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
+                prompt_text_widget.pack(fill="x")
+                prompt_text_widget.insert("1.0", prompt)
+                prompt_text_widget.configure(state='normal')  # Allow selection
+                
+                # Buttons frame
+                btn_frame = ttk.Frame(trans_frame)
+                btn_frame.pack(fill="x", pady=(5, 0))
+                
+                # Copy button
+                copy_btn = ttk.Button(btn_frame, text="📋 Copy", 
+                                    command=lambda p=prompt: popup.clipboard_clear() or popup.clipboard_append(p) or self.show_tooltip("📋 Copied to clipboard"))
+                copy_btn.pack(side="left", padx=(0, 5))
+                
+                # Use button
+                use_btn = ttk.Button(btn_frame, text="✨ Use", 
+                                   command=lambda p=prompt: self._use_prompt(p, popup))
+                use_btn.pack(side="left")
+            
+            # Update canvas scroll region
+            scrollable_frame.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            # Bottom buttons frame
+            buttons_frame = ttk.Frame(popup)
+            buttons_frame.pack(pady=5, fill="x", padx=10)
+            
+            # Close button
+            close_btn = ttk.Button(buttons_frame, text="Close", command=popup.destroy)
+            close_btn.pack(side="right")
+            
+            # Bind mousewheel to canvas
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            canvas.bind_all("<MouseWheel>", on_mousewheel)
+            
+            # Focus on popup
+            popup.focus_set()
+            
+            # Show success message
+            self.show_tooltip(f"✅ Generated {len(transformations)} outfit transformations")
+            
+        except Exception as e:
+            logger.error(f"Error displaying undress transformations: {e}")
+            self.show_tooltip(f"❌ Error: {str(e)}")
+    
+    def _use_prompt(self, prompt, popup):
+        """Copy prompt to main prompt field and close popup"""
+        self.prompt_text.delete("1.0", tk.END)
+        self.prompt_text.insert("1.0", prompt)
+        popup.destroy()
+        self.show_tooltip("✅ Prompt loaded into editor")
     
     def _show_moderate_analysis(self, example):
         """Show analysis of indirect techniques used in moderate example"""
