@@ -9,7 +9,7 @@ maintainable, testable components.
 Progress:
 - ✅ Phase 1: Image Section (image_section.py) - 827 lines
 - ✅ Phase 2: Settings Panel (settings_panel.py) - 715 lines
-- 🔄 Phase 3: Prompt Section (prompt_section.py) - TODO
+- ✅ Phase 3: Prompt Section (prompt_section.py) - 585 lines
 - 🔄 Phase 4: Filter Training (filter_training.py) - TODO  
 - 🔄 Phase 5: Actions Handler (actions_handler.py) - TODO
 - 🔄 Phase 6: Results Display (results_display.py) - TODO
@@ -38,14 +38,15 @@ except ImportError as e:
     _SETTINGS_PANEL_AVAILABLE = False
     print(f"Warning: Settings panel module not available: {e}")
 
-# Phase 3: Prompt Section Module (TODO)
+# Phase 3: Prompt Section Module (COMPLETE)
 try:
     from .prompt_section import (
         PromptSectionManager
     )
     _PROMPT_SECTION_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     _PROMPT_SECTION_AVAILABLE = False
+    print(f"Warning: Prompt section module not available: {e}")
 
 # Phase 4: Filter Training Module (TODO)
 try:
@@ -160,7 +161,7 @@ def get_refactoring_progress():
     }
 
 # Version info
-__version__ = "0.2.0"  # Phase 2 complete
+__version__ = "0.3.0"  # Phase 3 complete
 __author__ = "Seedream Refactoring Team"
 __description__ = "Modular components for Seedream V4 tab"
 
@@ -174,13 +175,13 @@ from ui.components.seedream import ImageSectionManager
 image_manager = ImageSectionManager(layout)
 image_manager.setup_image_section(parent_frame)
 
-# Phase 2: Settings Panel  
-from ui.components.seedream import SettingsPanelManager
+# Phase 3: Prompt Section  
+from ui.components.seedream import PromptSectionManager
 
-settings_manager = SettingsPanelManager(layout)
-settings_manager.setup_settings_panel(parent_frame)
-current_settings = settings_manager.get_current_settings()
-is_valid, error = settings_manager.validate_settings()
+prompt_manager = PromptSectionManager(layout)
+prompt_manager.setup_prompt_section(parent_frame)
+current_prompt = prompt_manager.get_current_prompt()
+is_valid, error = prompt_manager.validate_prompt()
 
 # Check module availability
 from ui.components.seedream import get_refactoring_progress
