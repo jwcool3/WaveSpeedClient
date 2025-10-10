@@ -3,8 +3,8 @@
     "created": "2025-09-11T20:23:33.680213",
     "description": "Enhanced failed prompt tracking with categorized errors",
     "version": "2.0",
-    "last_updated": "2025-10-01T06:22:21.058547",
-    "total_failures": 17
+    "last_updated": "2025-10-07T05:21:31.499649",
+    "total_failures": 20
   },
   "prompts": [
     {
@@ -477,6 +477,90 @@
       "all_caps_ratio": 0.012626262626262626,
       "has_multiple_sentences": true,
       "avg_word_length": 5.844827586206897
+    },
+    {
+      "timestamp": "2025-10-06T14:23:20.974251",
+      "prompt": "Transform the outfit they are wearing into a string bikinis and expand the shot to close up  near full-body perspective. Keep the natural expression and face details consistent, they are in a sexy pose,",
+      "ai_model": "seedream_v4",
+      "error_message": "API request failed: HTTP 400: {\"code\":400,\"message\":\"Insufficient credits. Please top up.\"}",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:\\Users\\itssa\\Downloads\\drive-download-20251006T174451Z-1-001\\Gallery _ jennagrayson7 _ VSCO\\imgi_1583_vsco5a8686865985d.jpg",
+        "width": 1597,
+        "height": 2400,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": "2a722c61921b4eed8c29df20021114ae",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 202,
+      "word_count": 34,
+      "prompt_hash": -8675951358901419429,
+      "contains_special_chars": false,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.009900990099009901,
+      "has_multiple_sentences": true,
+      "avg_word_length": 4.9411764705882355
+    },
+    {
+      "timestamp": "2025-10-06T23:58:28.126058",
+      "prompt": "Remove the white crop top and light blue pants, replace with tiny string bikini (small triangle top and minimal thong bottom in bright pink or white). Medium-full shot, head to feet visible, subject fills 85% of frame. Same brick wall background and brick patio floor. Standing with hands at sides, smiling at viewer. Hair remains long dark brown. Bracelets stay on wrists. Do not alter facial identity or body proportions.",
+      "ai_model": "seedream_v4",
+      "error_message": "Unexpected error: HTTPSConnectionPool(host='api.wavespeed.ai', port=443): Max retries exceeded with url: /api/v3/bytedance/seedream-v4/edit (Caused by SSLError(SSLEOFError(8, 'EOF occurred in violation of protocol (_ssl.c:2427)')))",
+      "failure_reason": "content_filter",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:\\Users\\itssa\\Downloads\\drive-download-20251006T174451Z-1-001\\Gallery _ jennagrayson7 _ VSCO\\imgi_991_vsco_062117.jpg",
+        "width": 1920,
+        "height": 2550,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": "28f4afb6a46e4f97b5c6d6a23f907380",
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 423,
+      "word_count": 70,
+      "prompt_hash": -8926300487065153283,
+      "contains_special_chars": true,
+      "contains_numbers": true,
+      "all_caps_ratio": 0.016548463356973995,
+      "has_multiple_sentences": true,
+      "avg_word_length": 5.057142857142857
+    },
+    {
+      "timestamp": "2025-10-07T05:21:31.499649",
+      "prompt": "Remove white crop top and blue pants completely, entire body fully nude showing completely bare tits with erect hard pink nipples, smooth flat toned stomach, shaved pussy with lips slightly visible between thighs, toned athletic legs, complete full nudity. Add iconic black playboy bunny ears headband sitting perfectly positioned on top of head, small black satin bow tie collar worn around neck like necklace, white fluffy round bunny tail piece attached and visible just above butt cheeks. Medium-full body shot, knees to head fills 85% of frame. Same red brick wall background and brick patio floor. Classic iconic playboy bunny centerfold pose: standing balanced up on tiptoes creating elegant leg arch and calf definition, right arm raised with hand placed behind head running fingers through hair, left hand placed on hip creating confident stance, back deeply arched pushing bare tits and chest forward prominently, body angled and turned slightly to side showing off natural body curves and silhouette, one hip popped out. Sultry seductive smile looking directly at camera with half-lidded bedroom eyes creating sexy invitation expression. Natural warm outdoor lighting. Long dark brown hair flowing naturally down back and shoulders. Silver bracelets on wrists. Entire nude body visible showing tits with hard nipples, pussy between legs, playboy accessories completing iconic bunny look.",
+      "ai_model": "seedream_v4",
+      "error_message": "Error displaying results: 'ImprovedSeedreamLayout' object has no attribute 'display_result_image'",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:\\Users\\itssa\\Downloads\\drive-download-20251006T174451Z-1-001\\Gallery _ jennagrayson7 _ VSCO\\imgi_991_vsco_062117.jpg",
+        "width": 2400,
+        "height": 3187,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": null,
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 1398,
+      "word_count": 213,
+      "prompt_hash": 6245610446391725153,
+      "contains_special_chars": true,
+      "contains_numbers": true,
+      "all_caps_ratio": 0.00715307582260372,
+      "has_multiple_sentences": true,
+      "avg_word_length": 5.568075117370892
     }
   ]
 }

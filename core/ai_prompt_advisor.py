@@ -643,7 +643,7 @@ class ClaudeAPI:
         
         return suggestions[:3]  # Return max 3 suggestions
     
-    def _resize_image_for_api(self, image_data: bytes, max_dimension: int = 1536) -> bytes:
+    def _resize_image_for_api(self, image_data: bytes, max_dimension: int = 2048) -> bytes:
         """Resize image to reasonable size for API while maintaining aspect ratio"""
         from PIL import Image
         import io
@@ -692,7 +692,7 @@ class ClaudeAPI:
         
         try:
             # Resize image if too large (prevents hallucinations and reduces API cost)
-            image_data = self._resize_image_for_api(image_data, max_dimension=2048)
+            image_data = self._resize_image_for_api(image_data, max_dimension=1536)
             
             # Detect image format
             image = Image.open(io.BytesIO(image_data))
@@ -716,7 +716,7 @@ class ClaudeAPI:
             
             payload = {
                 "model": "claude-3-5-sonnet-20241022",
-                "max_tokens": 2000,
+                "max_tokens": 5000,
                 "messages": [{
                     "role": "user",
                     "content": [
@@ -869,7 +869,7 @@ class OpenAIAPI:
         
         return suggestions[:3]
     
-    def _resize_image_for_api(self, image_data: bytes, max_dimension: int = 2048) -> bytes:
+    def _resize_image_for_api(self, image_data: bytes, max_dimension: int = 1536) -> bytes:
         """Resize image to reasonable size for API while maintaining aspect ratio"""
         from PIL import Image
         import io
@@ -915,7 +915,7 @@ class OpenAIAPI:
         import base64
         
         # Resize image if too large (prevents hallucinations and reduces API cost)
-        image_data = self._resize_image_for_api(image_data, max_dimension=2048)
+        image_data = self._resize_image_for_api(image_data, max_dimension=1536)
         
         # Encode image to base64
         image_base64 = base64.b64encode(image_data).decode('utf-8')
