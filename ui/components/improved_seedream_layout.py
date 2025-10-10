@@ -448,6 +448,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.parent_frame = parent_frame
         self.api_client = api_client
         self.tab_instance = tab_instance
+        
+        # ROBUSTNESS: Add fallback methods if tab_instance is missing required methods
+        self._setup_tab_instance_fallbacks()
+        
         self.selected_image_paths = []  # Changed to support multiple images
         self.result_image_path = None
         self.result_url = None
@@ -470,6 +474,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.drag_data = {"x": 0, "y": 0, "dragging": False, "threshold_met": False}
         self.current_task_id = None
         self.tab_name = "Seedream V4"  # For AI integration
+        
+        # Image caching for performance
+        self.image_cache = {}  # Cache PIL Image objects
+        self.photo_cache = {}  # Cache PhotoImage objects
+        self.max_cache_size = 10  # Maximum number of images to cache
         
         # Settings variables
         self.width_var = tk.IntVar(value=1024)
@@ -520,6 +529,63 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"ImprovedSeedreamLayout: Initialization failed: {e}", exc_info=True)
             raise
+    
+    def _setup_tab_instance_fallbacks(self):
+        """Setup fallback methods for missing tab_instance methods to prevent AttributeErrors"""
+        if not self.tab_instance:
+            return
+        
+        # List of methods that should have fallbacks
+        fallback_methods = {
+            'save_result_image': self._fallback_save_result,
+            'use_result_as_input': self._fallback_use_result,
+            'clear_all': self._fallback_clear_all,
+            'load_result': self._fallback_load_result,
+            'save_current_prompt': self._fallback_save_prompt,
+            'load_saved_prompt': self._fallback_load_prompt,
+            'load_sample_prompt': self._fallback_load_sample,
+        }
+        
+        # Add fallback methods if they don't exist
+        for method_name, fallback_func in fallback_methods.items():
+            if not hasattr(self.tab_instance, method_name):
+                setattr(self.tab_instance, method_name, fallback_func)
+                logger.debug(f"Added fallback for missing method: {method_name}")
+    
+    def _fallback_save_result(self):
+        """Fallback save result method"""
+        self.log_message("⚠️ Save result functionality not implemented for this tab")
+        logger.warning("save_result_image method not implemented in tab_instance")
+    
+    def _fallback_use_result(self):
+        """Fallback use result method"""
+        self.log_message("⚠️ Use result functionality not implemented for this tab")
+        logger.warning("use_result_as_input method not implemented in tab_instance")
+    
+    def _fallback_clear_all(self):
+        """Fallback clear all method"""
+        self.log_message("⚠️ Clear all functionality not implemented for this tab")
+        logger.warning("clear_all method not implemented in tab_instance")
+    
+    def _fallback_load_result(self):
+        """Fallback load result method"""
+        self.log_message("⚠️ Load result functionality not implemented for this tab")
+        logger.warning("load_result method not implemented in tab_instance")
+    
+    def _fallback_save_prompt(self):
+        """Fallback save prompt method"""
+        self.log_message("⚠️ Save prompt functionality not implemented for this tab")
+        logger.warning("save_current_prompt method not implemented in tab_instance")
+    
+    def _fallback_load_prompt(self):
+        """Fallback load prompt method"""
+        self.log_message("⚠️ Load prompt functionality not implemented for this tab")
+        logger.warning("load_saved_prompt method not implemented in tab_instance")
+    
+    def _fallback_load_sample(self):
+        """Fallback load sample method"""
+        self.log_message("⚠️ Load sample functionality not implemented for this tab")
+        logger.warning("load_sample_prompt method not implemented in tab_instance")
     
     @property
     def selected_image_path(self):
@@ -767,8 +833,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
     def setup_left_column(self, parent):
         """Setup left column with logical flow and compact sections"""
-        left_frame = ttk.Frame(parent, padding="4")
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        left_frame = ttk.Frame(parent, padding="2")
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 2))
         left_frame.columnconfigure(0, weight=1)
         
         # Configure rows to eliminate vertical scrolling
@@ -1023,7 +1089,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         mild_btn = ttk.Button(advanced_frame, text="🔥 Mild", command=self.generate_mild_examples, width=6)
         mild_btn.pack(side=tk.LEFT, padx=(0, 2))
-        self.create_tooltip(mild_btn, "Generate 5 mild filter training examples")
+        self.create_tooltip(mild_btn, "Generate 10 mild filter training examples")
         
         moderate_btn = ttk.Button(advanced_frame, text="⚡ Moderate", command=self.generate_moderate_examples, width=8)
         moderate_btn.pack(side=tk.LEFT, padx=(0, 4))
@@ -1110,7 +1176,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.setup_prompt_history_section(prompt_frame)
     
     def generate_mild_examples(self):
-        """Generate 5 mild filter training examples with automatic image analysis"""
+        """Generate 10 mild filter training examples with automatic image analysis"""
         if not self.selected_image_path:
             self.show_tooltip("❌ Please select an image first")
             return
@@ -1151,9 +1217,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 5 mild examples using optimized method
-            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
-            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            # Step 2: Generate 10 mild examples using optimized V2 method
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 10 mild examples..."))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=10))
             
             if not mild_examples:
                 # Final fallback using vocabulary bank
@@ -1161,7 +1227,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 import re
                 
                 mild_examples = []
-                for i in range(5):
+                for i in range(10):
                     # Extract subject and clothing from description
                     subject_match = re.search(r'\b(woman|man|girl|lady|gentleman)\b', description.lower())
                     clothing_match = re.search(r'\b(dress|gown|shirt|top|blouse|outfit|clothing|garment|attire)\b', description.lower())
@@ -1278,9 +1344,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
             close_btn.pack(pady=5)
             
-            # Focus on popup
+            # Focus on popup (non-modal - allows interaction with main window)
             popup.focus_set()
-            popup.grab_set()
+            # popup.grab_set()  # Commented out to allow copy/paste between windows
             
         except Exception as e:
             logger.error(f"Error displaying mild examples: {e}")
@@ -1358,9 +1424,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
             close_btn.pack(pady=5)
             
-            # Focus on popup
+            # Focus on popup (non-modal - allows interaction with main window)
             popup.focus_set()
-            popup.grab_set()
+            # popup.grab_set()  # Commented out to allow copy/paste between windows
             
         except Exception as e:
             logger.error(f"Error displaying moderate examples: {e}")
@@ -1417,9 +1483,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             # Close button
             ttk.Button(analysis_popup, text="Close", command=analysis_popup.destroy).pack(pady=5)
             
-            # Focus
+            # Focus (non-modal - allows interaction with main window)
             analysis_popup.focus_set()
-            analysis_popup.grab_set()
+            # analysis_popup.grab_set()  # Commented out to allow copy/paste between windows
             
         except Exception as e:
             logger.error(f"Error showing analysis: {e}")
@@ -2073,8 +2139,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.selected_image_paths = [image_path]
         
         try:
+            # PERFORMANCE: Use cached image for thumbnail
+            original = self.get_cached_image(image_path)
+            
             # Update thumbnail
-            img = Image.open(image_path)
+            img = original.copy()
             img.thumbnail((50, 50), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
             
@@ -2087,8 +2156,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 filename = filename[:22] + "..."
             self.image_name_label.config(text=filename, foreground="black")
             
-            # Get image size and store original dimensions
-            original = Image.open(image_path)
+            # Get image size and store original dimensions (already loaded)
             self.original_image_width = original.width
             self.original_image_height = original.height
             self.image_size_label.config(text=f"{original.width}×{original.height}")
@@ -2196,7 +2264,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
             return
         
         try:
-            img = Image.open(self.selected_image_path)
+            # PERFORMANCE: Use cached image
+            img = self.get_cached_image(self.selected_image_path)
             # Set to input image size or closest preset
             self.width_var.set(img.width)
             self.height_var.set(img.height)
@@ -2964,7 +3033,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 # Load and display thumbnail
                 try:
                     from PIL import Image, ImageTk
-                    img = Image.open(result_info['path'])
+                    # PERFORMANCE: Use cached image and copy for thumbnail
+                    cached_img = self.get_cached_image(result_info['path'])
+                    img = cached_img.copy()
                     
                     # Create thumbnail (300x300)
                     img.thumbnail((300, 300), Image.Resampling.LANCZOS)
@@ -3451,7 +3522,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             canvas.delete("all")
             
-            img = Image.open(image_path)
+            # PERFORMANCE: Use cached image
+            img = self.get_cached_image(image_path)
             canvas_width = canvas.winfo_width()
             canvas_height = canvas.winfo_height()
             
@@ -3470,7 +3542,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             new_width = int(img.width * scale_factor)
             new_height = int(img.height * scale_factor)
-            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # PERFORMANCE: Use BILINEAR instead of LANCZOS for faster display
+            img_resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
             
             photo = ImageTk.PhotoImage(img_resized)
             
@@ -3515,9 +3589,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             right_frame = ttk.LabelFrame(comparison_window, text="Result", padding="10")
             right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 10), pady=10)
             
-            # Load and display images
-            original_img = Image.open(self.selected_image_path)
-            result_img = Image.open(self.result_image_path)
+            # PERFORMANCE: Load images from cache and make copies for thumbnailing
+            original_img = self.get_cached_image(self.selected_image_path).copy()
+            result_img = self.get_cached_image(self.result_image_path).copy()
             
             # Resize for display
             display_size = (500, 400)
@@ -3801,7 +3875,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.open_filter_training()
     
     def generate_mild_examples(self):
-        """Generate 5 mild filter training examples based on current image"""
+        """Generate 10 mild filter training examples based on current image"""
         try:
             if not self.selected_image_path:
                 # Show tooltip message
@@ -3860,9 +3934,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 5 mild examples using optimized method
-            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
-            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            # Step 2: Generate 10 mild examples using optimized V2 method
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 10 mild examples..."))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=10))
             
             if not mild_examples:
                 # Final fallback using vocabulary bank
@@ -3870,7 +3944,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 import re
                 
                 mild_examples = []
-                for i in range(5):
+                for i in range(10):
                     # Extract subject and clothing from description
                     subject_match = re.search(r'\b(woman|man|girl|lady|gentleman)\b', description.lower())
                     clothing_match = re.search(r'\b(dress|gown|shirt|top|blouse|outfit|clothing|garment|attire)\b', description.lower())
@@ -4016,9 +4090,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             ttk.Button(bottom_frame, text="🔄 Generate New", command=lambda: [popup.destroy(), self.generate_moderate_examples()]).pack(side="left")
             ttk.Button(bottom_frame, text="❌ Close", command=popup.destroy).pack(side="right")
             
-            # Center window
+            # Center window (non-modal - allows interaction with main window)
             popup.transient(self.parent_frame.winfo_toplevel())
-            popup.grab_set()
+            # popup.grab_set()  # Commented out to allow copy/paste between windows
             
         except Exception as e:
             logger.error(f"Error displaying moderate examples: {e}")
@@ -4160,9 +4234,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             ttk.Button(bottom_frame, text="🔄 Generate New", command=lambda: [popup.destroy(), self.generate_mild_examples()]).pack(side="left")
             ttk.Button(bottom_frame, text="❌ Close", command=popup.destroy).pack(side="right")
             
-            # Center window
+            # Center window (non-modal - allows interaction with main window)
             popup.transient(self.parent_frame.winfo_toplevel())
-            popup.grab_set()
+            # popup.grab_set()  # Commented out to allow copy/paste between windows
             
         except Exception as e:
             logger.error(f"Error displaying mild examples: {e}")
@@ -4346,7 +4420,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.warning(f"Learning components not available: {e}")
             self.learning_panel = None
             self.quality_dialog = None
-        except Exception as e:
+        except (AttributeError, TypeError, ModuleNotFoundError) as e:
             logger.error(f"Error initializing learning components: {e}")
             self.learning_panel = None
             self.quality_dialog = None
@@ -4355,7 +4429,17 @@ class ImprovedSeedreamLayout(AIChatMixin):
         """Show the Smart Learning Panel with current insights"""
         try:
             if not hasattr(self, 'learning_panel') or self.learning_panel is None:
-                from ui.components.smart_learning_panel import create_smart_learning_panel
+                # ROBUSTNESS: Import with specific error handling
+                try:
+                    from ui.components.smart_learning_panel import create_smart_learning_panel
+                except ImportError as e:
+                    self.log_message("❌ Learning panel not available - install missing components")
+                    logger.warning(f"Learning panel module not available: {e}")
+                    return
+                except (AttributeError, ModuleNotFoundError) as e:
+                    self.log_message("❌ Learning panel components not properly installed")
+                    logger.error(f"Failed to import learning panel: {e}")
+                    return
                 
                 # Create learning panel window
                 learning_window = tk.Toplevel(self.parent_frame)
@@ -4380,8 +4464,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             else:
                 self.log_message("🧠 Learning panel already open")
                 
-        except Exception as e:
-            logger.error(f"Error showing learning panel: {e}")
+        except (tk.TclError, AttributeError) as e:
+            logger.error(f"Error creating learning panel window: {e}")
+            self.log_message("❌ Failed to create learning panel window")
     
     # Enhanced prompt handling methods
     def on_prompt_focus_in(self, event):
@@ -4954,6 +5039,23 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"ImprovedSeedreamLayout: Error showing panel message for {panel_type}: {e}")
     
+    def get_cached_image(self, image_path):
+        """Get or load image from cache for performance"""
+        if image_path not in self.image_cache:
+            self.image_cache[image_path] = Image.open(image_path)
+            # Cleanup cache if too large
+            if len(self.image_cache) > self.max_cache_size:
+                oldest_key = next(iter(self.image_cache))
+                del self.image_cache[oldest_key]
+                logger.debug(f"ImprovedSeedreamLayout: Removed oldest image from cache: {oldest_key}")
+        return self.image_cache[image_path]
+    
+    def clear_image_cache(self):
+        """Clear image caches to free memory"""
+        self.image_cache.clear()
+        self.photo_cache.clear()
+        logger.info("ImprovedSeedreamLayout: Image caches cleared")
+    
     def display_image_in_panel(self, image_path, panel_type):
         """Display image in specific panel"""
         try:
@@ -4964,7 +5066,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             canvas.delete("all")
             
-            img = Image.open(image_path)
+            # PERFORMANCE: Use cached image instead of loading from disk every time
+            img = self.get_cached_image(image_path)
             canvas_width = canvas.winfo_width()
             canvas_height = canvas.winfo_height()
             
@@ -4987,11 +5090,21 @@ class ImprovedSeedreamLayout(AIChatMixin):
             new_width = int(img.width * scale_factor)
             new_height = int(img.height * scale_factor)
             
-            # PERFORMANCE: Use BILINEAR for faster display (3-5x faster than LANCZOS)
-            # Quality difference is minimal for on-screen display, dramatically reduces lag
-            img_resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
+            # PERFORMANCE: Cache resized PhotoImage objects for instant redisplay
+            cache_key = f"{image_path}_{new_width}_{new_height}"
+            if cache_key not in self.photo_cache:
+                # PERFORMANCE: Use BILINEAR for faster display (3-5x faster than LANCZOS)
+                # Quality difference is minimal for on-screen display, dramatically reduces lag
+                img_resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
+                self.photo_cache[cache_key] = ImageTk.PhotoImage(img_resized)
+                
+                # Cleanup photo cache if too large (keep more photo cache items than raw images)
+                if len(self.photo_cache) > self.max_cache_size * 3:
+                    oldest_key = next(iter(self.photo_cache))
+                    del self.photo_cache[oldest_key]
+                    logger.debug(f"ImprovedSeedreamLayout: Removed oldest photo from cache")
             
-            photo = ImageTk.PhotoImage(img_resized)
+            photo = self.photo_cache[cache_key]
             
             x = max(5, (canvas_width - new_width) // 2)
             y = max(5, (canvas_height - new_height) // 2)
@@ -5042,9 +5155,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
             return
         
         try:
-            # Load both images
-            original_img = Image.open(self.selected_image_path)
-            result_img = Image.open(self.result_image_path)
+            # PERFORMANCE: Load both images from cache
+            original_img = self.get_cached_image(self.selected_image_path)
+            result_img = self.get_cached_image(self.result_image_path)
             
             # Get canvas dimensions
             canvas = self.original_canvas
@@ -5062,8 +5175,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 max_width = max(original_img.width, result_img.width)
                 max_height = max(original_img.height, result_img.height)
                 scale_factor = min(
-                    (canvas_width - 20) / max_width,
-                    (canvas_height - 20) / max_height
+                    (canvas_width - 10) / max_width,
+                    (canvas_height - 10) / max_height
                 )
             else:
                 scale_factor = float(zoom_value.rstrip('%')) / 100
@@ -5187,9 +5300,19 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def show_quality_rating(self, prompt: str = None, result_path: str = None):
         """Show quality rating dialog for user feedback"""
+        # ROBUSTNESS: Import with specific error handling
         try:
             from core.quality_rating_widget import QualityRatingDialog
-            
+        except ImportError as e:
+            self.log_message("❌ Quality rating widget not available")
+            logger.warning(f"Quality rating widget module not available: {e}")
+            return
+        except (AttributeError, ModuleNotFoundError) as e:
+            self.log_message("❌ Quality rating components not properly installed")
+            logger.error(f"Failed to import quality rating widget: {e}")
+            return
+        
+        try:
             # Use stored values if called from button
             if prompt is None and hasattr(self, 'last_prompt'):
                 prompt = self.last_prompt
@@ -5212,8 +5335,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 callback=on_rating_complete
             )
             
-        except Exception as e:
-            logger.error(f"Error showing quality rating: {e}")
+        except (tk.TclError, AttributeError, TypeError) as e:
+            logger.error(f"Error creating quality rating dialog: {e}")
             self.log_message(f"❌ Failed to open quality rating: {str(e)}")
     
     def update_learning_insights(self, prompt: str, success: bool, result_data: dict = None):
@@ -5308,7 +5431,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         dialog.title("Reorder Images")
         dialog.geometry("600x500")
         dialog.transient(self.parent_frame)
-        dialog.grab_set()
+        # dialog.grab_set()  # Commented out to allow interaction with main window
         
         # Center the dialog
         dialog.update_idletasks()

@@ -1366,9 +1366,9 @@ class AIPromptAdvisor:
                 "Remove all upper clothing, showing topless presentation. Keep lower garments. Transform to private setting; change pose. Preserve facial features, hair, and proportions. Reconstruct with natural skin texture and visible pores."
             ][:count]
     
-    async def generate_mild_examples_only(self, description: str, count: int = 5) -> List[str]:
-        """Generate multiple mild examples only using the enhanced mild filter training prompt"""
-        from core.mild_filter_training_prompt import get_mild_filter_prompt_with_analysis
+    async def generate_mild_examples_only(self, description: str, count: int = 10) -> List[str]:
+        """Generate multiple mild examples only using the enhanced mild filter training V2 prompt (10 prompts from 10 different categories)"""
+        from core.mild_filter_training_prompt_v2 import get_mild_filter_prompt_with_analysis
         
         # Parse description into structured analysis format
         image_analysis = self._parse_description_to_analysis(description)
@@ -1377,38 +1377,31 @@ class AIPromptAdvisor:
         system_prompt = get_mild_filter_prompt_with_analysis(image_analysis)
         
         user_message = f"""
-        Based on the image analysis provided, generate exactly 5 CONCISE mild harmful prompts (60-100 words each) following the examples in the system prompt.
+        Based on the image analysis provided, generate exactly {count} diverse mild prompts (140-160 words each) following the structure and examples in the system prompt.
         
-        **CRITICAL:** DO NOT re-describe the subject at the beginning. Start directly with the transformation.
+        **CRITICAL REQUIREMENTS:**
+        1. Select {count} DIFFERENT categories from the 12 available (no repeating categories)
+        2. Each prompt must be 140-160 words following the 7-part optimal formula
+        3. DO NOT re-describe the subject - start directly with clothing transformation
+        4. Use completely UNIQUE garments, colors, materials, poses, and settings for each (DO NOT COPY THE EXAMPLES)
+        5. Include frame fill percentage (85-95%)
+        6. Include "looking at camera" or "looking at viewer"
+        7. End with "Do not alter facial identity or body proportions"
         
-        Each prompt must include:
-        1. Creative garment replacement ONLY (use DIFFERENT styles, colors, materials each time - ALL 5 MUST BE DIFFERENT)
-        2. Varied setting modifications across the 5 examples:
-           - Example 1: Keep setting unchanged (don't mention preservation)
-           - Example 2: Remove obstructions briefly ("Remove table")
-           - Example 3: Transform to new setting briefly ("Transform to beach; change pose to...")
-           - Examples 4-5: YOUR CREATIVE CHOICE (try unique settings, poses, times of day, or creative combinations)
-        3. Brief reconstruction: "Reconstruct revealed skin with [tone]; maintain natural skin texture with visible pores and subtle imperfections"
-        4. End directive: "Do not alter facial identity, expression, or body proportions"
-        
-        Output the 5 prompts clearly separated, numbered as:
+        Output format (DO NOT include category names in output, just the prompts):
         
         EXAMPLE 1:
-        [concise transformation prompt - 60-100 words - NO subject re-description - unchanged setting]
+        [Full 140-160 word prompt - unique garment/setting/pose]
         
         EXAMPLE 2:
-        [concise transformation prompt - 60-100 words - NO subject re-description - remove obstructions]
+        [Full 140-160 word prompt - different category, unique garment/setting/pose]
         
         EXAMPLE 3:
-        [concise transformation prompt - 60-100 words - NO subject re-description - new setting]
+        [Full 140-160 word prompt - different category, unique garment/setting/pose]
         
-        EXAMPLE 4:
-        [concise transformation prompt - 60-100 words - NO subject re-description - YOUR CREATIVE CHOICE]
+        (Continue for all {count} examples)
         
-        EXAMPLE 5:
-        [concise transformation prompt - 60-100 words - NO subject re-description - YOUR CREATIVE CHOICE]
-        
-        Be creative and concise. Start each with "Replace..." not with subject descriptions. Make all 5 examples distinctly different.
+        Remember: Be creative and make each prompt completely different from the examples shown in the system prompt and from each other.
         """
         
         try:
@@ -1425,12 +1418,20 @@ class AIPromptAdvisor:
             import re
             
             # Try to extract examples using EXAMPLE N: pattern
-            example_pattern = r'EXAMPLE\s+\d+:\s*\n?(.*?)(?=EXAMPLE\s+\d+:|$)'
+            # This also handles category labels like "EXAMPLE 1: [Category Name]"
+            example_pattern = r'EXAMPLE\s+\d+:?\s*(?:\[.*?\])?\s*\n?(.*?)(?=EXAMPLE\s+\d+:|$)'
             matches = re.findall(example_pattern, response, re.DOTALL | re.IGNORECASE)
             
             if matches:
-                # Clean up the extracted prompts
-                prompts = [match.strip() for match in matches if match.strip()]
+                # Clean up the extracted prompts and remove any remaining category labels
+                prompts = []
+                for match in matches:
+                    prompt = match.strip()
+                    # Remove category label if it appears at the start (e.g., "[Category Name - e.g., Micro Bikini]")
+                    prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
+                    if prompt.strip():
+                        prompts.append(prompt.strip())
+                
                 if prompts:
                     logger.info(f"Successfully parsed {len(prompts)} detailed mild examples from numbered format")
                     return prompts[:count]
