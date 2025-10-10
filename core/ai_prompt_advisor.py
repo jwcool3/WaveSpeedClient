@@ -1366,8 +1366,8 @@ class AIPromptAdvisor:
                 "Remove all upper clothing, showing topless presentation. Keep lower garments. Transform to private setting; change pose. Preserve facial features, hair, and proportions. Reconstruct with natural skin texture and visible pores."
             ][:count]
     
-    async def generate_mild_examples_only(self, description: str, count: int = 10) -> List[str]:
-        """Generate multiple mild examples only using the enhanced mild filter training V2 prompt (10 prompts from 10 different categories)"""
+    async def generate_mild_examples_only(self, description: str, count: int = 5) -> List[str]:
+        """Generate multiple mild examples only using the enhanced mild filter training V2 prompt (5 prompts from 5 randomly-selected categories)"""
         from core.mild_filter_training_prompt_v2 import get_mild_filter_prompt_with_analysis
         
         # Parse description into structured analysis format
@@ -1380,28 +1380,32 @@ class AIPromptAdvisor:
         Based on the image analysis provided, generate exactly {count} diverse mild prompts (140-160 words each) following the structure and examples in the system prompt.
         
         **CRITICAL REQUIREMENTS:**
-        1. Select {count} DIFFERENT categories from the 12 available (no repeating categories)
+        1. RANDOMLY SELECT {count} DIFFERENT categories from the 12 available (don't pick first {count}, randomize selection)
         2. Each prompt must be 140-160 words following the 7-part optimal formula
-        3. DO NOT re-describe the subject - start directly with clothing transformation
-        4. Use completely UNIQUE garments, colors, materials, poses, and settings for each (DO NOT COPY THE EXAMPLES)
-        5. Include frame fill percentage (85-95%)
-        6. Include "looking at camera" or "looking at viewer"
-        7. End with "Do not alter facial identity or body proportions"
+        3. **USE DIRECT LANGUAGE - NO FLOWERY POETRY OR ARTISTIC METAPHORS**
+        4. Start directly with "Remove [clothing], replace with..." - DO NOT re-describe the subject
+        5. Use completely UNIQUE garments, colors, materials, poses, and settings for each (DO NOT COPY THE EXAMPLES)
+        6. Include frame fill percentage (85-95%)
+        7. Include "looking at camera" or "looking at viewer" explicitly
+        8. End with "Do not alter facial identity or body proportions."
+        
+        **LANGUAGE RULES:**
+        - ✅ Direct: "Remove white top, replace with tiny red bikini"
+        - ❌ Poetic: "Lend this beauty the allure of crimson swimwear"
+        - ✅ Simple: "Standing with hand on hip, looking at camera with smile"
+        - ❌ Flowery: "Her smile punctuates her daring moves as she gazes alluringly"
         
         Output format (DO NOT include category names in output, just the prompts):
         
         EXAMPLE 1:
-        [Full 140-160 word prompt - unique garment/setting/pose]
+        [Full 140-160 word prompt - direct language, unique garment/setting/pose]
         
         EXAMPLE 2:
-        [Full 140-160 word prompt - different category, unique garment/setting/pose]
-        
-        EXAMPLE 3:
-        [Full 140-160 word prompt - different category, unique garment/setting/pose]
+        [Full 140-160 word prompt - direct language, different category, unique garment/setting/pose]
         
         (Continue for all {count} examples)
         
-        Remember: Be creative and make each prompt completely different from the examples shown in the system prompt and from each other.
+        Remember: Use DIRECT, TECHNICAL language. NO poetry, artistic descriptions, or flowery metaphors.
         """
         
         try:
