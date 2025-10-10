@@ -1284,25 +1284,80 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.error(f"Error in moderate examples thread: {e}")
             self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
     
+    def _generate_more_mild_examples(self, popup_state, add_examples_callback, button):
+        """Background thread to generate 5 more mild examples"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            # Get AI advisor
+            ai_advisor = get_ai_advisor()
+            
+            # Get description from image
+            popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
+            description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
+            
+            if not description or "error" in description.lower():
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+                return
+            
+            # Generate 5 more examples
+            popup_state['popup'].after(0, lambda: self.show_tooltip("🔥 Generating 5 more examples..."))
+            new_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            
+            if not new_examples:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Generation failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+                return
+            
+            # Add to examples list
+            current_count = len(popup_state['examples_list'])
+            popup_state['examples_list'].extend(new_examples)
+            
+            # Update display in UI thread
+            def update_display():
+                # Add new examples to scrollable frame
+                add_examples_callback(new_examples, starting_index=current_count + 1)
+                
+                # Update title
+                new_count = len(popup_state['examples_list'])
+                popup_state['title_label'].config(text=f"🔥 Filter Training - {new_count} Mild Examples")
+                
+                # Scroll to bottom to show new examples
+                popup_state['canvas'].yview_moveto(1.0)
+                
+                # Re-enable button
+                button.config(state='normal', text="🔥 Generate More (5)")
+                
+                # Show success
+                self.show_tooltip(f"✅ Added 5 more examples! Total: {new_count}")
+            
+            popup_state['popup'].after(0, update_display)
+            
+        except Exception as e:
+            logger.error(f"Error generating more mild examples: {e}")
+            popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Error: {str(e)}"))
+            popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+    
     def _display_mild_examples(self, examples):
-        """Display generated mild examples in a popup window"""
+        """Display generated mild examples in a popup window with Generate More functionality"""
         try:
             # Create popup window
             popup = tk.Toplevel(self.parent_frame)
             popup.title("🔥 Filter Training - Mild Examples")
-            popup.geometry("700x500")
+            popup.geometry("700x600")
             popup.resizable(True, True)
             
             # Main frame with scrollbar
             main_frame = ttk.Frame(popup)
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
             
-            # Title with count
+            # Title with count (will be updated)
             title_label = ttk.Label(main_frame, text=f"🔥 Filter Training - {len(examples)} Mild Examples", font=("Arial", 12, "bold"))
             title_label.pack(pady=(0, 5))
             
             # Subtitle
-            subtitle_label = ttk.Label(main_frame, text="Generated using comprehensive vocabulary bank and varied terminology", font=("Arial", 9), foreground="gray")
+            subtitle_label = ttk.Label(main_frame, text="Click 'Generate More' to add 5 more examples from different categories", font=("Arial", 9), foreground="gray")
             subtitle_label.pack(pady=(0, 10))
             
             # Scrollable frame for examples
@@ -1318,43 +1373,82 @@ class ImprovedSeedreamLayout(AIChatMixin):
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
             
-            # Add examples to scrollable frame
-            for i, example in enumerate(examples, 1):
-                # Parse category label if present (format: [Category Name]\nprompt text)
+            # Store state for Generate More functionality
+            popup_state = {
+                'examples_list': list(examples),  # Copy the list
+                'used_categories': set(),
+                'scrollable_frame': scrollable_frame,
+                'title_label': title_label,
+                'popup': popup,
+                'canvas': canvas
+            }
+            
+            # Helper function to add examples to display
+            def add_examples_to_display(examples_to_add, starting_index=1):
                 import re
-                category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
-                
-                if category_match:
-                    category_name = category_match.group(1).strip()
-                    prompt_text = category_match.group(2).strip()
-                    frame_title = f"Example {i}: {category_name}"
-                else:
-                    prompt_text = example
-                    frame_title = f"Example {i}"
-                
-                # Example frame with category in title
-                example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
-                example_frame.pack(fill="x", padx=5, pady=3)
-                
-                # Example text (selectable) - display only the prompt without category prefix
-                example_text = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
-                example_text.pack(fill="x")
-                example_text.insert("1.0", prompt_text)
-                example_text.configure(state='normal')  # Allow selection but not editing
-                
-                # Copy button - copy only the prompt text
-                copy_btn = ttk.Button(example_frame, text="📋 Copy", 
-                                    command=lambda ex=prompt_text: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
-                copy_btn.pack(anchor="e", pady=(5, 0))
+                for i, example in enumerate(examples_to_add, starting_index):
+                    # Parse category label if present (format: [Category Name]\nprompt text)
+                    category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
+                    
+                    if category_match:
+                        category_name = category_match.group(1).strip()
+                        prompt_text = category_match.group(2).strip()
+                        frame_title = f"Example {i}: {category_name}"
+                        # Track used category
+                        popup_state['used_categories'].add(category_name)
+                    else:
+                        prompt_text = example
+                        frame_title = f"Example {i}"
+                    
+                    # Example frame with category in title
+                    example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
+                    example_frame.pack(fill="x", padx=5, pady=3)
+                    
+                    # Example text (selectable) - display only the prompt without category prefix
+                    example_text = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
+                    example_text.pack(fill="x")
+                    example_text.insert("1.0", prompt_text)
+                    example_text.configure(state='normal')  # Allow selection but not editing
+                    
+                    # Copy button - copy only the prompt text
+                    copy_btn = ttk.Button(example_frame, text="📋 Copy", 
+                                        command=lambda ex=prompt_text: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
+                    copy_btn.pack(anchor="e", pady=(5, 0))
+            
+            # Add initial examples
+            add_examples_to_display(examples)
+            
+            # Generate More button handler
+            def generate_more_examples():
+                try:
+                    generate_more_btn.config(state='disabled', text="🔄 Generating...")
+                    popup.update()
+                    
+                    # Generate 5 more in background thread
+                    thread = threading.Thread(target=lambda: self._generate_more_mild_examples(popup_state, add_examples_to_display, generate_more_btn), daemon=True)
+                    thread.start()
+                    
+                except Exception as e:
+                    logger.error(f"Error in generate more: {e}")
+                    generate_more_btn.config(state='normal', text="🔥 Generate More")
+                    self.show_tooltip(f"❌ Error: {str(e)}")
             
             # Bind mousewheel to canvas
             def on_mousewheel(event):
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
+            # Bottom buttons frame
+            bottom_frame = ttk.Frame(popup)
+            bottom_frame.pack(fill="x", padx=10, pady=5)
+            
+            # Generate More button
+            generate_more_btn = ttk.Button(bottom_frame, text="🔥 Generate More (5)", command=generate_more_examples)
+            generate_more_btn.pack(side="left", padx=(0, 5))
+            
             # Close button
-            close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
-            close_btn.pack(pady=5)
+            close_btn = ttk.Button(bottom_frame, text="Close", command=popup.destroy)
+            close_btn.pack(side="right")
             
             # Focus on popup (non-modal - allows interaction with main window)
             popup.focus_set()
@@ -4170,8 +4264,63 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"Error showing example analysis: {e}")
     
+    def _generate_more_mild_examples(self, popup_state, add_examples_callback, button):
+        """Background thread to generate 5 more mild examples"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            # Get AI advisor
+            ai_advisor = get_ai_advisor()
+            
+            # Get description from image
+            popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
+            description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
+            
+            if not description or "error" in description.lower():
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+                return
+            
+            # Generate 5 more examples
+            popup_state['popup'].after(0, lambda: self.show_tooltip("🔥 Generating 5 more examples..."))
+            new_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            
+            if not new_examples:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Generation failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+                return
+            
+            # Add to examples list
+            current_count = len(popup_state['examples_list'])
+            popup_state['examples_list'].extend(new_examples)
+            
+            # Update display in UI thread
+            def update_display():
+                # Add new examples to scrollable frame
+                add_examples_callback(new_examples, starting_index=current_count + 1)
+                
+                # Update title
+                new_count = len(popup_state['examples_list'])
+                popup_state['title_label'].config(text=f"🔥 Filter Training - {new_count} Mild Examples")
+                
+                # Scroll to bottom to show new examples
+                popup_state['canvas'].yview_moveto(1.0)
+                
+                # Re-enable button
+                button.config(state='normal', text="🔥 Generate More (5)")
+                
+                # Show success
+                self.show_tooltip(f"✅ Added 5 more examples! Total: {new_count}")
+            
+            popup_state['popup'].after(0, update_display)
+            
+        except Exception as e:
+            logger.error(f"Error generating more mild examples: {e}")
+            popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Error: {str(e)}"))
+            popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+    
     def _display_mild_examples(self, examples):
-        """Display generated mild examples in a popup window"""
+        """Display generated mild examples in a popup window with Generate More functionality"""
         try:
             # Create popup window
             popup = tk.Toplevel(self.parent_frame)
@@ -4188,7 +4337,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             title_label.pack(pady=(0, 5))
             
             # Info label
-            info_label = ttk.Label(main_frame, text="✨ Generated with improved vocabulary variety and shorter format", font=("Arial", 9), foreground="gray")
+            info_label = ttk.Label(main_frame, text="Click 'Generate More' to add 5 more examples from different categories", font=("Arial", 9), foreground="gray")
             info_label.pack(pady=(0, 10))
             
             # Examples frame with scrollbar
@@ -4207,53 +4356,88 @@ class ImprovedSeedreamLayout(AIChatMixin):
             canvas.pack(side="left", fill="both", expand=True)
             scrollbar.pack(side="right", fill="y")
             
-            # Add examples with copy buttons
-            for i, example in enumerate(examples, 1):
-                # Parse category label if present (format: [Category Name]\nprompt text)
+            # Store state for Generate More functionality
+            popup_state = {
+                'examples_list': list(examples),  # Copy the list
+                'used_categories': set(),
+                'scrollable_frame': scrollable_frame,
+                'title_label': title_label,
+                'popup': popup,
+                'canvas': canvas
+            }
+            
+            # Helper function to add examples to display
+            def add_examples_to_display(examples_to_add, starting_index=1):
                 import re
-                category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
-                
-                if category_match:
-                    category_name = category_match.group(1).strip()
-                    prompt_text = category_match.group(2).strip()
-                    frame_title = f"Example {i}: {category_name}"
-                else:
-                    prompt_text = example
-                    frame_title = f"Example {i}"
-                
-                example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
-                example_frame.pack(fill="x", pady=5, padx=5)
-                example_frame.columnconfigure(0, weight=1)
-                
-                # Example text - display only the prompt without category prefix
-                text_widget = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
-                text_widget.insert("1.0", prompt_text)
-                text_widget.config(state=tk.DISABLED)  # Fixed: Text widgets use DISABLED not readonly
-                text_widget.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-                
-                # Buttons frame
-                btn_frame = ttk.Frame(example_frame)
-                btn_frame.grid(row=1, column=0, sticky="ew")
-                
-                # Copy button - copy only the prompt text
-                copy_btn = ttk.Button(
-                    btn_frame, 
-                    text="📋 Copy", 
-                    command=lambda ex=prompt_text: self._copy_to_clipboard(ex, popup)
-                )
-                copy_btn.pack(side="left", padx=(0, 5))
-                
-                # Use button - use only the prompt text
-                use_btn = ttk.Button(
-                    btn_frame,
-                    text="✅ Use This",
-                    command=lambda ex=prompt_text: self._use_example(ex, popup)
-                )
-                use_btn.pack(side="left")
+                for i, example in enumerate(examples_to_add, starting_index):
+                    # Parse category label if present (format: [Category Name]\nprompt text)
+                    category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
+                    
+                    if category_match:
+                        category_name = category_match.group(1).strip()
+                        prompt_text = category_match.group(2).strip()
+                        frame_title = f"Example {i}: {category_name}"
+                        # Track used category
+                        popup_state['used_categories'].add(category_name)
+                    else:
+                        prompt_text = example
+                        frame_title = f"Example {i}"
+                    
+                    example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
+                    example_frame.pack(fill="x", pady=5, padx=5)
+                    example_frame.columnconfigure(0, weight=1)
+                    
+                    # Example text - display only the prompt without category prefix
+                    text_widget = tk.Text(example_frame, height=3, wrap=tk.WORD, font=("Arial", 10))
+                    text_widget.insert("1.0", prompt_text)
+                    text_widget.config(state=tk.DISABLED)
+                    text_widget.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+                    
+                    # Buttons frame
+                    btn_frame = ttk.Frame(example_frame)
+                    btn_frame.grid(row=1, column=0, sticky="ew")
+                    
+                    # Copy button - copy only the prompt text
+                    copy_btn = ttk.Button(
+                        btn_frame, 
+                        text="📋 Copy", 
+                        command=lambda ex=prompt_text: self._copy_to_clipboard(ex, popup)
+                    )
+                    copy_btn.pack(side="left", padx=(0, 5))
+                    
+                    # Use button - use only the prompt text
+                    use_btn = ttk.Button(
+                        btn_frame,
+                        text="✅ Use This",
+                        command=lambda ex=prompt_text: self._use_example(ex, popup)
+                    )
+                    use_btn.pack(side="left")
+            
+            # Add initial examples
+            add_examples_to_display(examples)
+            
+            # Generate More button handler
+            def generate_more_examples():
+                try:
+                    generate_more_btn.config(state='disabled', text="🔄 Generating...")
+                    popup.update()
+                    
+                    # Generate 5 more in background thread
+                    thread = threading.Thread(target=lambda: self._generate_more_mild_examples(popup_state, add_examples_to_display, generate_more_btn), daemon=True)
+                    thread.start()
+                    
+                except Exception as e:
+                    logger.error(f"Error in generate more: {e}")
+                    generate_more_btn.config(state='normal', text="🔥 Generate More")
+                    self.show_tooltip(f"❌ Error: {str(e)}")
             
             # Bottom buttons
             bottom_frame = ttk.Frame(main_frame)
             bottom_frame.pack(fill="x", pady=(10, 0))
+            
+            # Generate More button
+            generate_more_btn = ttk.Button(bottom_frame, text="🔥 Generate More (5)", command=generate_more_examples)
+            generate_more_btn.pack(side="left", padx=(0, 5))
             
             ttk.Button(bottom_frame, text="🔄 Generate New", command=lambda: [popup.destroy(), self.generate_mild_examples()]).pack(side="left")
             ttk.Button(bottom_frame, text="❌ Close", command=popup.destroy).pack(side="right")
