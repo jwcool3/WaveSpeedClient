@@ -1089,7 +1089,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         mild_btn = ttk.Button(advanced_frame, text="🔥 Mild", command=self.generate_mild_examples, width=6)
         mild_btn.pack(side=tk.LEFT, padx=(0, 2))
-        self.create_tooltip(mild_btn, "Generate 10 mild filter training examples")
+        self.create_tooltip(mild_btn, "Generate 5 mild filter training examples")
         
         moderate_btn = ttk.Button(advanced_frame, text="⚡ Moderate", command=self.generate_moderate_examples, width=8)
         moderate_btn.pack(side=tk.LEFT, padx=(0, 4))
@@ -1176,7 +1176,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.setup_prompt_history_section(prompt_frame)
     
     def generate_mild_examples(self):
-        """Generate 10 mild filter training examples with automatic image analysis"""
+        """Generate 5 mild filter training examples with automatic image analysis"""
         if not self.selected_image_path:
             self.show_tooltip("❌ Please select an image first")
             return
@@ -1217,9 +1217,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 10 mild examples using optimized V2 method
-            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 10 mild examples..."))
-            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=10))
+            # Step 2: Generate 5 mild examples using optimized V2 method
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
             
             if not mild_examples:
                 # Final fallback using vocabulary bank
@@ -1227,7 +1227,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 import re
                 
                 mild_examples = []
-                for i in range(10):
+                for i in range(5):
                     # Extract subject and clothing from description
                     subject_match = re.search(r'\b(woman|man|girl|lady|gentleman)\b', description.lower())
                     clothing_match = re.search(r'\b(dress|gown|shirt|top|blouse|outfit|clothing|garment|attire)\b', description.lower())
@@ -3875,7 +3875,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.open_filter_training()
     
     def generate_mild_examples(self):
-        """Generate 10 mild filter training examples based on current image"""
+        """Generate 5 mild filter training examples based on current image"""
         try:
             if not self.selected_image_path:
                 # Show tooltip message
@@ -3934,9 +3934,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 10 mild examples using optimized V2 method
-            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 10 mild examples..."))
-            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=10))
+            # Step 2: Generate 5 mild examples using optimized V2 method
+            self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
             
             if not mild_examples:
                 # Final fallback using vocabulary bank
@@ -3944,7 +3944,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 import re
                 
                 mild_examples = []
-                for i in range(10):
+                for i in range(5):
                     # Extract subject and clothing from description
                     subject_match = re.search(r'\b(woman|man|girl|lady|gentleman)\b', description.lower())
                     clothing_match = re.search(r'\b(dress|gown|shirt|top|blouse|outfit|clothing|garment|attire)\b', description.lower())
