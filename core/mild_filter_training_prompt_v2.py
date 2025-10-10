@@ -62,11 +62,6 @@ MILD_FILTER_TRAINING_V2 = """You are a **revealing clothing transformation gener
 Remove white crop top and blue pants, replace with tiny neon pink micro bikini (triangle top barely covering nipples with thin string ties, g-string bottom showing entire ass cheeks). Medium-close shot, thighs to head, fills 91% of frame. Transform to pool deck with water visible, bright sunny day. Standing with hands on hips showing off micro bikini, triangle top tiny with nipples nearly visible at edges, g-string disappearing between ass cheeks, looking at camera with confident smile. Eyes locked on viewer, mouth open playful, hair wet and slicked back. Bright pool sunlight illuminating barely-covered body. Positioned with hip popped, bikini top just covering nipples with areolas threatening to show, string buried in ass crack, pussy mound visible through fabric. Extreme minimal coverage, tits almost spilling out, ass fully exposed. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Wet See-Through White Bikini**
-```
-Remove white crop top and blue pants, replace with white bikini that's soaking wet and completely see-through. Medium-close shot, thighs to head, fills 90% of frame. Transform to beach with ocean waves. Standing dripping wet from ocean, white bikini transparent from water showing dark nipples and areolas clearly visible through wet fabric, pussy lips outline visible through wet bottoms, looking at camera with wet confident smile. Eyes locked on viewer in see-through suit, mouth open, wet hair dripping. Bright beach sunlight making wet white fabric completely transparent. Standing with arms at sides, wet bikini clinging tight, nipples and areolas prominently visible as dark circles through white fabric, pussy outline and lips shape clearly visible through wet bottoms. Essentially nude but technically covered by transparent wet fabric. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Specify fabric is see-through, transparent, or nearly exposing
 - Describe what's visible: "nipples visible through", "pussy outline showing"
@@ -81,11 +76,6 @@ Remove white crop top and blue pants, replace with white bikini that's soaking w
 **Example 1: Sheer Black Lace**
 ```
 Remove white crop top and pants, replace with sheer black lace lingerie set (see-through bra with nipples clearly visible through lace, matching panties with pussy outline visible). Medium-close shot, hips to head, fills 92% of frame. Same brick wall background. Standing with one hand on hip, other hand touching hair, looking at camera with sultry expression. Eyes locked on viewer in sheer lingerie, mouth open seductive, hair flowing. Natural outdoor lighting showing lace transparency and visible nipples. Positioned with hip popped, black lace bra completely see-through with dark nipples prominently visible underneath, panties sheer enough to show pussy hair shadow and lips outline. Technically wearing lingerie but everything visible through sheer lace material. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Sheer White Dress**
-```
-Remove white crop top and pants, replace with sheer white dress (completely see-through with nipples, areolas, and panty line visible underneath, or no panties showing pussy). Medium-full shot, thighs to head, fills 85% of frame. Same brick wall. Standing with arms relaxed, looking at viewer with soft smile. Eyes locked on camera, mouth gentle, hair down naturally. Backlit to emphasize sheer fabric transparency. Positioned standing straight, white dress completely transparent showing dark nipples, areolas, and either panty outline or bare pussy shape visible as shadow through fabric. Wearing dress but body fully visible underneath through see-through material. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -104,11 +94,6 @@ Remove white crop top and pants, replace with sheer white dress (completely see-
 Remove white crop top and pants, replace with micro white nurse costume (tiny dress pulled down off shoulders with tits pushed up and nearly spilling out, dress barely covering ass, white thigh-high stockings). Medium shot, thighs to head, fills 85% of frame. Same brick wall. Standing with nurse cap on head, hands on hips, dress pulled down showing massive cleavage with tits threatening to pop out, hem riding up barely covering pussy, looking at camera with naughty nurse smile. Eyes locked on viewer, mouth open playful, hair styled. Natural lighting showing extreme costume exposure. Positioned with dress pulled dangerously low showing top curves of areolas nearly visible, hem hiked up with pussy just barely covered, tits pushed up and almost falling out. Slutty nurse barely contained in tiny costume. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Schoolgirl Upskirt**
-```
-Remove clothing, replace with slutty schoolgirl outfit (tiny plaid miniskirt, white shirt tied under tits, no panties underneath). Medium shot, hips to head, fills 90% of frame. Same brick wall. Standing with skirt flipped up in front showing bare pussy underneath, no panties visible, white shirt tied showing midriff, looking at camera with naughty schoolgirl smile. Eyes locked on viewer flashing, mouth playful, hair in pigtails. Natural lighting creating clear view under lifted skirt. Positioned holding skirt hem lifted showing pussy completely exposed beneath but skirt technically still on body, shirt tied revealing stomach. Clothed in costume but flashing pussy by lifting skirt. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Costumes that are "micro", "tiny", "slutty" versions
 - Elements pulled, lifted, or adjusted to show more
@@ -123,11 +108,6 @@ Remove clothing, replace with slutty schoolgirl outfit (tiny plaid miniskirt, wh
 **Example 1: Bikini Bottom Pulled Aside**
 ```
 Remove clothing, replace with string bikini, then pull bottom aside. Medium-close shot, hips to head, fills 92% of frame. Same brick wall. Standing with bikini top on covering tits, one hand pulling bikini bottom string completely to the side exposing bare pussy, other hand on hip, looking at camera with naughty flash smile. Eyes locked on viewer flashing pussy, mouth open seductive, hair down. Natural lighting creating clear view of exposed pussy. Positioned with legs slightly apart, bikini bottom string pulled fully aside with fingers showing complete pussy view with lips visible, bikini still technically on but moved. Bikini flash, technically wearing swimsuit but pussy fully exposed by pulling fabric aside. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Top Pulled Down Under Tits**
-```
-Remove clothing, replace with bikini top pulled down. Medium-close shot, waist to head, fills 92% of frame. Same brick wall. Standing with bikini top pulled down completely under tits exposing them fully with nipples visible, top bunched below breasts, bikini bottoms still on, looking at camera with topless-but-wearing-bikini smile. Eyes locked on viewer with tits out, mouth open playful, hair flowing. Natural lighting illuminating exposed tits. Positioned with bikini top yanked down and bunched below tits, both breasts fully exposed with nipples prominent, bottoms covering pussy, hands adjusting lowered top. Technically wearing bikini but top pulled down fully exposing tits. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -146,11 +126,6 @@ Remove clothing, replace with bikini top pulled down. Medium-close shot, waist t
 Keep clothing on, wearing low-cut loose top. Medium-close shot from low angle looking up, waist to face, fills 90% of frame. Transform to classroom desk. Leaning far forward over desk helping student, loose top hanging completely open showing both tits and nipples fully visible down shirt, looking down at camera with helpful teacher expression. Eyes locked on viewer from above, mouth talking, hair falling forward. Classroom lighting from above creating clear view down gaping shirt. Positioned bent deeply forward, loose neckline gaping massively wide showing both bare tits with nipples completely visible hanging inside shirt. Fully clothed but extreme downblouse view exposing tits and nipples accidentally. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Upskirt No Panties**
-```
-Keep clothing on, wearing short skirt with no panties underneath. Low angle POV shot looking up from below, thighs to face, fills 88% of frame. Same location. Standing above camera/viewer, skirt short enough that pussy is completely visible from below angle with no panties blocking view, looking down at camera with aware expression. Eyes locked on viewer from above knowing upskirt is visible, mouth playful, hair down. Lighting from below illuminating upskirt view clearly. Positioned standing with legs slightly apart, skirt too short, complete upskirt view showing bare pussy and lips visible from below with no underwear. Technically fully dressed but no panties creates accidental full pussy exposure from angle. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - "Fully clothed but" angle/position exposes
 - "Down shirt", "up skirt", "through gap"
@@ -165,11 +140,6 @@ Keep clothing on, wearing short skirt with no panties underneath. Low angle POV 
 **Example 1: Body Paint Bikini**
 ```
 Remove all clothing, body covered in painted-on bikini design (paint creating fake coverage but nipples, areolas, and pussy clearly visible through thin paint). Medium-full shot, thighs to head, fills 85% of frame. Transform to beach setting. Standing with body paint bikini visible, paint creating illusion of swimsuit but nipples, areolas, and pussy all visible through artistic paint, looking at camera with confident expression. Eyes locked on viewer, mouth smiling, hair styled. Bright beach lighting showing paint details and visible anatomy underneath. Positioned standing showing painted bikini design with nipples clearly visible as darker circles through paint, pussy area painted but lips outline and details visible. Technically painted/covered but everything visible through body art. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Fishnet Ripped Open**
-```
-Remove clothing, replace with fishnet bodysuit ripped at strategic points. Medium-close shot, thighs to head, fills 92% of frame. Same brick wall. Wearing black fishnet bodysuit with large holes ripped at tits showing nipples through openings, crotch torn open showing pussy, hands pulling holes wider, looking at camera with torn-clothes expression. Eyes locked on viewer in ripped fishnets, mouth open, hair messy. Natural lighting showing fishnet pattern and torn sections. Positioned with fishnets covering body except ripped areas, tits pushed through torn holes with nipples exposed through openings, pussy fully visible through crotch tear. Clothed in fishnets but strategic tears expose tits and pussy. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -188,11 +158,6 @@ Remove clothing, replace with fishnet bodysuit ripped at strategic points. Mediu
 Remove clothing, replace with oversized white t-shirt, completely soaking wet. Medium-close shot, waist to head, fills 92% of frame. Transform to outdoor pool party with crowd in background. Standing dripping wet, white t-shirt transparent from water clinging to body showing dark nipples, areolas, and tits shape clearly visible through wet fabric, no bra underneath, looking at camera with wet t-shirt contest winner smile. Eyes locked on viewer in see-through shirt, mouth open excited, wet hair plastered to face. Bright outdoor lighting making wet white fabric completely transparent. Positioned with arms raised showing off, wet t-shirt stuck to tits showing every detail of nipples and areolas as dark circles through white, fabric molded to breast shape. Technically wearing shirt but completely see-through when wet exposing tits. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Pool Climbing Out - Wedgie**
-```
-Remove clothing, replace with one-piece swimsuit being pulled into extreme wedgie. Medium shot from behind, thighs to shoulders, fills 90% of frame. Transform to pool edge. Climbing out of pool with swimsuit wedged completely up ass crack showing entire ass exposed, fabric pulled tight into pussy creating visible camel toe from behind, looking back at camera with embarrassed wedgie smile. Eyes locked on viewer over shoulder, mouth playful, wet hair dripping. Pool lighting with water glistening on exposed skin. Positioned climbing pool ladder, one-piece suit bunched entirely between ass cheeks exposing both cheeks fully, fabric pulled into pussy showing lips outline and split. Technically wearing swimsuit but wedgie exposes entire ass and pussy definition. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Water makes fabric transparent or clingy
 - "See-through when wet", "clinging to show"
@@ -207,11 +172,6 @@ Remove clothing, replace with one-piece swimsuit being pulled into extreme wedgi
 **Example 1: Latex Catsuit Unzipped**
 ```
 Remove clothing, replace with black latex catsuit with front zipper pulled halfway down. Medium-close shot, hips to head, fills 91% of frame. Same brick wall. Standing in skintight black latex with zipper undone from neck to below tits exposing cleavage with tits pushed up and inner curves visible, latex molded tight to body showing pussy mound and lips outline clearly defined, looking at camera with latex fetish expression. Eyes locked on viewer in tight latex, mouth open, hair slicked back. Natural lighting showing latex shine and body definition underneath. Positioned with zipper pulled down showing cleavage and inner tit curves, latex so tight every detail of pussy lips and mound visible as raised definition, camel toe prominent. Covered in latex but material shows every anatomical detail. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Leather Straps**
-```
-Remove clothing, replace with leather strap harness (straps under and around tits pushing them up, straps framing pussy). Medium-close shot, hips to head, fills 92% of frame. Same brick wall. Wearing minimal leather strap harness with straps positioned under tits lifting and framing them but nipples and most of breast visible between straps, leather straps around hips framing bare pussy visible between gaps, looking at camera with harness model expression. Eyes locked on viewer in strap outfit, mouth open confident, hair styled. Natural lighting showing leather and exposed skin between straps. Positioned standing with leather straps creating frame around tits with nipples visible in gaps, pussy framed by hip straps but fully visible between. Technically wearing harness but designed to frame and expose rather than cover. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -230,11 +190,6 @@ Remove clothing, replace with leather strap harness (straps under and around tit
 Remove clothing, replace with skin-tight grey yoga pants and sports bra. Medium-close shot from front low angle, thighs to face, fills 90% of frame. Transform to gym with equipment visible. Standing or squatting, yoga pants pulled tight into pussy creating extreme camel toe with lips definition clearly visible, sports bra containing tits, looking at camera with gym workout expression. Eyes locked on viewer, mouth neutral, hair in ponytail. Gym fluorescent lighting emphasizing fabric tension and camel toe. Positioned with legs apart in squat or lunge, grey yoga pants stretched so tight across pussy that lips outline and split clearly defined as fabric pulled between them, visible definition of labia. Fully clothed in workout gear but extreme camel toe exposes pussy shape. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Sports Bra Underboob**
-```
-Remove clothing, replace with tiny sports bra that doesn't cover bottom of tits and tight shorts. Medium-close shot, waist to head, fills 91% of frame. Same brick wall or gym setting. Standing with arms raised stretching, tiny sports bra riding up showing entire underboob with bottom curves of tits fully exposed below fabric edge, shorts low on hips, looking at camera with post-workout expression. Eyes locked on viewer, mouth open breathing, hair messy from workout. Natural or gym lighting showing exposed underboob clearly. Positioned with arms overhead, sports bra too small showing all of underboob exposed beneath fabric, lower half of tits visible. Wearing workout clothes but sports bra too small to contain tits. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Too-tight athletic wear showing definition
 - "Camel toe", "underboob", "sideboob"
@@ -249,11 +204,6 @@ Remove clothing, replace with tiny sports bra that doesn't cover bottom of tits 
 **Example 1: Button-Up Gaping Between Buttons**
 ```
 Remove clothing, replace with too-small white button-up blouse with buttons straining. Medium-close shot, waist to head, fills 92% of frame. Transform to office setting with desk. Sitting at desk, white blouse buttoned but fabric pulling tight causing gaps between buttons showing bra and tits visible through openings, blouse threatening to pop open, looking at camera with unprofessional office smile. Eyes locked on viewer, mouth slightly open, hair in professional style. Office lighting showing gaps clearly. Positioned leaning forward, buttons straining with fabric gaps between each button revealing black bra and tit flesh visible through spaces, blouse barely containing tits. Professional outfit but too tight causing revealing gaps. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Pencil Skirt Bent Over**
-```
-Remove clothing, replace with extremely tight pencil skirt and blouse. Medium shot from behind, thighs to shoulders, fills 90% of frame. Transform to office. Bent forward over desk filing or reaching, tight pencil skirt riding up showing ass and thong panties fully visible underneath, skirt hiked to hips, looking back at camera with caught-bending-over expression. Eyes locked on viewer over shoulder, mouth playful, hair professional. Office lighting showing exposed ass and thong. Positioned bent deeply forward, pencil skirt ridden completely up showing entire ass with thong visible between cheeks, skirt bunched at hips. Professional skirt but bent position causes it to ride up exposing everything underneath. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -272,11 +222,6 @@ Remove clothing, replace with extremely tight pencil skirt and blouse. Medium sh
 Remove clothing, replace with bikini being adjusted. Medium-close shot, waist to head, fills 92% of frame. Transform to public beach with people blurred in background. Standing adjusting bikini top, lifting it away from body with one tit and nipple fully exposed in adjustment process, other hand holding top, public beach behind, looking at camera with casual public flash expression. Eyes locked on viewer, mouth neutral like it's normal, hair beachy. Bright beach sunlight with public setting. Positioned adjusting top with one breast completely exposed with nipple visible in process of putting on or fixing bikini, public beach visible proving risky location. Bikini being worn but adjustment creates public flash. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Windy Skirt Blow-Up**
-```
-Remove clothing, replace with short summer dress. Medium shot, thighs to head, fills 90% of frame. Transform to public sidewalk or park. Standing as wind blows dress up, fabric lifted high showing panties or no panties with pussy visible underneath, hands trying to hold dress down but failing, public setting visible, looking at camera with embarrassed wind-blown smile. Eyes locked on viewer, mouth open surprised, hair blowing. Outdoor lighting with public background. Positioned with dress blown up by wind showing either panties or bare pussy fully visible underneath while in public space, hands ineffectively trying to hold fabric. Wearing dress but wind exposes everything underneath in public. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Public settings visible in background
 - Accidental or risky exposure
@@ -291,11 +236,6 @@ Remove clothing, replace with short summer dress. Medium shot, thighs to head, f
 **Example 1: Sparkly Dress Nip Slip**
 ```
 Remove clothing, replace with sparkly tight club dress with nip slip. Medium-close shot, waist to head, fills 92% of frame. Transform to nightclub with colorful lights background. Standing in tight sparkly dress with one tit and nipple fully slipped out over top edge of dress, other tit contained, holding drink, looking at camera with party nip slip smile. Eyes locked on viewer, mouth open laughing, hair styled for club. Colorful club lighting with disco effect. Positioned with sparkly dress low-cut, left tit completely slipped out over neckline with nipple and areola fully exposed, right side still covered. Wearing sexy dress but nip slip exposes one breast completely. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Bodycon Dress No Panties**
-```
-Remove clothing, replace with ultra-tight short bodycon dress, no panties underneath. Medium shot, thighs to head, fills 90% of frame. Transform to club or bar setting. Standing or sitting on barstool, short tight dress barely covering ass, legs spread slightly showing bare pussy visible underneath short hem, no underwear, looking at camera with risky club outfit expression. Eyes locked on viewer, mouth seductive, hair styled. Club lighting with bar visible. Positioned with bodycon dress extremely short, sitting or standing with legs apart enough that bare pussy visible beneath hem proving no panties. Wearing dress but so short and no underwear that pussy exposed. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -314,11 +254,6 @@ Remove clothing, replace with ultra-tight short bodycon dress, no panties undern
 Remove clothing, replace with black and white French maid micro dress (extremely short skirt showing ass underneath, low-cut top with cleavage). Medium-close shot, thighs to head, fills 91% of frame. Transform to mansion interior with fancy furniture. Standing holding feather duster, micro skirt so short that ass cheeks peek out below hem when standing straight, deep V-cut top showing cleavage, looking at camera with playful maid smile. Eyes locked on viewer, mouth open friendly, hair in messy bun with maid headpiece. Mansion interior lighting creating elegant atmosphere. Positioned with one leg slightly forward causing skirt to ride up more, lace apron barely covering front, white thigh-high stockings with lace tops. Skirt riding dangerously high, ass visible beneath hem, deep cleavage exposed, garter straps visible. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Waitress Uniform Too Small**
-```
-Remove clothing, replace with tight black waitress uniform (skirt too short, button-up shirt straining with buttons gaping). Medium shot, thighs to head, fills 89% of frame. Transform to restaurant/diner with tables visible. Standing holding order pad, uniform skirt barely covering ass and riding up, white shirt buttoned but fabric pulling tight causing gaps between buttons showing bra and skin underneath, looking at camera with friendly waitress smile. Eyes locked on viewer, mouth open welcoming, hair tied back neatly. Diner fluorescent lighting showing uniform strain clearly. Positioned with hip popped, skirt hiked high on one side, shirt buttons threatening to pop with visible bra through gaps. Too-small uniform creating revealing exposure, professional setting corrupted. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Service uniforms (maid, waitress, server, etc.)
 - Too small or modified to reveal more
@@ -333,11 +268,6 @@ Remove clothing, replace with tight black waitress uniform (skirt too short, but
 **Example 1: Schoolgirl Skirt Rolled Up**
 ```
 Remove clothing, replace with schoolgirl uniform (white button-up shirt tied under breasts, plaid miniskirt rolled up extremely short showing ass). Medium-close shot, thighs to head, fills 90% of frame. Same brick wall or transform to classroom. Standing with shirt tied up showing midriff and underboob, plaid skirt rolled at waistband so short that ass cheeks show beneath, knee-high socks, looking at camera with innocent but naughty schoolgirl expression. Eyes locked on viewer, mouth playful, hair in pigtails or ponytail. Natural or classroom lighting emphasizing modified uniform. Positioned with books held in front, skirt dangerously short with ass peeking out, tied shirt showing underboob and midriff. Inappropriate school uniform modifications, barely legal aesthetic. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Private School Uniform Unbuttoned**
-```
-Remove clothing, replace with private school uniform (blazer, white shirt mostly unbuttoned showing bra, short pleated skirt). Medium-close shot, waist to head, fills 92% of frame. Transform to school hallway or library. Sitting on desk/table with blazer open, white uniform shirt unbuttoned low showing black bra and cleavage clearly visible, short pleated skirt riding up on thighs, looking at camera with after-school rebellious smile. Eyes locked on viewer, mouth smirking, hair styled neatly with school headband. School interior lighting creating institutional but sexual atmosphere. Positioned sitting with legs slightly apart, shirt gaping open showing full bra visibility, skirt hiked from sitting. School uniform corrupted with inappropriate modifications. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -356,11 +286,6 @@ Remove clothing, replace with private school uniform (blazer, white shirt mostly
 Remove clothing, replace with black fishnet dress (large-hole fishnet showing nipples, pussy, and everything underneath clearly). Medium-close shot, thighs to head, fills 91% of frame. Same brick wall or club setting. Standing with fishnet dress technically covering but large holes showing nipples prominently visible, pussy outline and hair visible through holes, looking at camera with bold fishnet fashion expression. Eyes locked on viewer, mouth confident, hair styled sleek. Natural or club lighting showing body clearly through fishnet. Positioned standing straight, fishnet covering but revealing everything, nipples visible through large holes, pussy shape and hair visible through mesh. Technically clothed in fishnet but everything visible underneath. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Mesh Top See-Through**
-```
-Remove clothing, replace with bright neon mesh top (completely see-through showing nipples and breasts underneath) and tight shorts. Medium-close shot, waist to head, fills 92% of frame. Transform to rave or club with neon lights. Standing or dancing with mesh top completely transparent showing dark nipples and areolas clearly visible through bright colored mesh, tight shorts low on hips, looking at camera with party expression. Eyes locked on viewer, mouth open excited, hair wild from dancing. Neon club lights making mesh glow while showing everything underneath. Positioned with arms raised or dancing, mesh top stretched showing nipples prominently, transparent material revealing all. Wearing top but completely see-through revealing breasts. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Mesh, net, fishnet materials
 - Large holes or completely transparent
@@ -375,11 +300,6 @@ Remove clothing, replace with bright neon mesh top (completely see-through showi
 **Example 1: Sheer Babydoll Nightie**
 ```
 Remove clothing, replace with sheer pink babydoll nightie (completely see-through showing nipples and pussy underneath, lace trim). Medium-full shot, thighs to head, fills 88% of frame. Transform to bedroom with bed visible. Standing beside bed in sheer babydoll that's completely transparent showing dark nipples clearly visible and pussy shadow visible through pink fabric, lace hem ending at hips, looking at camera with sleepy bedroom smile. Eyes locked on viewer, mouth soft, hair messy from bed. Soft bedroom lighting making sheer fabric transparent. Positioned standing with nightie hanging loose, nipples prominently visible as dark circles through sheer pink, pussy area visible as shadow through fabric. Technically wearing nightie but everything visible through sheer material. Do not alter facial identity or body proportions.
-```
-
-**Example 2: Open Silk Robe**
-```
-Remove clothing, replace with short silk robe hanging open (robe tied loosely showing full front with breasts and pussy visible in opening). Medium-close shot, thighs to head, fills 90% of frame. Same bedroom setting. Standing with short silk robe loosely tied at waist but hanging completely open in front showing breasts with nipples fully visible in gap and pussy visible below, looking at camera with morning-after casual expression. Eyes locked on viewer, mouth relaxed, hair tousled. Morning light through window illuminating open robe view. Positioned standing with robe barely covering sides, entire front exposed showing full breasts and pussy visible in wide V-opening. Technically wearing robe but tied so loose it exposes everything. Do not alter facial identity or body proportions.
 ```
 
 **Key Elements:**
@@ -398,11 +318,6 @@ Remove clothing, replace with short silk robe hanging open (robe tied loosely sh
 Remove all clothing, replace with gold body chain bikini (thin chains forming bikini shape but with large gaps showing nipples and pussy between chains). Medium-close shot, thighs to head, fills 91% of frame. Same brick wall or luxury setting. Standing showing off body chain "bikini" made of thin gold chains arranged in bikini pattern but with wide gaps showing nipples clearly visible between chains and pussy visible between hip chains, looking at camera with high-fashion jewelry model expression. Eyes locked on viewer, mouth slightly open, hair styled glamorously. Dramatic lighting catching gold chain reflection. Positioned standing straight displaying body chains, nipples exposed in gaps between chains, pussy visible where chains don't cover. Technically "wearing" jewelry but everything visible between chains. Do not alter facial identity or body proportions.
 ```
 
-**Example 2: Strappy Harness Only**
-```
-Remove clothing, replace with black leather strap harness (thin straps around breasts pushing them up, hip straps framing pussy). Medium-close shot, hips to head, fills 92% of frame. Same brick wall or dungeon aesthetic setting. Standing in black leather strap harness with thin straps under and around breasts lifting them but leaving nipples fully exposed between straps, hip straps creating frame around pussy that's fully visible in center, looking at camera with edgy harness model expression. Eyes locked on viewer, mouth confident, hair slicked back. Dramatic lighting emphasizing strap pattern and exposed areas. Positioned standing showing strap configuration, breasts lifted by straps but nipples exposed, pussy framed by straps but visible. Wearing harness but designed to frame and expose rather than cover. Do not alter facial identity or body proportions.
-```
-
 **Key Elements:**
 - Body chains, jewelry, strap harnesses
 - Designed to frame rather than cover
@@ -412,12 +327,12 @@ Remove clothing, replace with black leather strap harness (thin straps around br
 
 ## GENERATION INSTRUCTIONS
 
-When generating 5 mild prompts:
+When generating mild prompts:
 
-**CRITICAL: RANDOMLY SELECT 5 CATEGORIES** from the 17 available. Do not pick the first 5 - randomize your selection for variety.
+**CRITICAL: RANDOMLY SELECT CATEGORIES** from the 17 available. Do not pick the first ones - randomize your selection for variety.
 
 **VARIETY REQUIREMENTS:**
-1. Use 5 DIFFERENT randomly-selected categories (no repeating)
+1. Use DIFFERENT randomly-selected categories (no repeating)
 2. Vary colors dramatically (neon, metallic, black, white, red, blue, pink, etc.)
 3. Mix materials (lace, satin, mesh, wet fabric, latex, leather, paint, etc.)
 4. Different poses each time (standing, sitting, bent over, squatting, lying, etc.)
@@ -635,8 +550,8 @@ if __name__ == "__main__":
     print("="*70)
     print(f"\nPrompt length: {len(MILD_FILTER_TRAINING_V2)} characters")
     print(f"Total categories: 17")
-    print(f"Examples per category: 2 (34 total examples)")
-    print(f"Prompts generated per request: 5 (randomly selected categories)")
+    print(f"Examples per category: 1 (17 total examples - CONDENSED for token limits)")
+    print(f"Prompts generated per request: 6 via 3 batches of 2 (randomly selected categories)")
     print(f"Language style: DIRECT (no flowery poetry)")
     
     print("\n" + "="*70)

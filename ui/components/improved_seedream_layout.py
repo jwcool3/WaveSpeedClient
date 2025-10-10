@@ -1089,7 +1089,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         mild_btn = ttk.Button(advanced_frame, text="🔥 Mild", command=self.generate_mild_examples, width=6)
         mild_btn.pack(side=tk.LEFT, padx=(0, 2))
-        self.create_tooltip(mild_btn, "Generate 5 mild filter training examples")
+        self.create_tooltip(mild_btn, "Generate 6 mild filter training examples (3 batches of 2 to avoid token limits)")
         
         moderate_btn = ttk.Button(advanced_frame, text="⚡ Moderate", command=self.generate_moderate_examples, width=8)
         moderate_btn.pack(side=tk.LEFT, padx=(0, 4))
@@ -1176,7 +1176,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.setup_prompt_history_section(prompt_frame)
     
     def generate_mild_examples(self):
-        """Generate 5 mild filter training examples with automatic image analysis"""
+        """Generate 6 mild filter training examples with automatic image analysis (3 batches of 2 to avoid token limits)"""
         if not self.selected_image_path:
             self.show_tooltip("❌ Please select an image first")
             return
@@ -1188,12 +1188,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
         thread.start()
     
     def generate_moderate_examples(self):
-        """Generate 5 sophisticated moderate examples with automatic image analysis"""
+        """Generate 6 explicit moderate examples with automatic image analysis"""
         if not self.selected_image_path:
             self.show_tooltip("❌ Please select an image first")
             return
         
-        self.show_tooltip("⚡ Starting sophisticated moderate examples generation...")
+        self.show_tooltip("⚡ Generating 6 explicit moderate examples (may take 30-60s)...")
         
         # Start background thread for moderate examples generation
         thread = threading.Thread(target=self._generate_moderate_examples_thread, daemon=True)
@@ -1217,9 +1217,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 5 mild examples using optimized V2 method
+            # Step 2: Generate 6 mild examples using optimized V2 method (3 batches of 2)
             self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
-            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=6))
             
             if not mild_examples:
                 # Final fallback using vocabulary bank
@@ -1273,9 +1273,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 5 sophisticated moderate examples
-            self.parent_frame.after(0, lambda: self.show_tooltip("⚡ Generating sophisticated indirect prompts..."))
-            moderate_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=5))
+            # Step 2: Generate 6 explicit moderate examples (3 batches of 2)
+            self.parent_frame.after(0, lambda: self.show_tooltip("⚡ Generating 6 explicit prompts (batched)..."))
+            moderate_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=6))
             
             # Show results in UI thread
             self.parent_frame.after(0, lambda: self._display_moderate_examples(moderate_examples))
@@ -1285,7 +1285,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
     
     def _generate_more_mild_examples(self, popup_state, add_examples_callback, button):
-        """Background thread to generate 5 more mild examples"""
+        """Background thread to generate 6 more mild examples"""
         try:
             from core.ai_prompt_advisor import get_ai_advisor
             
@@ -1296,14 +1296,19 @@ class ImprovedSeedreamLayout(AIChatMixin):
             popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
             description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
             
-            if not description or "error" in description.lower():
+            # Check if analysis failed (could be string with error or empty)
+            if not description:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+                return
+            if isinstance(description, str) and "error" in description.lower():
                 popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
                 return
             
-            # Generate 5 more examples
+            # Generate 6 more examples
             popup_state['popup'].after(0, lambda: self.show_tooltip("🔥 Generating 5 more examples..."))
-            new_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            new_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=6))
             
             if not new_examples:
                 popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Generation failed"))
@@ -1338,6 +1343,66 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.error(f"Error generating more mild examples: {e}")
             popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Error: {str(e)}"))
             popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+    
+    def _generate_more_moderate_examples(self, popup_state, add_examples_callback, button):
+        """Background thread to generate 6 more moderate examples"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            # Get AI advisor
+            ai_advisor = get_ai_advisor()
+            
+            # Get description from image
+            popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
+            description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
+            
+            # Check if analysis failed (could be string with error or empty)
+            if not description:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
+                return
+            if isinstance(description, str) and "error" in description.lower():
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
+                return
+            
+            # Generate 6 more examples
+            popup_state['popup'].after(0, lambda: self.show_tooltip("⚡ Generating 6 more examples..."))
+            new_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=6))
+            
+            if not new_examples:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Generation failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
+                return
+            
+            # Add to examples list
+            current_count = len(popup_state['examples_list'])
+            popup_state['examples_list'].extend(new_examples)
+            
+            # Update display in UI thread
+            def update_display():
+                # Add new examples to scrollable frame
+                add_examples_callback(new_examples, starting_index=current_count + 1)
+                
+                # Update title
+                new_count = len(popup_state['examples_list'])
+                popup_state['title_label'].config(text=f"⚡ Filter Training - {new_count} Moderate Examples")
+                
+                # Scroll to bottom to show new examples
+                popup_state['canvas'].yview_moveto(1.0)
+                
+                # Re-enable button
+                button.config(state='normal', text="⚡ Generate More (6)")
+                
+                # Show success
+                self.show_tooltip(f"✅ Added 6 more examples! Total: {new_count}")
+            
+            popup_state['popup'].after(0, update_display)
+            
+        except Exception as e:
+            logger.error(f"Error generating more moderate examples: {e}")
+            popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Error: {str(e)}"))
+            popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
     
     def _display_mild_examples(self, examples):
         """Display generated mild examples in a popup window with Generate More functionality"""
@@ -1424,7 +1489,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                     generate_more_btn.config(state='disabled', text="🔄 Generating...")
                     popup.update()
                     
-                    # Generate 5 more in background thread
+                    # Generate 6 more in background thread
                     thread = threading.Thread(target=lambda: self._generate_more_mild_examples(popup_state, add_examples_to_display, generate_more_btn), daemon=True)
                     thread.start()
                     
@@ -1459,12 +1524,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.show_tooltip(f"❌ Error: {str(e)}")
     
     def _display_moderate_examples(self, examples):
-        """Display generated moderate examples in a popup window"""
+        """Display generated moderate examples with categories in a popup window"""
         try:
             # Create popup window
             popup = tk.Toplevel(self.parent_frame)
-            popup.title("⚡ Sophisticated Moderate Examples")
-            popup.geometry("800x600")
+            popup.title("⚡ Explicit Moderate Examples")
+            popup.geometry("800x650")
             popup.resizable(True, True)
             
             # Main frame with scrollbar
@@ -1476,10 +1541,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
             title_label.pack(pady=(0, 5))
             
             # Subtitle explaining the approach
-            subtitle_label = ttk.Label(main_frame, text="Sophisticated indirect language combinations designed to confuse models", font=("Arial", 9), foreground="gray")
+            subtitle_label = ttk.Label(main_frame, text="Explicit direct language with detailed anatomical descriptions", font=("Arial", 9), foreground="gray")
             subtitle_label.pack(pady=(0, 5))
             
-            info_label = ttk.Label(main_frame, text="These prompts use word combinations to imply harmful content without explicit terms", font=("Arial", 8), foreground="#666")
+            info_label = ttk.Label(main_frame, text="These prompts use direct porn-style language to thoroughly test content filters", font=("Arial", 8), foreground="#666")
             info_label.pack(pady=(0, 10))
             
             # Scrollable frame for examples
@@ -1495,44 +1560,81 @@ class ImprovedSeedreamLayout(AIChatMixin):
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
             
-            # Add examples to scrollable frame
-            for i, example in enumerate(examples, 1):
-                # Example frame with more space for longer prompts
-                example_frame = ttk.LabelFrame(scrollable_frame, text=f"Moderate Example {i}", padding="8")
-                example_frame.pack(fill="x", padx=5, pady=4)
+            # Store popup state for "Generate More" functionality
+            popup_state = {
+                'examples_list': list(examples),
+                'used_categories': set(),
+                'scrollable_frame': scrollable_frame,
+                'title_label': title_label,
+                'popup': popup,
+                'canvas': canvas
+            }
+            
+            # Helper function to add examples to display
+            def add_examples_to_display(examples_to_add, starting_index=1):
+                import re
+                for i, example in enumerate(examples_to_add, starting_index):
+                    # Parse category from example if present
+                    category_match = re.match(r'^\[([^\]]+)\]\s*\n(.*)', example, re.DOTALL)
+                    
+                    if category_match:
+                        category_name = category_match.group(1).strip()
+                        prompt_text = category_match.group(2).strip()
+                        frame_title = f"Example {i}: {category_name}"
+                        popup_state['used_categories'].add(category_name)
+                    else:
+                        prompt_text = example
+                        frame_title = f"Example {i}"
+                    
+                    # Example frame with category in title
+                    example_frame = ttk.LabelFrame(scrollable_frame, text=frame_title, padding="8")
+                    example_frame.pack(fill="x", padx=5, pady=4)
+                    
+                    # Example text (larger for longer moderate prompts)
+                    example_text = tk.Text(example_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
+                    example_text.pack(fill="x")
+                    example_text.insert("1.0", prompt_text)
+                    example_text.configure(state='normal')  # Allow selection
+                    
+                    # Copy button
+                    copy_btn = ttk.Button(example_frame, text="📋 Copy", 
+                                        command=lambda ex=prompt_text: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
+                    copy_btn.pack(anchor="e", pady=(5, 0))
                 
-                # Example text (larger for longer moderate prompts)
-                example_text = tk.Text(example_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
-                example_text.pack(fill="x")
-                example_text.insert("1.0", example)
-                example_text.configure(state='normal')  # Allow selection
-                
-                # Buttons frame
-                buttons_frame = ttk.Frame(example_frame)
-                buttons_frame.pack(fill="x", pady=(5, 0))
-                
-                # Copy button
-                copy_btn = ttk.Button(buttons_frame, text="📋 Copy", 
-                                    command=lambda ex=example: popup.clipboard_clear() or popup.clipboard_append(ex) or self.show_tooltip("📋 Copied to clipboard"))
-                copy_btn.pack(side="left")
-                
-                # Analysis button (shows breakdown of indirect techniques)
-                analysis_btn = ttk.Button(buttons_frame, text="🔍 Analyze", 
-                                        command=lambda ex=example: self._show_moderate_analysis(ex))
-                analysis_btn.pack(side="left", padx=(5, 0))
+                # Update canvas scroll region
+                scrollable_frame.update_idletasks()
+                canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            # Add initial examples
+            add_examples_to_display(examples)
+            
+            # Bottom buttons frame
+            buttons_frame = ttk.Frame(popup)
+            buttons_frame.pack(pady=5, fill="x", padx=10)
+            
+            # Generate More button
+            def generate_more_examples():
+                generate_more_btn.config(state='disabled', text="⏳ Generating...")
+                thread = threading.Thread(
+                    target=lambda: self._generate_more_moderate_examples(popup_state, add_examples_to_display, generate_more_btn),
+                    daemon=True
+                )
+                thread.start()
+            
+            generate_more_btn = ttk.Button(buttons_frame, text="⚡ Generate More (6)", command=generate_more_examples)
+            generate_more_btn.pack(side="left", padx=(0, 5))
+            
+            # Close button
+            close_btn = ttk.Button(buttons_frame, text="Close", command=popup.destroy)
+            close_btn.pack(side="right")
             
             # Bind mousewheel to canvas
             def on_mousewheel(event):
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
-            # Close button
-            close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
-            close_btn.pack(pady=5)
-            
             # Focus on popup (non-modal - allows interaction with main window)
             popup.focus_set()
-            # popup.grab_set()  # Commented out to allow copy/paste between windows
             
         except Exception as e:
             logger.error(f"Error displaying moderate examples: {e}")
@@ -3981,7 +4083,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.open_filter_training()
     
     def generate_mild_examples(self):
-        """Generate 5 mild filter training examples based on current image"""
+        """Generate 6 mild filter training examples based on current image (3 batches of 2 to avoid token limits)"""
         try:
             if not self.selected_image_path:
                 # Show tooltip message
@@ -4040,9 +4142,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 5 mild examples using optimized V2 method
+            # Step 2: Generate 6 mild examples using optimized V2 method (3 batches of 2)
             self.parent_frame.after(0, lambda: self.show_tooltip("🔥 Generating 5 mild examples..."))
-            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            mild_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=6))
             
             if not mild_examples:
                 # Final fallback using vocabulary bank
@@ -4096,9 +4198,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 return
             
-            # Step 2: Generate 5 sophisticated moderate examples
-            self.parent_frame.after(0, lambda: self.show_tooltip("⚡ Generating sophisticated indirect prompts..."))
-            moderate_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=5))
+            # Step 2: Generate 6 explicit moderate examples (3 batches of 2)
+            self.parent_frame.after(0, lambda: self.show_tooltip("⚡ Generating 6 explicit prompts (batched)..."))
+            moderate_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=6))
             
             # Show results in UI thread
             self.parent_frame.after(0, lambda: self._display_moderate_examples(moderate_examples))
@@ -4265,7 +4367,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.error(f"Error showing example analysis: {e}")
     
     def _generate_more_mild_examples(self, popup_state, add_examples_callback, button):
-        """Background thread to generate 5 more mild examples"""
+        """Background thread to generate 6 more mild examples"""
         try:
             from core.ai_prompt_advisor import get_ai_advisor
             
@@ -4276,14 +4378,19 @@ class ImprovedSeedreamLayout(AIChatMixin):
             popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
             description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
             
-            if not description or "error" in description.lower():
+            # Check if analysis failed (could be string with error or empty)
+            if not description:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+                return
+            if isinstance(description, str) and "error" in description.lower():
                 popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
                 return
             
-            # Generate 5 more examples
+            # Generate 6 more examples
             popup_state['popup'].after(0, lambda: self.show_tooltip("🔥 Generating 5 more examples..."))
-            new_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=5))
+            new_examples = asyncio.run(ai_advisor.generate_mild_examples_only(description, count=6))
             
             if not new_examples:
                 popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Generation failed"))
@@ -4318,6 +4425,66 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.error(f"Error generating more mild examples: {e}")
             popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Error: {str(e)}"))
             popup_state['popup'].after(0, lambda: button.config(state='normal', text="🔥 Generate More (5)"))
+    
+    def _generate_more_moderate_examples(self, popup_state, add_examples_callback, button):
+        """Background thread to generate 6 more moderate examples"""
+        try:
+            from core.ai_prompt_advisor import get_ai_advisor
+            
+            # Get AI advisor
+            ai_advisor = get_ai_advisor()
+            
+            # Get description from image
+            popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
+            description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
+            
+            # Check if analysis failed (could be string with error or empty)
+            if not description:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
+                return
+            if isinstance(description, str) and "error" in description.lower():
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
+                return
+            
+            # Generate 6 more examples
+            popup_state['popup'].after(0, lambda: self.show_tooltip("⚡ Generating 6 more examples..."))
+            new_examples = asyncio.run(ai_advisor.generate_moderate_examples_only(description, count=6))
+            
+            if not new_examples:
+                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Generation failed"))
+                popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
+                return
+            
+            # Add to examples list
+            current_count = len(popup_state['examples_list'])
+            popup_state['examples_list'].extend(new_examples)
+            
+            # Update display in UI thread
+            def update_display():
+                # Add new examples to scrollable frame
+                add_examples_callback(new_examples, starting_index=current_count + 1)
+                
+                # Update title
+                new_count = len(popup_state['examples_list'])
+                popup_state['title_label'].config(text=f"⚡ Filter Training - {new_count} Moderate Examples")
+                
+                # Scroll to bottom to show new examples
+                popup_state['canvas'].yview_moveto(1.0)
+                
+                # Re-enable button
+                button.config(state='normal', text="⚡ Generate More (6)")
+                
+                # Show success
+                self.show_tooltip(f"✅ Added 6 more examples! Total: {new_count}")
+            
+            popup_state['popup'].after(0, update_display)
+            
+        except Exception as e:
+            logger.error(f"Error generating more moderate examples: {e}")
+            popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Error: {str(e)}"))
+            popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
     
     def _display_mild_examples(self, examples):
         """Display generated mild examples in a popup window with Generate More functionality"""
@@ -4422,7 +4589,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                     generate_more_btn.config(state='disabled', text="🔄 Generating...")
                     popup.update()
                     
-                    # Generate 5 more in background thread
+                    # Generate 6 more in background thread
                     thread = threading.Thread(target=lambda: self._generate_more_mild_examples(popup_state, add_examples_to_display, generate_more_btn), daemon=True)
                     thread.start()
                     
