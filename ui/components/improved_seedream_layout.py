@@ -1356,13 +1356,15 @@ class ImprovedSeedreamLayout(AIChatMixin):
             popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
             description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
             
-            # Check if analysis failed (could be string with error or empty)
+            # Check if analysis failed - analyze_image returns a dict
             if not description:
                 popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
                 return
-            if isinstance(description, str) and "error" in description.lower():
-                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+            # Check if dict contains error (e.g., rate limit, API error)
+            if isinstance(description, dict) and "error" in description:
+                error_msg = description.get("error", "Unknown error")
+                popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Image analysis failed: {error_msg}"))
                 popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
                 return
             
@@ -4209,103 +4211,6 @@ class ImprovedSeedreamLayout(AIChatMixin):
             logger.error(f"Error in moderate examples thread: {e}")
             self.parent_frame.after(0, lambda: self.show_tooltip(f"❌ Generation failed: {str(e)}"))
     
-    def _display_moderate_examples(self, examples):
-        """Display generated moderate examples in a popup window"""
-        try:
-            # Create popup window
-            popup = tk.Toplevel(self.parent_frame)
-            popup.title("⚡ Sophisticated Moderate Examples")
-            popup.geometry("800x600")
-            popup.resizable(True, True)
-            
-            # Main frame with scrollbar
-            main_frame = ttk.Frame(popup)
-            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
-            
-            # Title with count
-            title_label = ttk.Label(main_frame, text=f"⚡ Filter Training - {len(examples)} Moderate Examples", font=("Arial", 12, "bold"))
-            title_label.pack(pady=(0, 5))
-            
-            # Info label
-            info_label = ttk.Label(main_frame, text="🎯 Uses sophisticated indirect language combinations to achieve harmful goals without explicit terms", font=("Arial", 9), foreground="gray")
-            info_label.pack(pady=(0, 10))
-            
-            # Examples frame with scrollbar
-            canvas = tk.Canvas(main_frame)
-            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
-            scrollable_frame = ttk.Frame(canvas)
-            
-            scrollable_frame.bind(
-                "<Configure>",
-                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-            )
-            
-            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-            canvas.configure(yscrollcommand=scrollbar.set)
-            
-            canvas.pack(side="left", fill="both", expand=True)
-            scrollbar.pack(side="right", fill="y")
-            
-            # Add examples with copy buttons
-            for i, example in enumerate(examples, 1):
-                example_frame = ttk.LabelFrame(scrollable_frame, text=f"Moderate Example {i}", padding="8")
-                example_frame.pack(fill="x", pady=5, padx=5)
-                example_frame.columnconfigure(0, weight=1)
-                
-                # Example text (larger for longer prompts)
-                text_widget = tk.Text(example_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
-                text_widget.insert("1.0", example)
-                text_widget.config(state=tk.DISABLED)  # Fixed: Text widgets use DISABLED not readonly
-                text_widget.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-                
-                # Word count label
-                word_count = len(example.split())
-                word_label = ttk.Label(example_frame, text=f"({word_count} words)", font=("Arial", 8), foreground="gray")
-                word_label.grid(row=1, column=0, sticky="w", pady=(0, 5))
-                
-                # Buttons frame
-                btn_frame = ttk.Frame(example_frame)
-                btn_frame.grid(row=2, column=0, sticky="ew")
-                
-                # Copy button
-                copy_btn = ttk.Button(
-                    btn_frame, 
-                    text="📋 Copy", 
-                    command=lambda ex=example: self._copy_to_clipboard(ex, popup)
-                )
-                copy_btn.pack(side="left", padx=(0, 5))
-                
-                # Use button
-                use_btn = ttk.Button(
-                    btn_frame,
-                    text="✅ Use This",
-                    command=lambda ex=example: self._use_example(ex, popup)
-                )
-                use_btn.pack(side="left")
-                
-                # Analyze button (shows breakdown)
-                analyze_btn = ttk.Button(
-                    btn_frame,
-                    text="🔍 Analyze",
-                    command=lambda ex=example: self._show_example_analysis(ex)
-                )
-                analyze_btn.pack(side="right")
-            
-            # Bottom buttons
-            bottom_frame = ttk.Frame(main_frame)
-            bottom_frame.pack(fill="x", pady=(10, 0))
-            
-            ttk.Button(bottom_frame, text="🔄 Generate New", command=lambda: [popup.destroy(), self.generate_moderate_examples()]).pack(side="left")
-            ttk.Button(bottom_frame, text="❌ Close", command=popup.destroy).pack(side="right")
-            
-            # Center window (non-modal - allows interaction with main window)
-            popup.transient(self.parent_frame.winfo_toplevel())
-            # popup.grab_set()  # Commented out to allow copy/paste between windows
-            
-        except Exception as e:
-            logger.error(f"Error displaying moderate examples: {e}")
-            self.show_tooltip(f"❌ Display error: {str(e)}")
-    
     def _show_example_analysis(self, example):
         """Show analysis of how the example works indirectly"""
         try:
@@ -4438,13 +4343,15 @@ class ImprovedSeedreamLayout(AIChatMixin):
             popup_state['popup'].after(0, lambda: self.show_tooltip("🔍 Analyzing image..."))
             description = asyncio.run(ai_advisor.analyze_image(self.selected_image_path))
             
-            # Check if analysis failed (could be string with error or empty)
+            # Check if analysis failed - analyze_image returns a dict
             if not description:
                 popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
                 popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
                 return
-            if isinstance(description, str) and "error" in description.lower():
-                popup_state['popup'].after(0, lambda: self.show_tooltip("❌ Image analysis failed"))
+            # Check if dict contains error (e.g., rate limit, API error)
+            if isinstance(description, dict) and "error" in description:
+                error_msg = description.get("error", "Unknown error")
+                popup_state['popup'].after(0, lambda: self.show_tooltip(f"❌ Image analysis failed: {error_msg}"))
                 popup_state['popup'].after(0, lambda: button.config(state='normal', text="⚡ Generate More (6)"))
                 return
             
