@@ -765,8 +765,8 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4",
-            "max_tokens": 750,
+            "model": "gpt-4o",
+            "max_tokens": 1500,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -1414,11 +1414,16 @@ class AIPromptAdvisor:
             # Use available API for generation
             if self.api_provider == "openai" and self.openai_api:
                 response = await self.openai_api.generate_response(system_prompt + "\n\n" + user_message)
+                logger.info(f"📤 OpenAI response length: {len(response)} chars")
             elif self.api_provider == "claude" and self.claude_api:
                 response = await self.claude_api.generate_response(system_prompt + "\n\n" + user_message)
+                logger.info(f"📤 Claude response length: {len(response)} chars")
             else:
                 logger.warning("No API available for mild examples generation")
                 return []
+            
+            # Log first 500 chars of response for debugging
+            logger.info(f"📝 Response preview: {response[:500]}...")
             
             # Parse simple numbered format
             import re
@@ -1427,6 +1432,8 @@ class AIPromptAdvisor:
             # Pattern captures both category and prompt
             category_example_pattern = r'CATEGORY:\s*([^\n]+)\s*\n?EXAMPLE\s+\d+:?\s*\n?(.*?)(?=CATEGORY:|$)'
             category_matches = re.findall(category_example_pattern, response, re.DOTALL | re.IGNORECASE)
+            
+            logger.info(f"🔍 Pattern 1 (CATEGORY: + EXAMPLE N:): Found {len(category_matches)} matches")
             
             if category_matches:
                 # Clean up and format with category labels
@@ -1441,12 +1448,14 @@ class AIPromptAdvisor:
                         prompts.append(f"[{category_clean}]\n{prompt.strip()}")
                 
                 if prompts:
-                    logger.info(f"Successfully parsed {len(prompts)} mild examples with categories")
+                    logger.info(f"✅ Successfully parsed {len(prompts)} mild examples with categories")
                     return prompts[:count]
             
             # Fallback: Try to extract examples using EXAMPLE N: pattern without categories
             example_pattern = r'EXAMPLE\s+\d+:?\s*(?:\[.*?\])?\s*\n?(.*?)(?=EXAMPLE\s+\d+:|$)'
             matches = re.findall(example_pattern, response, re.DOTALL | re.IGNORECASE)
+            
+            logger.info(f"🔍 Pattern 2 (EXAMPLE N: only): Found {len(matches)} matches")
             
             if matches:
                 # Clean up the extracted prompts and remove any remaining category labels
@@ -1459,7 +1468,7 @@ class AIPromptAdvisor:
                         prompts.append(prompt.strip())
                 
                 if prompts:
-                    logger.info(f"Successfully parsed {len(prompts)} detailed mild examples from numbered format")
+                    logger.info(f"✅ Successfully parsed {len(prompts)} detailed mild examples from numbered format")
                     return prompts[:count]
             
             # Fallback: Try to split by double newlines or numbered patterns
@@ -1467,14 +1476,17 @@ class AIPromptAdvisor:
             alternate_pattern = r'(?:^|\n)(?:\d+[\.\):]|Example\s+\d+:?)\s*(.*?)(?=(?:\n\d+[\.\):]|\nExample\s+\d+:?)|$)'
             matches = re.findall(alternate_pattern, response, re.DOTALL | re.IGNORECASE)
             
+            logger.info(f"🔍 Pattern 3 (1. or Example N:): Found {len(matches)} matches")
+            
             if matches:
                 prompts = [match.strip() for match in matches if match.strip() and len(match.strip()) > 50]
                 if prompts:
-                    logger.info(f"Successfully parsed {len(prompts)} detailed mild examples from alternate format")
+                    logger.info(f"✅ Successfully parsed {len(prompts)} detailed mild examples from alternate format")
                     return prompts[:count]
             
             # Final fallback: Generate quality examples based on description
-            logger.warning("Failed to parse AI response, generating fallback examples")
+            logger.warning("⚠️ Failed to parse AI response, generating fallback examples")
+            logger.warning(f"Response was: {response[:1000]}...")
             
             # Extract basic info from description
             has_woman = "woman" in description.lower()
@@ -1835,13 +1847,22 @@ def get_ai_advisor() -> AIPromptAdvisor:
         claude_key = getattr(Config, 'CLAUDE_API_KEY', None)
         openai_key = getattr(Config, 'OPENAI_API_KEY', None)
         
-        # Prefer OpenAI if both are available, otherwise use what's available
-        if openai_key:
-            api_provider = "openai"
-        elif claude_key:
+        # Prefer Claude if both are available (larger context window for long prompts)
+        # Claude Sonnet: 200K tokens vs OpenAI gpt-3.5-turbo: 8K tokens
+        if claude_key:
             api_provider = "claude"
+            logger.info(f"✅ Using Claude API for AI advisor (context: 200K tokens)")
+        elif openai_key:
+            api_provider = "openai"
+            logger.info(f"✅ Using OpenAI API for AI advisor (context: 8K tokens)")
         else:
             api_provider = "claude"  # default fallback
+            logger.warning("⚠️ No API keys found, defaulting to Claude (will fail if no key)")
             
         _ai_advisor = AIPromptAdvisor(api_provider=api_provider)
+        
+        # Log which APIs are actually available
+        available = _ai_advisor.get_available_providers()
+        logger.info(f"📋 Available AI providers: {', '.join(available) if available else 'None'}")
+        
     return _ai_advisor

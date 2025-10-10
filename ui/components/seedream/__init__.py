@@ -10,8 +10,8 @@ Progress:
 - ✅ Phase 1: Image Section (image_section.py) - 827 lines
 - ✅ Phase 2: Settings Panel (settings_panel.py) - 715 lines
 - ✅ Phase 3: Prompt Section (prompt_section.py) - 585 lines
-- 🔄 Phase 4: Filter Training (filter_training.py) - TODO  
-- 🔄 Phase 5: Actions Handler (actions_handler.py) - TODO
+- ✅ Phase 4: Filter Training (filter_training.py) - 650 lines
+- ✅ Phase 5: Actions Handler (actions_handler.py) - 680 lines
 - 🔄 Phase 6: Results Display (results_display.py) - TODO
 - 🔄 Phase 7: Layout Base Coordinator (layout_base.py) - TODO
 """
@@ -48,23 +48,25 @@ except ImportError as e:
     _PROMPT_SECTION_AVAILABLE = False
     print(f"Warning: Prompt section module not available: {e}")
 
-# Phase 4: Filter Training Module (TODO)
+# Phase 4: Filter Training Module (COMPLETE)
 try:
     from .filter_training import (
         FilterTrainingManager
     )
     _FILTER_TRAINING_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     _FILTER_TRAINING_AVAILABLE = False
+    print(f"Warning: Filter training module not available: {e}")
 
-# Phase 5: Actions Handler Module (TODO)
+# Phase 5: Actions Handler Module (COMPLETE)
 try:
     from .actions_handler import (
         ActionsHandlerManager
     )
     _ACTIONS_HANDLER_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     _ACTIONS_HANDLER_AVAILABLE = False
+    print(f"Warning: Actions handler module not available: {e}")
 
 # Phase 6: Results Display Module (TODO)
 try:
@@ -161,7 +163,7 @@ def get_refactoring_progress():
     }
 
 # Version info
-__version__ = "0.3.0"  # Phase 3 complete
+__version__ = "0.5.0"  # Phase 5 complete
 __author__ = "Seedream Refactoring Team"
 __description__ = "Modular components for Seedream V4 tab"
 
@@ -175,13 +177,13 @@ from ui.components.seedream import ImageSectionManager
 image_manager = ImageSectionManager(layout)
 image_manager.setup_image_section(parent_frame)
 
-# Phase 3: Prompt Section  
-from ui.components.seedream import PromptSectionManager
+# Phase 5: Actions Handler
+from ui.components.seedream import ActionsHandlerManager
 
-prompt_manager = PromptSectionManager(layout)
-prompt_manager.setup_prompt_section(parent_frame)
-current_prompt = prompt_manager.get_current_prompt()
-is_valid, error = prompt_manager.validate_prompt()
+actions_manager = ActionsHandlerManager(layout)
+actions_manager.setup_actions_section(parent_frame)
+actions_manager.process_seedream()          # Generate
+actions_manager.set_results_ready_callback(callback)
 
 # Check module availability
 from ui.components.seedream import get_refactoring_progress
