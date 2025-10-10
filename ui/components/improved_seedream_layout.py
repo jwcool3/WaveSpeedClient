@@ -1097,7 +1097,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         undress_btn = ttk.Button(advanced_frame, text="👙 Undress", command=self.generate_undress_transformations, width=8)
         undress_btn.pack(side=tk.LEFT, padx=(0, 4))
-        self.create_tooltip(undress_btn, "Generate 3 outfit transformations: bikini, lingerie, nude")
+        self.create_tooltip(undress_btn, "Generate 6 outfit transformations with body details (current + full body)")
         
         # Prompt management
         mgmt_frame = ttk.Frame(tools_frame)
@@ -1692,12 +1692,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.show_tooltip(f"❌ Error: {str(e)}")
     
     def _display_undress_transformations(self, transformations):
-        """Display 3 undress transformation prompts in a popup window"""
+        """Display 6 undress transformation prompts in a popup window"""
         try:
             # Create popup window
             popup = tk.Toplevel(self.parent_frame)
             popup.title("👙 Outfit Transformations")
-            popup.geometry("750x550")
+            popup.geometry("850x700")
             popup.resizable(True, True)
             
             # Main frame
@@ -1705,16 +1705,16 @@ class ImprovedSeedreamLayout(AIChatMixin):
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
             
             # Title
-            title_label = ttk.Label(main_frame, text="👙 Undress Transformations (Bikini → Lingerie → Nude)", font=("Arial", 12, "bold"))
+            title_label = ttk.Label(main_frame, text="👙 Undress Transformations (Current + Full Body)", font=("Arial", 12, "bold"))
             title_label.pack(pady=(0, 5))
             
             # Subtitle
-            subtitle_label = ttk.Label(main_frame, text="Outfit replacement prompts that preserve subject identity and scene", font=("Arial", 9), foreground="gray")
+            subtitle_label = ttk.Label(main_frame, text="Outfit transformations with body details (breast size, build) - 3 current + 3 full body", font=("Arial", 9), foreground="gray")
             subtitle_label.pack(pady=(0, 10))
             
-            # Transformation labels
-            transformation_types = ["BIKINI", "LINGERIE", "NUDE"]
-            transformation_icons = ["👙", "💄", "🔞"]
+            # Transformation labels for 6 prompts
+            transformation_types = ["BIKINI", "LINGERIE", "NUDE", "BIKINI (FULL BODY)", "LINGERIE (FULL BODY)", "NUDE (FULL BODY)"]
+            transformation_icons = ["👙", "💄", "🔞", "👙📏", "💄📏", "🔞📏"]
             
             # Scrollable frame for transformations
             canvas = tk.Canvas(main_frame, highlightthickness=0)
@@ -1730,7 +1730,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             canvas.pack(side="left", fill="both", expand=True)
             
             # Display each transformation
-            for i, prompt in enumerate(transformations[:3]):  # Ensure max 3
+            for i, prompt in enumerate(transformations[:6]):  # Ensure max 6
                 transformation_type = transformation_types[i] if i < len(transformation_types) else f"Transform {i+1}"
                 icon = transformation_icons[i] if i < len(transformation_icons) else "🔄"
                 
@@ -1738,8 +1738,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 trans_frame = ttk.LabelFrame(scrollable_frame, text=f"{icon} {transformation_type}", padding="8")
                 trans_frame.pack(fill="x", padx=5, pady=4)
                 
-                # Prompt text
-                prompt_text_widget = tk.Text(trans_frame, height=4, wrap=tk.WORD, font=("Arial", 10))
+                # Prompt text (smaller height for ultra-minimal prompts)
+                prompt_text_widget = tk.Text(trans_frame, height=2, wrap=tk.WORD, font=("Arial", 10))
                 prompt_text_widget.pack(fill="x")
                 prompt_text_widget.insert("1.0", prompt)
                 prompt_text_widget.configure(state='normal')  # Allow selection

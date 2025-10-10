@@ -3,8 +3,8 @@
     "created": "2025-09-11T20:23:33.680213",
     "description": "Enhanced failed prompt tracking with categorized errors",
     "version": "2.0",
-    "last_updated": "2025-10-07T05:21:31.499649",
-    "total_failures": 20
+    "last_updated": "2025-10-10T06:45:24.781841",
+    "total_failures": 22
   },
   "prompts": [
     {
@@ -561,6 +561,62 @@
       "all_caps_ratio": 0.00715307582260372,
       "has_multiple_sentences": true,
       "avg_word_length": 5.568075117370892
+    },
+    {
+      "timestamp": "2025-10-10T06:45:15.297761",
+      "prompt": "Remove gray and white horizontal striped cotton top and white swimsuit, fully nude. Full body shot, thighs up. Medium sized breasts (C cup). Detailed breasts and nipples. Detailed skin texture.",
+      "ai_model": "seedream_v4",
+      "error_message": "All requests failed to submit",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:\\Users\\itssa\\Downloads\\fhtfhtg.png",
+        "width": 1296,
+        "height": 1776,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": null,
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 193,
+      "word_count": 30,
+      "prompt_hash": -5621911198152795206,
+      "contains_special_chars": true,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.031088082901554404,
+      "has_multiple_sentences": true,
+      "avg_word_length": 5.466666666666667
+    },
+    {
+      "timestamp": "2025-10-10T06:45:24.780850",
+      "prompt": "Remove gray and white horizontal striped cotton top and white swimsuit, fully nude. Full body shot, thighs up. Medium sized breasts (C cup). Detailed breasts and nipples. Detailed skin texture.",
+      "ai_model": "seedream_v4",
+      "error_message": "All requests failed to submit",
+      "failure_reason": "other",
+      "http_status": null,
+      "api_response": null,
+      "model_parameters": {},
+      "additional_context": {
+        "image_path": "C:\\Users\\itssa\\Downloads\\fhtfhtg.png",
+        "width": 1296,
+        "height": 1776,
+        "seed": "-1",
+        "sync_mode": false,
+        "base64_output": false,
+        "current_task_id": null,
+        "error_source": "improved_seedream_layout"
+      },
+      "prompt_length": 193,
+      "word_count": 30,
+      "prompt_hash": -5621911198152795206,
+      "contains_special_chars": true,
+      "contains_numbers": false,
+      "all_caps_ratio": 0.031088082901554404,
+      "has_multiple_sentences": true,
+      "avg_word_length": 5.466666666666667
     }
   ]
 }
