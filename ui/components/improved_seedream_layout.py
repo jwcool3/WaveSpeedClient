@@ -204,6 +204,7 @@ class EnhancedSyncManager:
         self.drag_source = None
         self.last_drag_x = 0
         self.last_drag_y = 0
+        self.drag_event_counter = 0  # For throttling
         
         # Image information for scaling calculations
         self.image_info = {
@@ -282,13 +283,18 @@ class EnhancedSyncManager:
         logger.debug(f"Started sync drag from {source_panel} at ({event.x}, {event.y})")
     
     def handle_sync_drag(self, event, source_panel):
-        """Handle synchronized drag motion"""
+        """Handle synchronized drag motion with throttling for performance"""
         # Only handle if sync drag is enabled and this is the active drag source
         if not hasattr(self.layout, 'sync_drag_var') or not self.layout.sync_drag_var.get():
             return
         
         if not self.drag_active or self.drag_source != source_panel:
             return
+        
+        # PERFORMANCE: Throttle drag events - process every 2nd event for smoother performance
+        self.drag_event_counter += 1
+        if self.drag_event_counter % 2 != 0:
+            return  # Skip this event
         
         # Always move the source canvas
         source_canvas = self.original_canvas if source_panel == 'original' else self.result_canvas
@@ -346,6 +352,7 @@ class EnhancedSyncManager:
         
         self.drag_active = False
         self.drag_source = None
+        self.drag_event_counter = 0  # Reset throttle counter
         
         # Reset cursors
         self.original_canvas.configure(cursor="")
@@ -482,6 +489,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
             ("2.5x", 2.5)
         ]
         
+        # Multiple concurrent requests support
+        self.num_requests_var = tk.IntVar(value=1)
+        self.active_tasks = {}  # Track multiple concurrent tasks {task_id: {...}}
+        self.completed_results = []  # Store all completed results
+        
         # Store original image dimensions for multiplier calculations
         self.original_image_width = None
         self.original_image_height = None
@@ -538,9 +550,9 @@ class ImprovedSeedreamLayout(AIChatMixin):
         self.right_pane = ttk.Frame(self.paned_window)
         
         # Add panes with proper configuration
-        # Use unequal weights to establish proper sizing: 2:3 ratio (40/60 split)
-        self.paned_window.add(self.left_pane, weight=2)  # Controls pane
-        self.paned_window.add(self.right_pane, weight=3)  # Images pane (larger for better viewing)
+        # Use unequal weights to establish proper sizing: 28/72 ratio
+        self.paned_window.add(self.left_pane, weight=28)  # Controls pane
+        self.paned_window.add(self.right_pane, weight=72)  # Images pane (larger for better viewing)
         
         # Set up the content
         self.setup_left_column_paned(self.left_pane)
@@ -576,12 +588,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 self.parent_frame.after(delay, self._attempt_splitter_positioning)
             return
         
-        # Calculate desired position (40/60 split favoring image display)
-        desired_position = int(total_width * 0.4)
+        # Calculate desired position (28/72 split favoring image display)
+        desired_position = int(total_width * 0.28)
         
         # Apply constraints to prevent collapse
-        min_left = 280  # Minimum for controls
-        max_left = total_width - 350  # Ensure right pane is at least 350px
+        min_left = 250  # Minimum for controls
+        max_left = total_width - 400  # Ensure right pane is at least 400px
         
         position = max(min_left, min(desired_position, max_left))
         
@@ -710,7 +722,11 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def setup_left_column_paned(self, parent):
         """Setup left column with logical flow and compact sections for paned layout"""
-        left_frame = ttk.Frame(parent, padding="4")
+        # Configure parent to expand properly
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
+        
+        left_frame = ttk.Frame(parent, padding="2")
         left_frame.pack(fill=tk.BOTH, expand=True)
         left_frame.columnconfigure(0, weight=1)
         
@@ -954,6 +970,34 @@ class ImprovedSeedreamLayout(AIChatMixin):
             command=self.auto_set_resolution
         )
         auto_btn.grid(row=3, column=3, sticky="e", pady=(4, 0))
+        
+        # Row 4: Number of concurrent requests
+        ttk.Label(settings_frame, text="Count:", font=('Arial', 8)).grid(
+            row=4, column=0, sticky="w", pady=(4, 0)
+        )
+        
+        num_requests_frame = ttk.Frame(settings_frame)
+        num_requests_frame.grid(row=4, column=1, columnspan=3, sticky="ew", pady=(4, 0))
+        
+        # Spinbox for number of requests (1-5)
+        num_requests_spinbox = ttk.Spinbox(
+            num_requests_frame,
+            from_=1,
+            to=5,
+            textvariable=self.num_requests_var,
+            width=6,
+            font=('Arial', 8)
+        )
+        num_requests_spinbox.pack(side=tk.LEFT)
+        
+        # Info label
+        num_requests_info = ttk.Label(
+            num_requests_frame,
+            text="concurrent generations (uses random seeds)",
+            font=('Arial', 8),
+            foreground="gray"
+        )
+        num_requests_info.pack(side=tk.LEFT, padx=(4, 0))
     
     def setup_prompt_section(self, parent):
         """Enhanced prompt section with better usability"""
@@ -1658,10 +1702,15 @@ class ImprovedSeedreamLayout(AIChatMixin):
     
     def setup_right_column_paned(self, parent):
         """Setup right column with side-by-side comparison view for paned layout"""
-        right_frame = ttk.Frame(parent, padding="4")
+        # Configure parent to expand properly
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
+        
+        right_frame = ttk.Frame(parent, padding="2")
         right_frame.pack(fill=tk.BOTH, expand=True)
         right_frame.columnconfigure(0, weight=1)
-        right_frame.rowconfigure(1, weight=1)
+        right_frame.rowconfigure(0, weight=0)  # Controls row - fixed height
+        right_frame.rowconfigure(1, weight=1)  # Image display row - expandable
 
         # Comparison controls
         self.setup_comparison_controls(right_frame)
@@ -1686,7 +1735,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
         """Setup enhanced comparison and zoom controls"""
         controls_frame = ttk.Frame(parent)
         controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        controls_frame.columnconfigure(4, weight=1)
+        # Fix: Set weight on the correct column - after all controls
+        controls_frame.columnconfigure(7, weight=1)
         
         # Comparison mode selector
         ttk.Label(controls_frame, text="View:", font=('Arial', 9, 'bold')).grid(row=0, column=0, padx=(0, 4))
@@ -1829,8 +1879,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
     def setup_image_panel(self, parent, panel_type, column, title):
         """Setup individual image panel for comparison"""
         # Panel container
-        panel_frame = ttk.LabelFrame(parent, text=title, padding="4")
-        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(2, 2))
+        panel_frame = ttk.LabelFrame(parent, text=title, padding="2")
+        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(1, 1))
         panel_frame.columnconfigure(0, weight=1)
         panel_frame.rowconfigure(0, weight=1)
 
@@ -1841,8 +1891,8 @@ class ImprovedSeedreamLayout(AIChatMixin):
             highlightthickness=1,
             highlightcolor='#ddd',
             relief='flat',
-            width=400,
-            height=400
+            width=600,
+            height=600
         )
         canvas.configure(takefocus=True)  # Allow canvas to receive focus for mouse events
         canvas.grid(row=0, column=0, sticky="nsew")
@@ -2260,7 +2310,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             return False
     
     def process_seedream(self):
-        """Process with Seedream V4 API"""
+        """Process with Seedream V4 API - supports multiple concurrent requests"""
         if not self.api_client:
             self.status_label.config(text="API client not available", foreground="red")
             self.log_message("❌ Error: API client not configured")
@@ -2277,16 +2327,24 @@ class ImprovedSeedreamLayout(AIChatMixin):
             self.log_message("❌ Error: No prompt provided")
             return
         
+        # Get number of concurrent requests
+        num_requests = self.num_requests_var.get()
+        
         # Show processing state
-        self.status_label.config(text="Processing with Seedream V4...", foreground="blue")
+        status_text = f"Processing {num_requests} request(s)..." if num_requests > 1 else "Processing with Seedream V4..."
+        self.status_label.config(text=status_text, foreground="blue")
         self.action_progress_bar.grid(row=2, column=0, sticky="ew", pady=(4, 0))
         self.action_progress_bar.start()
         self.primary_btn.config(state='disabled', text="Processing...")
         
+        # Reset tracking for multiple requests
+        self.active_tasks = {}
+        self.completed_results = []
+        
         # Log the start
-        self.log_message(f"🚀 Starting Seedream V4 processing...")
+        self.log_message(f"🚀 Starting {num_requests} concurrent Seedream V4 request(s)...")
         self.log_message(f"📐 Size: {self.width_var.get()}×{self.height_var.get()}")
-        self.log_message(f"🎲 Seed: {self.seed_var.get()}")
+        self.log_message(f"🎲 Base Seed: {self.seed_var.get()}")
         self.log_message(f"📝 Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}")
         
         # Process in background thread
@@ -2295,6 +2353,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 # Upload all images and get URLs using privacy uploader
                 self.log_message(f"📤 Uploading {len(self.selected_image_paths)} image(s)...")
                 from core.secure_upload import privacy_uploader
+                import random
                 
                 image_urls = []
                 for i, image_path in enumerate(self.selected_image_paths):
@@ -2305,7 +2364,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                     
                     if not success or not image_url:
                         error_msg = privacy_info or f"Failed to upload image {i+1}"
-                        self.parent_frame.after(0, lambda: self.handle_processing_error(f"Failed to upload image {i+1}: {error_msg}"))
+                        self.parent_frame.after(0, lambda msg=error_msg: self.handle_processing_error(f"Failed to upload image {i+1}: {msg}"))
                         return
                     
                     image_urls.append(image_url)
@@ -2314,32 +2373,59 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 
                 # Prepare parameters
                 size_str = f"{self.width_var.get()}*{self.height_var.get()}"
-                seed = int(self.seed_var.get()) if self.seed_var.get() != "-1" else -1
+                base_seed = int(self.seed_var.get()) if self.seed_var.get() != "-1" else -1
                 sync_mode = self.sync_mode_var.get()
                 base64_output = self.base64_var.get()
                 
-                self.log_message(f"🔧 Submitting task with size: {size_str}, sync: {sync_mode}")
-                
-                # Submit task with multiple images
-                result = self.api_client.submit_seedream_v4_task(
-                    prompt=prompt,
-                    images=image_urls,  # Now using array of image URLs
-                    size=size_str,
-                    seed=seed,
-                    enable_sync_mode=sync_mode,
-                    enable_base64_output=base64_output
-                )
-                
-                if result.get('success'):
-                    task_id = result.get('task_id') or result.get('data', {}).get('id')
-                    if task_id:
-                        self.current_task_id = task_id
-                        self.parent_frame.after(0, lambda: self.handle_task_submitted(task_id))
+                # Submit multiple tasks with different seeds
+                submitted_tasks = []
+                for request_num in range(1, num_requests + 1):
+                    # Generate unique seed for each request
+                    if base_seed == -1:
+                        # Random seed
+                        seed = random.randint(1, 2147483647)
                     else:
-                        self.parent_frame.after(0, lambda: self.handle_processing_error("No task ID received"))
-                else:
-                    error_msg = result.get('error', 'Unknown error')
-                    self.parent_frame.after(0, lambda: self.handle_processing_error(error_msg))
+                        # Use base seed + offset for reproducibility
+                        seed = base_seed + request_num - 1
+                    
+                    self.log_message(f"🔧 Submitting request {request_num}/{num_requests} with seed: {seed}")
+                    
+                    # Submit task
+                    result = self.api_client.submit_seedream_v4_task(
+                        prompt=prompt,
+                        images=image_urls,
+                        size=size_str,
+                        seed=seed,
+                        enable_sync_mode=sync_mode,
+                        enable_base64_output=base64_output
+                    )
+                    
+                    if result.get('success'):
+                        task_id = result.get('task_id') or result.get('data', {}).get('id')
+                        if task_id:
+                            submitted_tasks.append({
+                                'task_id': task_id,
+                                'request_num': request_num,
+                                'seed': seed,
+                                'status': 'submitted'
+                            })
+                            self.log_message(f"✅ Request {request_num}/{num_requests} submitted: {task_id}")
+                        else:
+                            self.log_message(f"❌ Request {request_num}/{num_requests}: No task ID received")
+                    else:
+                        error_msg = result.get('error', 'Unknown error')
+                        self.log_message(f"❌ Request {request_num}/{num_requests} failed: {error_msg}")
+                
+                if not submitted_tasks:
+                    self.parent_frame.after(0, lambda: self.handle_processing_error("All requests failed to submit"))
+                    return
+                
+                # Store task information
+                for task_info in submitted_tasks:
+                    self.active_tasks[task_info['task_id']] = task_info
+                
+                # Start polling for all tasks
+                self.parent_frame.after(0, lambda: self.handle_multiple_tasks_submitted(submitted_tasks))
                     
             except Exception as e:
                 logger.error(f"Error in Seedream V4 processing: {e}")
@@ -2351,12 +2437,28 @@ class ImprovedSeedreamLayout(AIChatMixin):
         thread.start()
     
     def handle_task_submitted(self, task_id):
-        """Handle successful task submission"""
+        """Handle successful task submission (single task - backward compatibility)"""
         self.log_message(f"✅ Task submitted successfully: {task_id}")
         self.log_message("⏳ Waiting for processing to complete...")
         
         # Start polling for results
         self.poll_for_results(task_id)
+    
+    def handle_multiple_tasks_submitted(self, submitted_tasks):
+        """Handle multiple task submissions"""
+        total_tasks = len(submitted_tasks)
+        self.log_message(f"✅ All {total_tasks} task(s) submitted successfully")
+        self.log_message(f"⏳ Polling for {total_tasks} concurrent result(s)...")
+        
+        # Update status
+        self.status_label.config(
+            text=f"Waiting for {total_tasks} results...", 
+            foreground="blue"
+        )
+        
+        # Start polling for all tasks
+        for task_info in submitted_tasks:
+            self.poll_for_multiple_results(task_info['task_id'], task_info['request_num'])
     
     def handle_processing_error(self, error_msg):
         """Handle processing error with enhanced logging"""
@@ -2490,7 +2592,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         return techniques
     
     def poll_for_results(self, task_id):
-        """Poll for task completion results"""
+        """Poll for task completion results (single task - backward compatibility)"""
         import time
         start_time = time.time()
         max_poll_time = 300  # 5 minutes max
@@ -2531,6 +2633,447 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         # Start polling
         self.parent_frame.after(2000, check_results)  # Initial check after 2 seconds
+    
+    def poll_for_multiple_results(self, task_id, request_num):
+        """Poll for individual task completion in multi-request mode"""
+        import time
+        start_time = time.time()
+        max_poll_time = 300  # 5 minutes max
+        
+        def check_results():
+            try:
+                # Check for timeout
+                if time.time() - start_time > max_poll_time:
+                    self.log_message(f"⏰ Request {request_num} timed out after 5 minutes")
+                    # Mark task as failed
+                    if task_id in self.active_tasks:
+                        self.active_tasks[task_id]['status'] = 'failed'
+                        self.active_tasks[task_id]['error'] = 'Timeout'
+                    self.check_all_tasks_completed()
+                    return
+                
+                result = self.api_client.get_seedream_v4_result(task_id)
+                
+                if result.get('success'):
+                    status = result.get('status', '').lower()
+                    
+                    if status == 'completed':
+                        # Task completed successfully
+                        self.log_message(f"✅ Request {request_num} completed!")
+                        
+                        # Get result URL
+                        result_url = result.get('result_url') or result.get('output_url')
+                        
+                        # Update task info
+                        if task_id in self.active_tasks:
+                            self.active_tasks[task_id]['status'] = 'completed'
+                            self.active_tasks[task_id]['result_url'] = result_url
+                            self.active_tasks[task_id]['result_data'] = result
+                        
+                        # Check if all tasks are complete
+                        self.check_all_tasks_completed()
+                        return  # Stop polling for this task
+                        
+                    elif status in ['failed', 'error']:
+                        error_msg = result.get('error', 'Task failed')
+                        self.log_message(f"❌ Request {request_num} failed: {error_msg}")
+                        
+                        # Update task info
+                        if task_id in self.active_tasks:
+                            self.active_tasks[task_id]['status'] = 'failed'
+                            self.active_tasks[task_id]['error'] = error_msg
+                        
+                        # Check if all tasks are complete
+                        self.check_all_tasks_completed()
+                        return  # Stop polling for this task
+                        
+                    else:
+                        # Still processing, poll again
+                        self.parent_frame.after(3000, check_results)  # Check again in 3 seconds
+                else:
+                    error_msg = result.get('error', 'Failed to get task status')
+                    self.log_message(f"❌ Request {request_num} polling error: {error_msg}")
+                    
+                    # Update task info
+                    if task_id in self.active_tasks:
+                        self.active_tasks[task_id]['status'] = 'failed'
+                        self.active_tasks[task_id]['error'] = error_msg
+                    
+                    # Check if all tasks are complete
+                    self.check_all_tasks_completed()
+                    
+            except Exception as e:
+                logger.error(f"Error polling for request {request_num}: {e}")
+                
+                # Update task info
+                if task_id in self.active_tasks:
+                    self.active_tasks[task_id]['status'] = 'failed'
+                    self.active_tasks[task_id]['error'] = str(e)
+                
+                # Check if all tasks are complete
+                self.check_all_tasks_completed()
+        
+        # Start polling
+        self.parent_frame.after(2000, check_results)  # Initial check after 2 seconds
+    
+    def check_all_tasks_completed(self):
+        """Check if all active tasks have completed and handle results"""
+        # Count tasks by status
+        total_tasks = len(self.active_tasks)
+        completed_tasks = [t for t in self.active_tasks.values() if t['status'] == 'completed']
+        failed_tasks = [t for t in self.active_tasks.values() if t['status'] == 'failed']
+        pending_tasks = [t for t in self.active_tasks.values() if t['status'] == 'submitted']
+        
+        # Update status
+        status_msg = f"{len(completed_tasks)}/{total_tasks} completed"
+        if failed_tasks:
+            status_msg += f", {len(failed_tasks)} failed"
+        self.status_label.config(text=status_msg, foreground="blue")
+        
+        # Check if all tasks are done (completed or failed)
+        if len(pending_tasks) == 0:
+            # All tasks finished
+            self.action_progress_bar.stop()
+            self.action_progress_bar.grid_remove()
+            self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
+            
+            if completed_tasks:
+                # At least some tasks succeeded
+                self.log_message(f"🎉 Processing complete! {len(completed_tasks)}/{total_tasks} successful")
+                
+                # Download and display all results
+                self.download_and_display_multiple_results(completed_tasks)
+            else:
+                # All tasks failed
+                self.log_message(f"❌ All {total_tasks} requests failed")
+                error_messages = [t.get('error', 'Unknown error') for t in failed_tasks]
+                self.handle_processing_error(f"All requests failed. Errors: {', '.join(error_messages[:3])}")
+    
+    def download_and_display_multiple_results(self, completed_tasks):
+        """Download and display multiple result images with auto-save"""
+        def download_all_in_background():
+            try:
+                import requests
+                import tempfile
+                
+                self.completed_results = []
+                
+                for task_info in completed_tasks:
+                    try:
+                        result_url = task_info.get('result_url')
+                        request_num = task_info.get('request_num')
+                        seed = task_info.get('seed')
+                        
+                        if not result_url:
+                            self.log_message(f"⚠️ Request {request_num}: No result URL")
+                            continue
+                        
+                        self.log_message(f"📥 Downloading result {request_num}...")
+                        
+                        # Download the image
+                        response = requests.get(result_url, timeout=60)
+                        response.raise_for_status()
+                        
+                        # Save to temporary file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                            temp_file.write(response.content)
+                            temp_path = temp_file.name
+                        
+                        # Auto-save this result
+                        saved_path = None
+                        try:
+                            saved_path = self.auto_save_individual_result(
+                                temp_path, 
+                                request_num, 
+                                seed
+                            )
+                            if saved_path:
+                                self.log_message(f"💾 Auto-saved result {request_num} to: {saved_path}")
+                        except Exception as e:
+                            logger.error(f"Error auto-saving result {request_num}: {e}")
+                            self.log_message(f"⚠️ Auto-save failed for result {request_num}")
+                        
+                        # Store result info
+                        self.completed_results.append({
+                            'path': temp_path,
+                            'url': result_url,
+                            'request_num': request_num,
+                            'seed': seed,
+                            'task_id': task_info.get('task_id'),
+                            'saved_path': saved_path  # Store the auto-saved path
+                        })
+                        
+                        self.log_message(f"✅ Downloaded result {request_num}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error downloading result {request_num}: {e}")
+                        self.log_message(f"❌ Failed to download result {request_num}: {str(e)}")
+                
+                # Update UI in main thread
+                if self.completed_results:
+                    self.parent_frame.after(0, lambda: self.handle_multiple_downloads_complete())
+                else:
+                    self.parent_frame.after(0, lambda: self.handle_processing_error("Failed to download any results"))
+                
+            except Exception as e:
+                logger.error(f"Error downloading results: {e}")
+                self.parent_frame.after(0, lambda: self.handle_processing_error(f"Failed to download results: {str(e)}"))
+        
+        # Start download thread
+        thread = threading.Thread(target=download_all_in_background)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_multiple_downloads_complete(self):
+        """Handle completion of multiple downloads"""
+        try:
+            num_results = len(self.completed_results)
+            self.log_message(f"🎉 All {num_results} result(s) downloaded successfully!")
+            
+            # Update status
+            self.status_label.config(
+                text=f"✅ {num_results} result(s) ready", 
+                foreground="green"
+            )
+            
+            # Stop progress bar and re-enable button
+            self.action_progress_bar.stop()
+            self.action_progress_bar.grid_remove()
+            self.primary_btn.config(state='normal', text="🌟 Apply Seedream V4")
+            
+            # Log successful prompts to enhanced tracker for each result
+            self.log_multiple_results_to_tracker()
+            
+            # Display the results (show first result in main panel)
+            if self.completed_results:
+                first_result = self.completed_results[0]
+                self.result_image_path = first_result['path']
+                self.result_url = first_result['url']
+                
+                # Display first result in result panel
+                self.display_image_in_panel(first_result['path'], "result")
+                
+                # Enable result view buttons
+                if hasattr(self, 'view_result_btn'):
+                    self.view_result_btn.config(state='normal')
+                if hasattr(self, 'comparison_btn'):
+                    self.comparison_btn.config(state='normal')
+                if hasattr(self, 'use_result_button'):
+                    self.use_result_button.config(state='normal')
+                
+                # Show results browser for multiple results
+                if num_results > 1:
+                    self.show_results_browser()
+                
+        except Exception as e:
+            logger.error(f"Error handling multiple downloads: {e}")
+            self.handle_processing_error(f"Error displaying results: {str(e)}")
+    
+    def log_multiple_results_to_tracker(self):
+        """Log all successful results to the enhanced prompt tracker"""
+        try:
+            from core.enhanced_prompt_tracker import enhanced_prompt_tracker
+            
+            prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
+            
+            # Log each result individually
+            for result_info in self.completed_results:
+                try:
+                    success_context = {
+                        "image_path": self.selected_image_path if hasattr(self, 'selected_image_path') else None,
+                        "result_path": result_info.get('saved_path') or result_info.get('path'),
+                        "result_url": result_info.get('url'),
+                        "width": self.width_var.get() if hasattr(self, 'width_var') else None,
+                        "height": self.height_var.get() if hasattr(self, 'height_var') else None,
+                        "seed": result_info.get('seed'),
+                        "request_number": result_info.get('request_num'),
+                        "sync_mode": self.sync_mode_var.get() if hasattr(self, 'sync_mode_var') else None,
+                        "base64_output": self.base64_var.get() if hasattr(self, 'base64_var') else None,
+                        "task_id": result_info.get('task_id'),
+                        "multi_request": True,
+                        "total_requests": len(self.completed_results),
+                        "processing_source": "improved_seedream_layout_multi"
+                    }
+                    
+                    # Log successful completion for this result
+                    enhanced_prompt_tracker.log_successful_prompt(
+                        prompt=prompt,
+                        ai_model="seedream_v4",
+                        result_url=result_info.get('url'),
+                        result_path=result_info.get('saved_path') or result_info.get('path'),
+                        additional_context=success_context
+                    )
+                    
+                    logger.info(f"Logged result {result_info.get('request_num')} to enhanced tracker")
+                    
+                except Exception as e:
+                    logger.error(f"Error logging result {result_info.get('request_num')} to tracker: {e}")
+            
+            self.log_message(f"📊 Logged {len(self.completed_results)} result(s) to tracker")
+            
+        except Exception as e:
+            logger.error(f"Error logging multiple results to tracker: {e}")
+    
+    def show_results_browser(self):
+        """Show a browser window for all generated results"""
+        try:
+            # Create a new window for results
+            results_window = tk.Toplevel(self.parent_frame)
+            results_window.title(f"Seedream Results ({len(self.completed_results)} images)")
+            results_window.geometry("1000x700")
+            
+            # Main container
+            main_frame = ttk.Frame(results_window, padding="10")
+            main_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # Title
+            title_label = ttk.Label(
+                main_frame,
+                text=f"🎨 Generated {len(self.completed_results)} Results",
+                font=('Arial', 14, 'bold')
+            )
+            title_label.pack(pady=(0, 10))
+            
+            # Create scrollable frame for results
+            canvas = tk.Canvas(main_frame, bg='white')
+            scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Display each result in a grid
+            cols = 3  # 3 columns for grid layout
+            for idx, result_info in enumerate(self.completed_results):
+                row = idx // cols
+                col = idx % cols
+                
+                # Create frame for this result
+                result_frame = ttk.LabelFrame(
+                    scrollable_frame,
+                    text=f"Result #{result_info['request_num']} (Seed: {result_info['seed']})",
+                    padding="5"
+                )
+                result_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+                
+                # Load and display thumbnail
+                try:
+                    from PIL import Image, ImageTk
+                    img = Image.open(result_info['path'])
+                    
+                    # Create thumbnail (300x300)
+                    img.thumbnail((300, 300), Image.Resampling.LANCZOS)
+                    photo = ImageTk.PhotoImage(img)
+                    
+                    # Display image
+                    img_label = tk.Label(result_frame, image=photo, cursor="hand2")
+                    img_label.image = photo  # Keep a reference
+                    img_label.pack()
+                    
+                    # Bind click to use this result
+                    img_label.bind(
+                        "<Button-1>",
+                        lambda e, r=result_info: self.use_result_from_browser(r, results_window)
+                    )
+                    
+                    # Action buttons
+                    btn_frame = ttk.Frame(result_frame)
+                    btn_frame.pack(fill=tk.X, pady=(5, 0))
+                    
+                    use_btn = ttk.Button(
+                        btn_frame,
+                        text="Use This",
+                        command=lambda r=result_info: self.use_result_from_browser(r, results_window)
+                    )
+                    use_btn.pack(side=tk.LEFT, padx=2)
+                    
+                    save_btn = ttk.Button(
+                        btn_frame,
+                        text="Save",
+                        command=lambda r=result_info: self.save_individual_result(r)
+                    )
+                    save_btn.pack(side=tk.LEFT, padx=2)
+                    
+                except Exception as e:
+                    logger.error(f"Error displaying result {idx}: {e}")
+                    ttk.Label(result_frame, text=f"Error loading image").pack()
+            
+            # Configure grid weights
+            for i in range(cols):
+                scrollable_frame.columnconfigure(i, weight=1)
+            
+            # Pack canvas and scrollbar
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            # Close button
+            close_btn = ttk.Button(
+                main_frame,
+                text="Close",
+                command=results_window.destroy
+            )
+            close_btn.pack(pady=(10, 0))
+            
+        except Exception as e:
+            logger.error(f"Error creating results browser: {e}")
+            from utils.utils import show_error
+            show_error("Error", f"Failed to create results browser: {str(e)}")
+    
+    def use_result_from_browser(self, result_info, browser_window):
+        """Use a result from the browser as the main result"""
+        try:
+            self.result_image_path = result_info['path']
+            self.result_url = result_info['url']
+            
+            # Display the selected result in the result panel
+            self.display_image_in_panel(result_info['path'], "result")
+            
+            self.log_message(f"✅ Using result #{result_info['request_num']} (seed: {result_info['seed']})")
+            
+            # Close the browser
+            browser_window.destroy()
+            
+        except Exception as e:
+            logger.error(f"Error using result from browser: {e}")
+    
+    def save_individual_result(self, result_info):
+        """Save an individual result to a file"""
+        try:
+            from tkinter import filedialog
+            from pathlib import Path
+            import shutil
+            
+            # Suggest a filename
+            suggested_name = f"seedream_result_{result_info['request_num']}_seed{result_info['seed']}.png"
+            
+            file_path = filedialog.asksaveasfilename(
+                title=f"Save Result #{result_info['request_num']}",
+                defaultextension=".png",
+                initialfile=suggested_name,
+                filetypes=[
+                    ("PNG files", "*.png"),
+                    ("JPEG files", "*.jpg"),
+                    ("All files", "*.*")
+                ]
+            )
+            
+            if file_path:
+                # Copy the temp file to the selected location
+                shutil.copy2(result_info['path'], file_path)
+                self.log_message(f"💾 Saved result #{result_info['request_num']} to: {Path(file_path).name}")
+                
+                from utils.utils import show_success
+                show_success("Saved", f"Result #{result_info['request_num']} saved successfully!")
+                
+        except Exception as e:
+            logger.error(f"Error saving individual result: {e}")
+            from utils.utils import show_error
+            show_error("Error", f"Failed to save result: {str(e)}")
     
     def handle_results_ready(self, data):
         """Handle completed results"""
@@ -2716,6 +3259,81 @@ class ImprovedSeedreamLayout(AIChatMixin):
         except Exception as e:
             logger.error(f"Error in auto-save: {e}")
             self.log_message(f"⚠️ Auto-save error: {str(e)}")
+    
+    def auto_save_individual_result(self, result_path, request_num, seed):
+        """Auto-save an individual result from multiple concurrent requests"""
+        try:
+            from core.auto_save import auto_save_manager
+            from app.config import Config
+            import json
+            from pathlib import Path
+            from datetime import datetime
+            
+            if not Config.AUTO_SAVE_ENABLED:
+                return None
+            
+            # Get prompt and settings
+            prompt = self.prompt_text.get("1.0", tk.END).strip() if hasattr(self, 'prompt_text') else ""
+            
+            # Get size settings
+            if hasattr(self, 'width_var') and hasattr(self, 'height_var'):
+                width = int(self.width_var.get())
+                height = int(self.height_var.get())
+                size = f"{width}x{height}"
+            else:
+                size = "unknown"
+            
+            # Build extra info with request number and seed
+            extra_info = f"{size}_req{request_num}_seed{seed}"
+            
+            # Save the result
+            success, saved_path, error = auto_save_manager.save_local_file(
+                'seedream_v4',
+                result_path,
+                prompt=prompt,
+                extra_info=extra_info
+            )
+            
+            if success and saved_path:
+                # Create enhanced JSON metadata for this result
+                saved_path_obj = Path(saved_path)
+                json_path = saved_path_obj.with_suffix('.json')
+                
+                # Build comprehensive metadata
+                metadata = {
+                    "ai_model": "seedream_v4",
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "prompt": prompt,
+                    "settings": {
+                        "width": width if hasattr(self, 'width_var') else None,
+                        "height": height if hasattr(self, 'height_var') else None,
+                        "seed": seed,
+                        "request_number": request_num,
+                        "sync_mode": self.sync_mode_var.get() if hasattr(self, 'sync_mode_var') else False,
+                        "base64_output": self.base64_var.get() if hasattr(self, 'base64_var') else False
+                    },
+                    "multi_request": True,
+                    "total_requests": len(self.active_tasks) if hasattr(self, 'active_tasks') else 1,
+                    "input_images": self.selected_image_paths if hasattr(self, 'selected_image_paths') else [],
+                    "result_path": str(saved_path),
+                    "result_filename": saved_path_obj.name
+                }
+                
+                # Save JSON metadata
+                try:
+                    with open(json_path, 'w', encoding='utf-8') as f:
+                        json.dump(metadata, f, indent=2, ensure_ascii=False)
+                except Exception as json_error:
+                    logger.error(f"Error saving JSON metadata for result {request_num}: {json_error}")
+                
+                return str(saved_path)
+            else:
+                logger.warning(f"Auto-save failed for result {request_num}: {error}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error in auto-save for result {request_num}: {e}")
+            return None
     
     def after_processing(self):
         """Called after processing completes"""
@@ -4299,10 +4917,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
             if not canvas.winfo_exists():
                 return
             
-            # Force canvas to update its size
-            canvas.update_idletasks()
-            
-            # Get actual canvas dimensions
+            # PERFORMANCE: Don't force synchronous update, use cached or reasonable defaults
             canvas_width = canvas.winfo_width()
             canvas_height = canvas.winfo_height()
             
@@ -4359,10 +4974,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             zoom_value = self.zoom_var.get()
             if zoom_value == "Fit":
-                # Better fit calculation with more padding for UI controls
+                # Better fit calculation - minimal padding for maximum display space
                 scale_factor = min(
-                    (canvas_width - 20) / img.width,
-                    (canvas_height - 40) / img.height  # More vertical padding for controls
+                    (canvas_width - 10) / img.width,
+                    (canvas_height - 10) / img.height
                 )
                 # Ensure minimum scale to prevent tiny images
                 scale_factor = max(scale_factor, 0.1)
@@ -4371,7 +4986,10 @@ class ImprovedSeedreamLayout(AIChatMixin):
             
             new_width = int(img.width * scale_factor)
             new_height = int(img.height * scale_factor)
-            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # PERFORMANCE: Use BILINEAR for faster display (3-5x faster than LANCZOS)
+            # Quality difference is minimal for on-screen display, dramatically reduces lag
+            img_resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
             
             photo = ImageTk.PhotoImage(img_resized)
             
