@@ -263,11 +263,16 @@ class ResultsDisplayManager:
             
             filename = f"seedream_v4_{timestamp}_{prompt_snippet}_{size}.png"
             
-            # Save image
-            result = auto_save_manager.save_image(temp_path, filename, "Seedream_V4")
+            # Save image using save_local_file method (returns tuple: success, path, error)
+            success, saved_path, error = auto_save_manager.save_local_file(
+                ai_model="Seedream_V4",
+                local_file_path=temp_path,
+                prompt=prompt_snippet,
+                extra_info=size,
+                file_type="image"
+            )
             
-            if result['success']:
-                saved_path = result['path']
+            if success and saved_path:
                 
                 # Create metadata
                 metadata = self._create_result_metadata(result_url, saved_path, single=True)
@@ -282,7 +287,7 @@ class ResultsDisplayManager:
                 
                 return saved_path
             else:
-                logger.warning(f"Auto-save failed: {result.get('error', 'Unknown error')}")
+                logger.warning(f"Auto-save failed: {error or 'Unknown error'}")
                 return None
                 
         except Exception as e:
@@ -306,11 +311,16 @@ class ResultsDisplayManager:
             
             filename = f"seedream_v4_{timestamp}_{prompt_snippet}_{size}_req{request_num}_seed{seed}.png"
             
-            # Save image
-            result = auto_save_manager.save_image(temp_path, filename, "Seedream_V4")
+            # Save image using save_local_file method (returns tuple: success, path, error)
+            success, saved_path, error = auto_save_manager.save_local_file(
+                ai_model="Seedream_V4",
+                local_file_path=temp_path,
+                prompt=prompt_snippet,
+                extra_info=f"{size}_req{request_num}_seed{seed}",
+                file_type="image"
+            )
             
-            if result['success']:
-                saved_path = result['path']
+            if success and saved_path:
                 
                 # Create metadata
                 metadata = self._create_result_metadata(
@@ -328,7 +338,7 @@ class ResultsDisplayManager:
                 
                 return saved_path
             else:
-                logger.warning(f"Auto-save failed for result {request_num}: {result.get('error', 'Unknown error')}")
+                logger.warning(f"Auto-save failed for result {request_num}: {error or 'Unknown error'}")
                 return None
                 
         except Exception as e:

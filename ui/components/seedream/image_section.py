@@ -1433,7 +1433,7 @@ class ImageSectionManager:
         except Exception as e:
             logger.error(f"Error showing default messages: {e}")
     
-    def display_overlay_view(self, original_canvas, original_path, result_path, zoom_var):
+    def display_overlay_view(self, original_canvas, original_path, result_path, zoom_var, opacity=0.5):
         """
         Display overlay comparison view with opacity blending.
         
@@ -1442,6 +1442,7 @@ class ImageSectionManager:
             original_path: Path to original image
             result_path: Path to result image
             zoom_var: Zoom level StringVar
+            opacity: Blend opacity (0.0 = all original, 1.0 = all result)
         """
         if not original_path or not result_path:
             self.show_panel_message("original", original_canvas)
@@ -1488,8 +1489,8 @@ class ImageSectionManager:
             original_img = original_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
             result_img = result_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
             
-            # Blend images (50/50 opacity)
-            blended = Image.blend(original_img.convert('RGBA'), result_img.convert('RGBA'), alpha=0.5)
+            # Blend images with specified opacity (0.0 = all original, 1.0 = all result)
+            blended = Image.blend(original_img.convert('RGBA'), result_img.convert('RGBA'), alpha=opacity)
             
             # Display blended image
             photo = ImageTk.PhotoImage(blended)

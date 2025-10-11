@@ -98,14 +98,16 @@ class SettingsPanelManager:
         try:
             logger.info("Setting up settings panel")
             
-            # Main settings frame - compact padding for fullscreen
+            # Main settings frame - optimized padding and layout
             self.settings_frame = ttk.LabelFrame(
                 parent_frame,
                 text="⚙️ Generation Settings",
-                padding="4"
+                padding="6"
             )
-            self.settings_frame.grid(row=1, column=0, sticky="ew", pady=(0, 6))
-            self.settings_frame.columnconfigure(3, weight=1)
+            self.settings_frame.grid(row=1, column=0, sticky="nsew", pady=(0, 4))
+            # Configure grid to use all available space
+            self.settings_frame.columnconfigure(1, weight=1)  # Let sliders expand
+            self.settings_frame.rowconfigure(99, weight=1)  # Push content up, let bottom expand
             
             # Setup components
             self._setup_resolution_controls()
@@ -128,59 +130,63 @@ class SettingsPanelManager:
     
     def _setup_resolution_controls(self) -> None:
         """Setup resolution width/height controls"""
-        # Row 0: Width controls
-        ttk.Label(self.settings_frame, text="Width:", font=('Arial', 8)).grid(
-            row=0, column=0, sticky="w", pady=(0, 4)
+        # Row 0: Width controls - compact and optimized
+        ttk.Label(self.settings_frame, text="W:", font=('Arial', 8, 'bold')).grid(
+            row=0, column=0, sticky="w", pady=(0, 2), padx=(0, 2)
         )
         
-        # Width scale (256-4096)
+        # Width scale (256-4096) - expanded to use available space
         self.width_scale = tk.Scale(
             self.settings_frame,
             from_=256,
             to=4096,
             orient=tk.HORIZONTAL,
             variable=self.width_var,
-            length=120,
+            length=200,  # Wider for better control
             font=('Arial', 8),
-            command=self._on_width_changed
+            command=self._on_width_changed,
+            showvalue=False  # Hide default value display
         )
-        self.width_scale.grid(row=0, column=1, sticky="w", pady=(0, 4))
+        self.width_scale.grid(row=0, column=1, sticky="ew", pady=(0, 2))
         
-        # Width entry
+        # Width entry - compact
         self.width_entry = ttk.Entry(
             self.settings_frame,
             textvariable=self.width_var,
-            width=6,
-            font=('Arial', 8)
+            width=5,
+            font=('Arial', 8),
+            justify='center'
         )
-        self.width_entry.grid(row=0, column=2, sticky="w", padx=(4, 0), pady=(0, 4))
+        self.width_entry.grid(row=0, column=2, sticky="w", padx=(4, 0), pady=(0, 2))
         
-        # Row 1: Height controls
-        ttk.Label(self.settings_frame, text="Height:", font=('Arial', 8)).grid(
-            row=1, column=0, sticky="w", pady=(0, 4)
+        # Row 1: Height controls - compact and optimized
+        ttk.Label(self.settings_frame, text="H:", font=('Arial', 8, 'bold')).grid(
+            row=1, column=0, sticky="w", pady=(0, 2), padx=(0, 2)
         )
         
-        # Height scale (256-4096)
+        # Height scale (256-4096) - expanded to use available space
         self.height_scale = tk.Scale(
             self.settings_frame,
             from_=256,
             to=4096,
             orient=tk.HORIZONTAL,
             variable=self.height_var,
-            length=120,
+            length=200,  # Wider for better control
             font=('Arial', 8),
-            command=self._on_height_changed
+            command=self._on_height_changed,
+            showvalue=False  # Hide default value display
         )
-        self.height_scale.grid(row=1, column=1, sticky="w", pady=(0, 4))
+        self.height_scale.grid(row=1, column=1, sticky="ew", pady=(0, 2))
         
-        # Height entry
+        # Height entry - compact
         self.height_entry = ttk.Entry(
             self.settings_frame,
             textvariable=self.height_var,
-            width=6,
-            font=('Arial', 8)
+            width=5,
+            font=('Arial', 8),
+            justify='center'
         )
-        self.height_entry.grid(row=1, column=2, sticky="w", padx=(4, 0), pady=(0, 4))
+        self.height_entry.grid(row=1, column=2, sticky="w", padx=(4, 0), pady=(0, 2))
     
     def _setup_resolution_analyzer(self) -> None:
         """Setup resolution analysis and optimization UI"""
@@ -262,9 +268,9 @@ class SettingsPanelManager:
     
     def _setup_size_presets(self) -> None:
         """Setup size preset buttons"""
-        # Row 3: Size presets (moved down to make room for resolution analyzer)
+        # Row 3: Size presets - more compact
         preset_frame = ttk.Frame(self.settings_frame)
-        preset_frame.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(4, 2))
+        preset_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(2, 2))
         
         # Preset buttons in a row
         for i, (name, multiplier) in enumerate(self.size_presets):
@@ -291,42 +297,46 @@ class SettingsPanelManager:
     
     def _setup_options_row(self) -> None:
         """Setup seed and option controls"""
-        # Row 4: Seed + Options (moved down to make room for resolution analyzer)
-        ttk.Label(self.settings_frame, text="Seed:", font=('Arial', 8)).grid(
-            row=4, column=0, sticky="w", pady=(4, 0)
+        # Row 4: Seed + Options - more compact
+        ttk.Label(self.settings_frame, text="Seed:", font=('Arial', 8, 'bold')).grid(
+            row=4, column=0, sticky="w", pady=(2, 0), padx=(0, 2)
         )
         
         seed_entry = ttk.Entry(
             self.settings_frame,
             textvariable=self.seed_var,
-            width=8,
+            width=7,
             font=('Arial', 8)
         )
-        seed_entry.grid(row=4, column=1, sticky="w", pady=(4, 0))
+        seed_entry.grid(row=4, column=1, sticky="w", pady=(2, 0))
+        
+        # Options buttons in compact layout
+        btn_frame = ttk.Frame(self.settings_frame)
+        btn_frame.grid(row=4, column=2, sticky="e", padx=(2, 0), pady=(2, 0))
         
         # Lock aspect ratio button
         self.lock_aspect_btn = ttk.Button(
-            self.settings_frame,
+            btn_frame,
             text="🔓",
             width=3,
             command=self.toggle_aspect_lock
         )
-        self.lock_aspect_btn.grid(row=4, column=2, sticky="w", padx=(8, 0), pady=(4, 0))
+        self.lock_aspect_btn.pack(side=tk.LEFT, padx=(0, 2))
         
         # Auto-resolution button
         auto_btn = ttk.Button(
-            self.settings_frame,
+            btn_frame,
             text="Auto",
-            width=6,
+            width=5,
             command=self.auto_set_resolution
         )
-        auto_btn.grid(row=4, column=3, sticky="e", pady=(4, 0))
+        auto_btn.pack(side=tk.LEFT)
     
     def _setup_advanced_options(self) -> None:
         """Setup advanced options (sync mode, base64 output)"""
-        # Row 5: Advanced options (moved down to make room for resolution analyzer)
+        # Row 5: Advanced options - more compact
         options_frame = ttk.Frame(self.settings_frame)
-        options_frame.grid(row=5, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        options_frame.grid(row=5, column=0, columnspan=3, sticky="ew", pady=(4, 0))
         
         # Sync mode checkbox
         sync_check = ttk.Checkbutton(

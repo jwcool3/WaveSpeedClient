@@ -92,14 +92,15 @@ class PromptSectionManager:
         try:
             logger.info("Setting up prompt section")
             
-            # Main prompt frame
+            # Main prompt frame - EXPAND vertically to use available space
             self.prompt_frame = ttk.LabelFrame(
                 parent_frame,
                 text="✏️ Transformation Prompt",
                 padding="8"
             )
-            self.prompt_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+            self.prompt_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 8))
             self.prompt_frame.columnconfigure(0, weight=1)
+            self.prompt_frame.rowconfigure(1, weight=1)  # Let prompt text area expand
             
             # Setup components
             self._setup_tools_row()
@@ -139,14 +140,6 @@ class PromptSectionManager:
         ai_btn.pack(side=tk.LEFT, padx=(0, 4))
         if not self.ai_available:
             ai_btn.config(state='disabled')
-        
-        # Random sample button
-        ttk.Button(
-            ai_frame,
-            text="🎲 Random",
-            command=self.load_sample,
-            width=8
-        ).pack(side=tk.LEFT, padx=(0, 4))
         
         # Advanced tools (filter training - will be moved to filter module in Phase 4)
         advanced_frame = ttk.Frame(tools_frame)
@@ -199,15 +192,16 @@ class PromptSectionManager:
     
     def _setup_prompt_text_area(self) -> None:
         """Setup the main prompt text area with scrollbar"""
-        # Enhanced prompt text area
+        # Enhanced prompt text area - EXPAND vertically to fill available space
         prompt_container = ttk.Frame(self.prompt_frame)
-        prompt_container.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        prompt_container.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
         prompt_container.columnconfigure(0, weight=1)
+        prompt_container.rowconfigure(0, weight=1)  # Let text widget expand
         
-        # Prompt text with compact size
+        # Prompt text - flexible height that expands to fill space
         self.prompt_text = tk.Text(
             prompt_container,
-            height=6,  # Compact height for efficient layout
+            height=6,  # Minimum height, will expand beyond this
             wrap=tk.WORD,
             font=('Arial', 10),
             relief='solid',
@@ -217,7 +211,7 @@ class PromptSectionManager:
             bg='#ffffff',
             fg='#333333'
         )
-        self.prompt_text.grid(row=0, column=0, sticky="ew")
+        self.prompt_text.grid(row=0, column=0, sticky="nsew")  # Expand both ways
         
         # Scrollbar for prompt text
         prompt_scrollbar = ttk.Scrollbar(

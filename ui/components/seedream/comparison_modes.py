@@ -42,6 +42,10 @@ class ComparisonController:
         self.overlay_canvas = None
         self.overlay_image_id = None
         
+        # Opacity update debouncing
+        self.opacity_update_timer = None
+        self.opacity_update_delay = 100  # ms delay for debouncing
+        
         # UI references
         self.mode_var = tk.StringVar(value="side_by_side")
         self.opacity_var = tk.DoubleVar(value=0.5)
@@ -143,8 +147,10 @@ class ComparisonController:
         self.opacity_frame = ttk.Frame(controls_frame)
         self.opacity_frame.pack(side=tk.LEFT, padx=(20, 0))
         
-        ttk.Label(self.opacity_frame, text="Opacity:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(self.opacity_frame, text="Blend:").pack(side=tk.LEFT, padx=(0, 5))
         
+        # Use discrete 10% increments to reduce lag
+        # ttk.Scale doesn't support resolution, but we'll snap to 10% in the handler
         opacity_scale = ttk.Scale(
             self.opacity_frame,
             from_=0.0,
@@ -246,13 +252,14 @@ class ComparisonController:
             elif hasattr(self.layout, 'result_image_path'):
                 result_path = self.layout.result_image_path
             
-            # Use image manager's overlay display method
+            # Use image manager's overlay display method with current opacity
             if original_path and result_path and hasattr(self.layout, 'image_manager'):
                 self.layout.image_manager.display_overlay_view(
                     self.layout.original_canvas,
                     original_path,
                     result_path,
-                    self.layout.zoom_var
+                    self.layout.zoom_var,
+                    opacity=self.overlay_opacity  # Pass current opacity value
                 )
                 logger.debug(f"Showing overlay view with opacity: {self.overlay_opacity:.2f}")
             else:
@@ -284,12 +291,32 @@ class ComparisonController:
         logger.debug(f"Showing {panel_type} only")
     
     def _on_opacity_changed(self, value):
-        """Handle opacity slider change"""
-        self.overlay_opacity = float(value)
+        """Handle opacity slider change with debouncing to reduce lag"""
+        # Don't snap during drag - just update the value
+        raw_value = float(value)
+        self.overlay_opacity = raw_value
         self.opacity_label.config(text=f"{int(self.overlay_opacity * 100)}%")
         
+        # Cancel previous timer if exists
+        if self.opacity_update_timer:
+            try:
+                self.layout.parent_frame.after_cancel(self.opacity_update_timer)
+            except:
+                pass
+        
+        # Schedule update after delay (debouncing)
         if self.current_mode == "overlay":
+            self.opacity_update_timer = self.layout.parent_frame.after(
+                self.opacity_update_delay,
+                self._apply_overlay_with_opacity
+            )
+    
+    def _apply_overlay_with_opacity(self):
+        """Apply overlay with current opacity value"""
+        try:
             self._apply_mode()  # Re-apply overlay with new opacity
+        except Exception as e:
+            logger.error(f"Error applying overlay opacity: {e}")
     
     def swap_images(self):
         """Swap original and result images"""
