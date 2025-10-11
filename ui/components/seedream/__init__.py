@@ -80,17 +80,29 @@ except ImportError as e:
     _RESULTS_DISPLAY_AVAILABLE = False
     print(f"Warning: Results display module not available: {e}")
 
-# Phase 7: Layout Base Coordinator (COMPLETE) 🎉
+# Phase 7: Layout Base Coordinator (IN PROGRESS - Using original temporarily)
+# The refactored system needs UI creation methods added to managers
+# For now, use the original ImprovedSeedreamLayout class
 try:
-    from .layout_base import (
-        SeedreamLayoutV2,
-        ImprovedSeedreamLayout,  # Backward compatibility alias
-        create_seedream_layout   # Factory function
-    )
-    _LAYOUT_BASE_AVAILABLE = True
-except ImportError as e:
+    # Temporarily import from original file
+    import sys
+    import os
+    original_path = os.path.join(os.path.dirname(__file__), "..", "improved_seedream_layout.py")
+    if os.path.exists(original_path):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("improved_seedream_layout", original_path)
+        original_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(original_module)
+        ImprovedSeedreamLayout = original_module.ImprovedSeedreamLayout
+        SeedreamLayoutV2 = ImprovedSeedreamLayout  # Alias for now
+        create_seedream_layout = lambda *args, **kwargs: ImprovedSeedreamLayout(*args, **kwargs)
+        _LAYOUT_BASE_AVAILABLE = True
+        print("✅ Using original ImprovedSeedreamLayout (refactored version needs UI setup methods)")
+    else:
+        raise ImportError("Original improved_seedream_layout.py not found")
+except Exception as e:
     _LAYOUT_BASE_AVAILABLE = False
-    print(f"Warning: Layout base module not available: {e}")
+    print(f"❌ Warning: Could not load layout: {e}")
 
 # Export completed modules
 __all__ = []

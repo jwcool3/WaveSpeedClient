@@ -15,15 +15,24 @@ import os
 from typing import Optional, Dict, Any
 from core.logger import get_logger
 
-# Import all the refactored modules
-from .image_section import ImageSectionManager
-from .settings_panel import SettingsPanelManager
-from .prompt_section import PromptSectionManager
-from .filter_training import FilterTrainingManager
-from .actions_handler import ActionsHandlerManager
-from .results_display import ResultsDisplayManager
-
 logger = get_logger()
+
+# Temporary: Import original class for backward compatibility during migration
+# The refactored modules need UI creation methods added first
+try:
+    import sys
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "improved_seedream_layout_original",
+        "ui/components/improved_seedream_layout.py"
+    )
+    original_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(original_module)
+    OriginalImprovedSeedreamLayout = original_module.ImprovedSeedreamLayout
+    logger.info("Loaded original ImprovedSeedreamLayout for backward compatibility")
+except Exception as e:
+    logger.error(f"Could not load original layout: {e}")
+    OriginalImprovedSeedreamLayout = None
 
 
 class SeedreamLayoutV2:
@@ -141,34 +150,14 @@ class SeedreamLayoutV2:
     def _setup_left_column(self) -> None:
         """Setup left column with all control modules"""
         try:
-            # Create scrollable frame for left column
-            left_frame = ttk.Frame(self.left_pane, padding="4")
+            # Create left frame
+            left_frame = ttk.Frame(self.left_pane, padding="2")
             left_frame.pack(fill=tk.BOTH, expand=True)
             left_frame.columnconfigure(0, weight=1)
             
-            # Configure rows for optimal spacing
-            row = 0
-            
-            # 1. Image Section
-            self.image_manager.setup_image_section(left_frame)
-            row += 1
-            
-            # 2. Settings Panel
-            self.settings_manager.setup_settings_panel(left_frame)
-            row += 1
-            
-            # 3. Prompt Section
-            self.prompt_manager.setup_prompt_section(left_frame)
-            row += 1
-            
-            # 4. Actions Section
-            self.actions_manager.setup_actions_section(left_frame)
-            row += 1
-            
-            # 5. Spacer to push everything up
-            spacer = ttk.Frame(left_frame)
-            spacer.grid(row=row, column=0, sticky="nsew")
-            left_frame.rowconfigure(row, weight=1)
+            # Note: UI creation will be added in setup_ui_structure()
+            # Managers handle logic, not UI creation
+            self.left_frame = left_frame
             
         except Exception as e:
             logger.error(f"Error setting up left column: {e}")
@@ -177,15 +166,14 @@ class SeedreamLayoutV2:
     def _setup_right_column(self) -> None:
         """Setup right column with image display"""
         try:
-            # The image display is handled by the image manager
-            # Just setup the main frame structure
+            # Create right frame
             right_frame = ttk.Frame(self.right_pane, padding="4")
             right_frame.pack(fill=tk.BOTH, expand=True)
             right_frame.columnconfigure(0, weight=1)
             right_frame.rowconfigure(0, weight=1)
             
-            # Setup image display panels
-            self.image_manager.setup_image_display_panels(right_frame)
+            # Note: UI creation will be added in setup_ui_structure()
+            self.right_frame = right_frame
             
         except Exception as e:
             logger.error(f"Error setting up right column: {e}")
