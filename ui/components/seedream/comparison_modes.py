@@ -62,8 +62,8 @@ class ComparisonController:
         Returns:
             The controls frame widget
         """
-        controls_frame = ttk.Frame(parent_frame, padding="8")
-        controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        controls_frame = ttk.Frame(parent_frame, padding="4")
+        controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
         
         # Mode selection
         ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
