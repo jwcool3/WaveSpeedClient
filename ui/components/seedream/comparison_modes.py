@@ -44,7 +44,7 @@ class ComparisonController:
         
         # Opacity update debouncing
         self.opacity_update_timer = None
-        self.opacity_update_delay = 100  # ms delay for debouncing
+        self.opacity_update_delay = 500  # ms delay for debouncing
         
         # UI references
         self.mode_var = tk.StringVar(value="side_by_side")

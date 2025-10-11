@@ -714,35 +714,24 @@ class SeedreamLayoutV2:
             logger.error(f"Error handling splitter movement: {e}")
     
     def save_ui_state(self) -> None:
-        """Save current UI state (zoom, comparison mode, splitters, window state, etc.)"""
+        """Save current UI layout state (ONLY splitters and Recent Results zoom)"""
         try:
-            # Update UI preferences with current state
-            if hasattr(self, 'zoom_var'):
-                self.ui_preferences['zoom_level'] = self.zoom_var.get()
+            # Clear old preferences that we no longer want to save
+            # Only keep what we explicitly save below
+            layout_prefs = {}
             
-            if hasattr(self, 'comparison_mode_var'):
-                self.ui_preferences['comparison_mode'] = self.comparison_mode_var.get()
-            
-            if hasattr(self, 'opacity_var'):
-                self.ui_preferences['overlay_opacity'] = self.opacity_var.get()
-            
-            if hasattr(self, 'sync_zoom_var'):
-                self.ui_preferences['sync_zoom'] = self.sync_zoom_var.get()
-            
-            if hasattr(self, 'sync_drag_var'):
-                self.ui_preferences['sync_drag'] = self.sync_drag_var.get()
-            
-            # Save main splitter position (within Seedream)
+            # Save main splitter position (within Seedream - left panel | right panel with images)
             if hasattr(self, 'paned_window'):
-                self.ui_preferences['splitter_position'] = self.paned_window.sashpos(0)
+                layout_prefs['splitter_position'] = self.paned_window.sashpos(0)
+                logger.debug(f"Saved Seedream splitter: {self.paned_window.sashpos(0)}px")
             
-            # Save main app splitter position (tabs | recent results)
+            # Save main app splitter position (tabs | recent results panel)
             try:
                 if (hasattr(self, 'tab_instance') and self.tab_instance and 
                     hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
                     hasattr(self.tab_instance.main_app, 'main_paned_window')):
                     main_paned = self.tab_instance.main_app.main_paned_window
-                    self.ui_preferences['main_app_splitter_position'] = main_paned.sashpos(0)
+                    layout_prefs['main_app_splitter_position'] = main_paned.sashpos(0)
                     logger.debug(f"Saved main app splitter: {main_paned.sashpos(0)}px")
             except Exception as e:
                 logger.debug(f"Could not save main app splitter: {e}")
@@ -750,60 +739,44 @@ class SeedreamLayoutV2:
             # Save side panel splitter position (if visible)
             if hasattr(self, 'outer_paned_window') and self.side_panel_visible:
                 try:
-                    self.ui_preferences['side_panel_position'] = self.outer_paned_window.sashpos(0)
+                    layout_prefs['side_panel_position'] = self.outer_paned_window.sashpos(0)
+                    logger.debug(f"Saved side panel splitter: {self.outer_paned_window.sashpos(0)}px")
                 except:
                     pass
             
-            # Save window state (maximized, size, position)
+            # Save Recent Results panel thumbnail zoom level
             try:
-                root = self.parent_frame.winfo_toplevel()
-                self.ui_preferences['window_state'] = root.state()
-                self.ui_preferences['window_width'] = root.winfo_width()
-                self.ui_preferences['window_height'] = root.winfo_height()
-                self.ui_preferences['window_x'] = root.winfo_x()
-                self.ui_preferences['window_y'] = root.winfo_y()
+                if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                    hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                    hasattr(self.tab_instance.main_app, 'recent_results_panel')):
+                    recent_results = self.tab_instance.main_app.recent_results_panel
+                    if hasattr(recent_results, 'current_thumbnail_size'):
+                        layout_prefs['recent_results_zoom'] = recent_results.current_thumbnail_size
+                        logger.debug(f"Saved Recent Results zoom: {recent_results.current_thumbnail_size}px")
             except Exception as e:
-                logger.debug(f"Could not save window state: {e}")
+                logger.debug(f"Could not save Recent Results zoom: {e}")
+            
+            # Update ui_preferences with ONLY layout preferences
+            self.ui_preferences = layout_prefs
             
             # Save to file
             if hasattr(self, 'settings_manager'):
-                logger.info(f"💾 Saving UI preferences: {list(self.ui_preferences.keys())}")
-                self.settings_manager.save_settings(ui_preferences=self.ui_preferences)
-                logger.info(f"✅ UI state saved successfully: {len(self.ui_preferences)} items")
+                logger.info(f"💾 Saving layout preferences: {list(layout_prefs.keys())}")
+                self.settings_manager.save_settings(ui_preferences=layout_prefs)
+                logger.info(f"✅ Layout saved successfully: Splitters + Recent Results zoom")
             else:
-                logger.error("❌ Settings manager not available - cannot save UI state")
+                logger.error("❌ Settings manager not available - cannot save layout")
         except Exception as e:
-            logger.error(f"Error saving UI state: {e}", exc_info=True)
+            logger.error(f"Error saving layout: {e}", exc_info=True)
     
     def load_ui_state(self) -> None:
-        """Load and apply saved UI state"""
+        """Load and apply saved UI layout (ONLY splitters and Recent Results zoom)"""
         try:
             if not self.ui_preferences:
+                logger.debug("No layout preferences found")
                 return
             
-            # Apply saved zoom level
-            if 'zoom_level' in self.ui_preferences and hasattr(self, 'zoom_var'):
-                self.zoom_var.set(self.ui_preferences['zoom_level'])
-                logger.debug(f"Restored zoom level: {self.ui_preferences['zoom_level']}")
-            
-            # Apply saved comparison mode
-            if 'comparison_mode' in self.ui_preferences and hasattr(self, 'comparison_mode_var'):
-                self.comparison_mode_var.set(self.ui_preferences['comparison_mode'])
-                logger.debug(f"Restored comparison mode: {self.ui_preferences['comparison_mode']}")
-            
-            # Apply saved overlay opacity
-            if 'overlay_opacity' in self.ui_preferences and hasattr(self, 'opacity_var'):
-                self.opacity_var.set(self.ui_preferences['overlay_opacity'])
-                logger.debug(f"Restored overlay opacity: {self.ui_preferences['overlay_opacity']}")
-            
-            # Apply saved sync options
-            if 'sync_zoom' in self.ui_preferences and hasattr(self, 'sync_zoom_var'):
-                self.sync_zoom_var.set(self.ui_preferences['sync_zoom'])
-                logger.debug(f"Restored sync zoom: {self.ui_preferences['sync_zoom']}")
-            
-            if 'sync_drag' in self.ui_preferences and hasattr(self, 'sync_drag_var'):
-                self.sync_drag_var.set(self.ui_preferences['sync_drag'])
-                logger.debug(f"Restored sync drag: {self.ui_preferences['sync_drag']}")
+            logger.info(f"Loading layout preferences: {list(self.ui_preferences.keys())}")
             
             # Schedule splitter restoration with multiple attempts
             # This needs to happen late because splitters don't work until widgets are visible
@@ -811,33 +784,29 @@ class SeedreamLayoutV2:
             # Also bind to visibility to restore when tab becomes visible
             self.parent_frame.bind('<Visibility>', self._on_visibility_changed, add='+')
             
-            # Restore window state (if saved)
-            if 'window_state' in self.ui_preferences:
+            # Restore Recent Results panel thumbnail zoom level
+            if 'recent_results_zoom' in self.ui_preferences:
                 try:
-                    root = self.parent_frame.winfo_toplevel()
-                    saved_state = self.ui_preferences['window_state']
-                    
-                    # Restore window size and position
-                    if 'window_width' in self.ui_preferences and 'window_height' in self.ui_preferences:
-                        width = self.ui_preferences['window_width']
-                        height = self.ui_preferences['window_height']
-                        x = self.ui_preferences.get('window_x', 100)
-                        y = self.ui_preferences.get('window_y', 100)
-                        
-                        # Only restore if not maximized
-                        if saved_state == 'normal':
-                            root.geometry(f"{width}x{height}+{x}+{y}")
-                            logger.info(f"Restored window size: {width}x{height}")
-                        elif saved_state == 'zoomed':
-                            # Restore maximized state
-                            root.state('zoomed')
-                            logger.info("Restored window state: Maximized")
+                    if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                        hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                        hasattr(self.tab_instance.main_app, 'recent_results_panel')):
+                        recent_results = self.tab_instance.main_app.recent_results_panel
+                        if hasattr(recent_results, 'current_thumbnail_size'):
+                            zoom_size = self.ui_preferences['recent_results_zoom']
+                            recent_results.current_thumbnail_size = zoom_size
+                            # Update display
+                            if hasattr(recent_results, 'size_label'):
+                                recent_results.size_label.config(text=f"{zoom_size}px")
+                            # Re-render with new size
+                            if hasattr(recent_results, 'render_results'):
+                                recent_results.render_results()
+                            logger.info(f"Restored Recent Results zoom: {zoom_size}px")
                 except Exception as e:
-                    logger.debug(f"Could not restore window state: {e}")
+                    logger.debug(f"Could not restore Recent Results zoom: {e}")
             
-            logger.info("UI state restored successfully")
+            logger.info("Layout restored successfully")
         except Exception as e:
-            logger.error(f"Error loading UI state: {e}")
+            logger.error(f"Error loading layout: {e}")
     
     def _on_visibility_changed(self, event=None) -> None:
         """Called when widget visibility changes (tab becomes visible)"""
@@ -953,19 +922,7 @@ class SeedreamLayoutV2:
             current_settings = self.ui_preferences.copy()
             
             message = "✅ Layout saved successfully!\n\n"
-            message += "Current Settings:\n\n"
-            
-            # Window state
-            if 'window_state' in current_settings:
-                state_text = {
-                    'normal': 'Normal',
-                    'zoomed': 'Maximized',
-                    'iconic': 'Minimized'
-                }.get(current_settings['window_state'], current_settings['window_state'])
-                message += f"🖥️  Window State: {state_text}\n"
-                if 'window_width' in current_settings and 'window_height' in current_settings:
-                    message += f"   Size: {current_settings['window_width']}x{current_settings['window_height']}px\n"
-                message += "\n"
+            message += "Saved Settings:\n\n"
             
             # Splitter positions
             if 'main_app_splitter_position' in current_settings:
@@ -975,29 +932,13 @@ class SeedreamLayoutV2:
             if 'side_panel_position' in current_settings:
                 message += f"📏 Side Panel Splitter: {current_settings['side_panel_position']}px\n"
             
-            if any(k in current_settings for k in ['main_app_splitter_position', 'splitter_position', 'side_panel_position']):
-                message += "\n"
-            
-            # View settings
-            if 'zoom_level' in current_settings:
-                message += f"🔍 Zoom Level: {current_settings['zoom_level']}\n"
-            if 'comparison_mode' in current_settings:
-                mode_text = current_settings['comparison_mode'].replace('_', ' ').title()
-                message += f"📊 View Mode: {mode_text}\n"
-            if 'overlay_opacity' in current_settings:
-                message += f"🎨 Blend Opacity: {int(current_settings['overlay_opacity'] * 100)}%\n"
-            
-            if any(k in current_settings for k in ['zoom_level', 'comparison_mode', 'overlay_opacity']):
-                message += "\n"
-            
-            # Sync settings
-            if 'sync_zoom' in current_settings:
-                message += f"🔗 Sync Zoom: {'✓ On' if current_settings['sync_zoom'] else '✗ Off'}\n"
-            if 'sync_drag' in current_settings:
-                message += f"🔗 Sync Drag: {'✓ On' if current_settings['sync_drag'] else '✗ Off'}\n"
+            # Recent Results zoom
+            if 'recent_results_zoom' in current_settings:
+                message += f"🔍 Recent Results Thumbnail Size: {current_settings['recent_results_zoom']}px\n"
             
             message += f"\n📁 Saved to: data/seedream_settings.json"
             message += f"\n💡 Use Tools → Load Seedream Layout to reload!"
+            message += f"\n\nNote: Generation settings (resolution, seed, etc.) are saved separately."
             
             messagebox.showinfo("Layout Saved", message)
             logger.info("✅ Layout saved manually by user")
@@ -1048,28 +989,32 @@ class SeedreamLayoutV2:
                 logger.warning(f"ui_preferences not found. File contains: {file_keys}")
                 return
             
-            # Force restore all UI state
-            logger.info("🔄 Force loading UI state...")
+            # Force restore layout (ONLY splitters and recent results zoom)
+            logger.info("🔄 Force loading layout...")
             
-            # Restore zoom, comparison mode, opacity, sync settings
-            if 'zoom_level' in self.ui_preferences and hasattr(self, 'zoom_var'):
-                self.zoom_var.set(self.ui_preferences['zoom_level'])
-            
-            if 'comparison_mode' in self.ui_preferences and hasattr(self, 'comparison_mode_var'):
-                self.comparison_mode_var.set(self.ui_preferences['comparison_mode'])
-            
-            if 'overlay_opacity' in self.ui_preferences and hasattr(self, 'opacity_var'):
-                self.opacity_var.set(self.ui_preferences['overlay_opacity'])
-            
-            if 'sync_zoom' in self.ui_preferences and hasattr(self, 'sync_zoom_var'):
-                self.sync_zoom_var.set(self.ui_preferences['sync_zoom'])
-            
-            if 'sync_drag' in self.ui_preferences and hasattr(self, 'sync_drag_var'):
-                self.sync_drag_var.set(self.ui_preferences['sync_drag'])
-            
-            # Force restore splitters immediately (bypass the automatic restoration)
+            # Force restore splitters immediately
             self._splitters_restored = False  # Reset flag
             self._restore_all_splitters()
+            
+            # Restore Recent Results panel thumbnail zoom level
+            if 'recent_results_zoom' in self.ui_preferences:
+                try:
+                    if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                        hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                        hasattr(self.tab_instance.main_app, 'recent_results_panel')):
+                        recent_results = self.tab_instance.main_app.recent_results_panel
+                        if hasattr(recent_results, 'current_thumbnail_size'):
+                            zoom_size = self.ui_preferences['recent_results_zoom']
+                            recent_results.current_thumbnail_size = zoom_size
+                            # Update display
+                            if hasattr(recent_results, 'size_label'):
+                                recent_results.size_label.config(text=f"{zoom_size}px")
+                            # Re-render with new size
+                            if hasattr(recent_results, 'render_results'):
+                                recent_results.render_results()
+                            logger.info(f"Restored Recent Results zoom: {zoom_size}px")
+                except Exception as e:
+                    logger.debug(f"Could not restore Recent Results zoom: {e}")
             
             # Build summary message
             message = "✅ Layout loaded successfully!\n\n"
@@ -1079,11 +1024,12 @@ class SeedreamLayoutV2:
                 message += f"📏 Recent Results Panel: {self.ui_preferences['main_app_splitter_position']}px\n"
             if 'splitter_position' in self.ui_preferences:
                 message += f"📏 Seedream Controls: {self.ui_preferences['splitter_position']}px\n"
-            if 'zoom_level' in self.ui_preferences:
-                message += f"🔍 Zoom: {self.ui_preferences['zoom_level']}\n"
-            if 'comparison_mode' in self.ui_preferences:
-                mode = self.ui_preferences['comparison_mode'].replace('_', ' ').title()
-                message += f"📊 View Mode: {mode}\n"
+            if 'side_panel_position' in self.ui_preferences:
+                message += f"📏 Side Panel: {self.ui_preferences['side_panel_position']}px\n"
+            if 'recent_results_zoom' in self.ui_preferences:
+                message += f"🔍 Recent Results Thumbnail Size: {self.ui_preferences['recent_results_zoom']}px\n"
+            
+            message += f"\n💡 View settings (zoom, mode, etc.) are not saved with layout."
             
             messagebox.showinfo("Layout Loaded", message)
             logger.info("✅ Layout loaded and applied by user")

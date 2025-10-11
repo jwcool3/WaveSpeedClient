@@ -158,7 +158,7 @@ class ResultsDisplayManager:
             else:
                 # Regular URL - download normally
                 logger.info(f"Downloading result from URL...")
-                response = requests.get(result_url, timeout=60)
+                response = requests.get(result_url, timeout=120)
                 response.raise_for_status()
                 
                 # Save to temporary file
@@ -238,7 +238,7 @@ class ResultsDisplayManager:
                     else:
                         # Regular URL - download normally
                         logger.info(f"Downloading result {request_num} from URL...")
-                        response = requests.get(result_url, timeout=60)
+                        response = requests.get(result_url, timeout=120)
                         response.raise_for_status()
                         
                         # Save to temporary file

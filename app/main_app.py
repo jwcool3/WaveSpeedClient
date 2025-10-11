@@ -226,16 +226,25 @@ class WaveSpeedAIApp:
             pass  # May not be supported on all platforms
         
         # Create main container with paned window for resizable layout (no borders/padding)
-        self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL, style='Flat.TPanedwindow')
+        # Use tk.PanedWindow instead of ttk for more control over spacing
+        self.main_paned_window = tk.PanedWindow(
+            self.root, 
+            orient=tk.HORIZONTAL, 
+            borderwidth=0, 
+            sashwidth=3,  # Thin sash for resizing
+            sashrelief=tk.FLAT,
+            bg=Config.COLORS['background']
+        )
         self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Create left panel for main content (no padding for full space)
-        self.left_panel = ttk.Frame(self.main_paned_window, padding="0")
-        self.main_paned_window.add(self.left_panel, weight=3)
+        # Use tk.Frame for tk.PanedWindow compatibility
+        self.left_panel = tk.Frame(self.main_paned_window, borderwidth=0, highlightthickness=0)
+        self.main_paned_window.add(self.left_panel)
         
         # Create right panel for recent results (no padding for full space)
-        self.right_panel = ttk.Frame(self.main_paned_window, padding="0")
-        self.main_paned_window.add(self.right_panel, weight=1)
+        self.right_panel = tk.Frame(self.main_paned_window, borderwidth=0, highlightthickness=0)
+        self.main_paned_window.add(self.right_panel)
         
         # Create notebook for tabs in left panel
         self.create_notebook()
@@ -280,6 +289,16 @@ class WaveSpeedAIApp:
         tools_menu.add_command(label="💾 Save Seedream Layout", command=self.save_seedream_layout)
         tools_menu.add_command(label="📂 Load Seedream Layout", command=self.load_seedream_layout)
         tools_menu.add_separator()
+        
+        # Upload method toggle for Seedream V4 (for speed testing)
+        self.use_image_hosting = tk.BooleanVar(value=True)  # Default to image hosting (privacy uploader)
+        self.load_upload_preference()  # Load saved preference
+        tools_menu.add_checkbutton(
+            label="🌐 Use Image Hosting (Seedream V4)", 
+            variable=self.use_image_hosting,
+            command=self.toggle_upload_method
+        )
+        tools_menu.add_separator()
         tools_menu.add_command(label="📊 Prompt Analytics", command=self.show_prompt_analytics)
         
         # AI Assistant menu (improved)
@@ -301,12 +320,8 @@ class WaveSpeedAIApp:
     
     def create_notebook(self):
         """Create the main notebook for tabs"""
-        # Create container for notebook (pack at TOP to leave room for balance at BOTTOM)
-        notebook_container = ttk.Frame(self.left_panel, padding="0", style='Flat.TFrame')
-        notebook_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
-        
-        # Create notebook (flush with no padding)
-        self.notebook = ttk.Notebook(notebook_container, padding=0)
+        # Create notebook directly in left_panel (no container to avoid extra spacing)
+        self.notebook = ttk.Notebook(self.left_panel, padding=0)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Create tabs
@@ -367,13 +382,14 @@ class WaveSpeedAIApp:
             # Create balance indicator with root as parent for overlay positioning
             self.balance_indicator = BalanceIndicator(self.root, self.api_client)
             
-            # Use place() for absolute positioning as an overlay (doesn't take layout space)
-            self.balance_indicator.get_frame().place(x=10, y=10, anchor='nw')
+            # Position at bottom-left corner (10px from left, 10px from bottom)
+            # Using relx and rely with anchor='sw' to position relative to window size
+            self.balance_indicator.get_frame().place(relx=0.0, rely=1.0, x=10, y=-10, anchor='sw')
             
             # Start balance updates after a short delay to ensure main loop is ready
             self.root.after(1000, self.balance_indicator.start_balance_updates)
             
-            logger.info("Balance indicator created as overlay (no layout impact)")
+            logger.info("Balance indicator created at bottom-left corner (overlay, no layout impact)")
         except Exception as e:
             logger.error(f"Error creating balance indicator: {str(e)}")
     
@@ -507,6 +523,70 @@ class WaveSpeedAIApp:
         except Exception as e:
             logger.error(f"Error loading Seedream layout: {e}")
             show_error("Load Failed", f"Failed to load layout:\n{str(e)}")
+    
+    def toggle_upload_method(self):
+        """Toggle between image hosting and direct upload for Seedream V4"""
+        try:
+            use_hosting = self.use_image_hosting.get()
+            self.save_upload_preference()
+            
+            method_name = "Image Hosting (Privacy Uploader)" if use_hosting else "Direct Upload"
+            logger.info(f"Seedream V4 upload method changed to: {method_name}")
+            
+            # Show confirmation message
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Upload Method Changed", 
+                f"Seedream V4 will now use:\n\n{method_name}\n\n"
+                f"This setting is saved and will persist across restarts.\n"
+                f"You can test the speed difference between both methods."
+            )
+        except Exception as e:
+            logger.error(f"Error toggling upload method: {e}")
+    
+    def save_upload_preference(self):
+        """Save upload method preference to file"""
+        try:
+            import json
+            from pathlib import Path
+            
+            prefs_file = Path("data/upload_preferences.json")
+            prefs_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            preferences = {
+                "use_image_hosting": self.use_image_hosting.get()
+            }
+            
+            with open(prefs_file, 'w') as f:
+                json.dump(preferences, f, indent=2)
+            
+            logger.debug(f"Upload preference saved: {preferences}")
+        except Exception as e:
+            logger.error(f"Error saving upload preference: {e}")
+    
+    def load_upload_preference(self):
+        """Load upload method preference from file"""
+        try:
+            import json
+            from pathlib import Path
+            
+            prefs_file = Path("data/upload_preferences.json")
+            
+            if prefs_file.exists():
+                with open(prefs_file, 'r') as f:
+                    preferences = json.load(f)
+                
+                use_hosting = preferences.get("use_image_hosting", True)
+                self.use_image_hosting.set(use_hosting)
+                
+                logger.info(f"Loaded upload preference: {'Image Hosting' if use_hosting else 'Direct Upload'}")
+            else:
+                # Default to image hosting (current behavior)
+                self.use_image_hosting.set(True)
+                logger.debug("No upload preference found, using default (Image Hosting)")
+        except Exception as e:
+            logger.error(f"Error loading upload preference: {e}")
+            self.use_image_hosting.set(True)  # Fallback to default
     
     def show_privacy_settings(self):
         """Show privacy settings dialog"""
