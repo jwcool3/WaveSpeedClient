@@ -508,9 +508,28 @@ class ImageSectionManager:
         self.image_size_label = image_size_label
         self.reorder_btn = reorder_btn
         
+        # Debug logging
+        logger.debug(f"UI references set - thumbnail: {thumbnail_label is not None}, "
+                    f"name_label: {image_name_label is not None}, "
+                    f"size_label: {image_size_label is not None}, "
+                    f"reorder_btn: {reorder_btn is not None}")
+        
         # Setup drag and drop if thumbnail is available
         if self.thumbnail_label and DND_AVAILABLE:
             self.setup_drag_drop()
+    
+    def _safe_config_widget(self, widget, **kwargs):
+        """Safely configure a widget with null checks"""
+        try:
+            if widget and hasattr(widget, 'config'):
+                widget.config(**kwargs)
+                return True
+            else:
+                logger.debug(f"Widget is None or has no config method: {widget}")
+                return False
+        except Exception as e:
+            logger.error(f"Error configuring widget {widget}: {e}")
+            return False
     
     def browse_image(self) -> bool:
         """
@@ -556,19 +575,26 @@ class ImageSectionManager:
         Args:
             image_paths: List of paths to image files
         """
-        self.selected_image_paths = list(image_paths)
-        
-        if not self.selected_image_paths:
-            return
-        
-        # Use the first image for display and scale calculations
-        first_image_path = self.selected_image_paths[0]
-        self.load_image(first_image_path)
-        
-        # Update the image count display
-        self.update_image_count_display()
-        
-        logger.info(f"Loaded {len(self.selected_image_paths)} images")
+        try:
+            self.selected_image_paths = list(image_paths)
+            
+            if not self.selected_image_paths:
+                return
+            
+            # Use the first image for display and scale calculations
+            first_image_path = self.selected_image_paths[0]
+            logger.debug(f"Loading first image: {first_image_path}")
+            self.load_image(first_image_path)
+            
+            # Update the image count display
+            logger.debug("Updating image count display...")
+            self.update_image_count_display()
+            
+            logger.info(f"Loaded {len(self.selected_image_paths)} images")
+            
+        except Exception as e:
+            logger.error(f"Error in load_images: {e}", exc_info=True)
+            raise
     
     def load_image(self, image_path: str) -> bool:
         """
@@ -594,23 +620,25 @@ class ImageSectionManager:
                 img.thumbnail((50, 50), Image.Resampling.LANCZOS)
                 photo = ImageTk.PhotoImage(img)
                 
-                self.thumbnail_label.config(image=photo, text="")
-                self.thumbnail_label.image = photo
+                if self._safe_config_widget(self.thumbnail_label, image=photo, text=""):
+                    self.thumbnail_label.image = photo
+                else:
+                    logger.warning("Failed to update thumbnail label")
             
             # Update info labels if available
             filename = os.path.basename(image_path)
             if len(filename) > 25:
                 filename = filename[:22] + "..."
             
-            if self.image_name_label:
-                self.image_name_label.config(text=filename, foreground="black")
+            if not self._safe_config_widget(self.image_name_label, text=filename, foreground="black"):
+                logger.warning(f"Failed to update image name label (widget: {self.image_name_label})")
             
             # Get image size and store original dimensions (already loaded)
             self.original_image_width = original.width
             self.original_image_height = original.height
             
-            if self.image_size_label:
-                self.image_size_label.config(text=f"{original.width}×{original.height}")
+            if not self._safe_config_widget(self.image_size_label, text=f"{original.width}×{original.height}"):
+                logger.warning(f"Failed to update image size label (widget: {self.image_size_label})")
             
             # Auto-set resolution if enabled
             if hasattr(self.layout, 'auto_set_resolution'):
@@ -631,40 +659,43 @@ class ImageSectionManager:
         except Exception as e:
             logger.error(f"Error loading image {image_path}: {e}")
             if hasattr(self.layout, 'status_label'):
-                self.layout.status_label.config(text=f"Error loading image: {str(e)}", foreground="red")
+                self._safe_config_widget(self.layout.status_label, text=f"Error loading image: {str(e)}", foreground="red")
             return False
     
     def update_image_count_display(self) -> None:
         """Update the display to show number of selected images."""
-        if not self.image_name_label:
-            return
-        
-        count = len(self.selected_image_paths)
-        
-        if count == 0:
-            self.image_name_label.config(text="No images selected", foreground="gray")
-            if self.reorder_btn:
-                self.reorder_btn.config(state="disabled")
-        elif count == 1:
-            filename = os.path.basename(self.selected_image_paths[0])
-            if len(filename) > 25:
-                filename = filename[:22] + "..."
-            self.image_name_label.config(text=filename, foreground="black")
-            if self.reorder_btn:
-                self.reorder_btn.config(state="disabled")
-        else:
-            # Show count and first image name
-            first_filename = os.path.basename(self.selected_image_paths[0])
-            if len(first_filename) > 15:
-                first_filename = first_filename[:12] + "..."
-            self.image_name_label.config(
-                text=f"{count} images ({first_filename} +{count-1} more)", 
-                foreground="blue"
-            )
-            if self.reorder_btn:
-                self.reorder_btn.config(state="normal")
-        
-        logger.debug(f"Updated image count display: {count} images")
+        try:
+            if not self.image_name_label:
+                logger.debug("image_name_label is None, skipping update")
+                return
+            
+            count = len(self.selected_image_paths)
+            
+            if count == 0:
+                self._safe_config_widget(self.image_name_label, text="No images selected", foreground="gray")
+                self._safe_config_widget(self.reorder_btn, state="disabled")
+            elif count == 1:
+                filename = os.path.basename(self.selected_image_paths[0])
+                if len(filename) > 25:
+                    filename = filename[:22] + "..."
+                self._safe_config_widget(self.image_name_label, text=filename, foreground="black")
+                self._safe_config_widget(self.reorder_btn, state="disabled")
+            else:
+                # Show count and first image name
+                first_filename = os.path.basename(self.selected_image_paths[0])
+                if len(first_filename) > 15:
+                    first_filename = first_filename[:12] + "..."
+                self._safe_config_widget(
+                    self.image_name_label,
+                    text=f"{count} images ({first_filename} +{count-1} more)", 
+                    foreground="blue"
+                )
+                self._safe_config_widget(self.reorder_btn, state="normal")
+            
+            logger.debug(f"Updated image count display: {count} images")
+            
+        except Exception as e:
+            logger.error(f"Error updating image count display: {e}", exc_info=True)
     
     def setup_drag_drop(self) -> None:
         """Setup drag and drop functionality."""
@@ -727,13 +758,11 @@ class ImageSectionManager:
     
     def on_drag_enter(self, event) -> None:
         """Handle drag enter event (visual feedback)."""
-        if self.thumbnail_label:
-            self.thumbnail_label.config(bg='#e0e0e0')
+        self._safe_config_widget(self.thumbnail_label, bg='#e0e0e0')
     
     def on_drag_leave(self, event) -> None:
         """Handle drag leave event (restore visual state)."""
-        if self.thumbnail_label:
-            self.thumbnail_label.config(bg='#f5f5f5')
+        self._safe_config_widget(self.thumbnail_label, bg='#f5f5f5')
     
     def show_image_reorder_dialog(self) -> None:
         """Show dialog to reorder selected images."""
@@ -1142,6 +1171,22 @@ class ImageSectionManager:
             
         except Exception as e:
             logger.error(f"Error showing panel message for {panel_type}: {e}")
+    
+    def show_default_messages(self):
+        """Show default placeholder messages in both panels"""
+        try:
+            # Show message in original panel
+            if hasattr(self.layout, 'original_canvas'):
+                self.show_panel_message('original', self.layout.original_canvas)
+            
+            # Show message in result panel
+            if hasattr(self.layout, 'result_canvas'):
+                self.show_panel_message('result', self.layout.result_canvas)
+            
+            logger.debug("Default messages displayed in both panels")
+            
+        except Exception as e:
+            logger.error(f"Error showing default messages: {e}")
     
     def display_overlay_view(self, original_canvas, original_path, result_path, zoom_var):
         """

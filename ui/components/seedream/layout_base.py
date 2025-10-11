@@ -17,7 +17,11 @@ from typing import Optional, Dict, Any
 from core.logger import get_logger
 
 # Import all the refactored modules
-from .image_section import ImageSectionManager
+from .image_section import (
+    ImageSectionManager,
+    EnhancedSyncManager,
+    SynchronizedImagePanels
+)
 from .settings_panel import SettingsPanelManager
 from .prompt_section import PromptSectionManager
 from .filter_training import FilterTrainingManager
@@ -59,6 +63,14 @@ class SeedreamLayoutV2:
         self.result_image_path = None
         self.result_url = None
         self.current_task_id = None
+        
+        # Core UI state variables (CRITICAL - needed for canvas display!)
+        self.zoom_var = tk.StringVar(value="Fit")
+        self.comparison_mode_var = tk.StringVar(value="side_by_side")
+        self.opacity_var = tk.DoubleVar(value=0.5)
+        self.current_view_mode = "comparison"
+        self.sync_zoom_var = tk.BooleanVar(value=True)
+        self.sync_drag_var = tk.BooleanVar(value=True)
         
         # UI structure
         self.paned_window = None
@@ -200,11 +212,43 @@ class SeedreamLayoutV2:
             # Create image display panels (row 1)
             self._create_image_display_ui(right_frame, row=1)
             
+            # Setup synchronization managers (AFTER canvases are created!)
+            self._setup_synchronization_managers()
+            
             logger.info("Right column UI created successfully")
             
         except Exception as e:
             logger.error(f"Error setting up right column: {e}")
             raise
+    
+    def _setup_synchronization_managers(self) -> None:
+        """Setup synchronization managers for canvas zoom/pan"""
+        try:
+            logger.info("Setting up synchronization managers...")
+            
+            # Enhanced sync manager for zoom/pan synchronization
+            self.enhanced_sync_manager = EnhancedSyncManager(
+                self.original_canvas,
+                self.result_canvas,
+                self.sync_zoom_var,
+                self.sync_drag_var
+            )
+            
+            # Synchronized panels for coordinate mapping
+            self.synchronized_panels = SynchronizedImagePanels(
+                self.original_canvas,
+                self.result_canvas,
+                self.sync_zoom_var
+            )
+            
+            # Setup enhanced event bindings for synchronization
+            self.enhanced_sync_manager.setup_enhanced_events()
+            
+            logger.info("Synchronization managers setup complete")
+            
+        except Exception as e:
+            logger.error(f"Error setting up synchronization managers: {e}")
+            # Don't raise - sync is optional feature
     
     def _create_image_input_ui(self, parent, row=0):
         """Create the compact image input section UI"""
@@ -441,6 +485,43 @@ class SeedreamLayoutV2:
         """Browse for an image file"""
         self.image_manager.browse_image()
     
+    def load_images(self, image_paths) -> None:
+        """Load and display multiple input images"""
+        self.image_manager.load_images(image_paths)
+    
+    def load_image(self, image_path: str) -> None:
+        """Load and display single input image"""
+        self.image_manager.load_image(image_path)
+    
+    def update_image_count_display(self) -> None:
+        """Update the display to show number of selected images"""
+        if hasattr(self.image_manager, 'update_image_count_display'):
+            self.image_manager.update_image_count_display()
+    
+    def get_width(self) -> int:
+        """Get current width setting"""
+        return self.settings_manager.width_var.get()
+    
+    def get_height(self) -> int:
+        """Get current height setting"""
+        return self.settings_manager.height_var.get()
+    
+    def get_seed(self) -> str:
+        """Get current seed value"""
+        return self.settings_manager.seed_var.get()
+    
+    def get_prompt(self) -> str:
+        """Get current prompt text"""
+        if hasattr(self, 'prompt_text') and self.prompt_text:
+            return self.prompt_text.get("1.0", tk.END).strip()
+        return ""
+    
+    def set_prompt(self, text: str) -> None:
+        """Set prompt text"""
+        if hasattr(self, 'prompt_text') and self.prompt_text:
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", text)
+    
     def process_seedream(self) -> None:
         """Process Seedream V4 task"""
         self.actions_manager.process_seedream()
@@ -504,6 +585,10 @@ class SeedreamLayoutV2:
         """Set comparison mode (side_by_side, overlay, original_only, result_only)"""
         self.comparison_controller.set_mode(mode)
     
+    def set_view_mode(self, mode: str) -> None:
+        """Set view mode for compatibility (alias for set_comparison_mode)"""
+        self.set_comparison_mode(mode)
+    
     def enable_sync_zoom(self, enabled: bool = True) -> None:
         """Enable/disable synchronized zooming"""
         self.sync_manager.enable_sync_zoom(enabled)
@@ -534,53 +619,77 @@ class SeedreamLayoutV2:
     
     def display_image_in_panel(self, image_path: str, panel_type: str) -> None:
         """Display image in specified panel"""
-        self.image_manager.display_image_in_panel(image_path, panel_type)
+        canvas = self.original_canvas if panel_type == "original" else self.result_canvas
+        self.image_manager.display_image_in_panel(
+            image_path,
+            panel_type,
+            canvas,
+            self.zoom_var
+        )
     
     def log_message(self, message: str) -> None:
-        """Log a message"""
-        logger.info(f"Seedream: {message}")
-        # Additional logging can be added here (e.g., to a status console)
+        """Log message for compatibility"""
+        logger.info(f"Layout: {message}")
+        # If status console exists, use it
+        if hasattr(self, 'status_console') and self.status_console:
+            self.status_console.log_status(message)
     
     def get_prompt_widget(self):
         """Get the prompt text widget (for backward compatibility)"""
         return getattr(self.prompt_manager, 'prompt_text', None)
     
     # Properties for backward compatibility
+    # Note: prompt_text is set directly in _setup_left_column() as an attribute
+    # to avoid property setter conflicts
     
     @property
     def width_var(self):
-        """Get width variable"""
-        return self.settings_manager.width_var
+        """Access to width variable"""
+        if hasattr(self.settings_manager, 'width_var'):
+            return self.settings_manager.width_var
+        return tk.IntVar(value=1024)
     
     @property
     def height_var(self):
-        """Get height variable"""
-        return self.settings_manager.height_var
+        """Access to height variable"""
+        if hasattr(self.settings_manager, 'height_var'):
+            return self.settings_manager.height_var
+        return tk.IntVar(value=1024)
     
     @property
     def seed_var(self):
-        """Get seed variable"""
-        return self.settings_manager.seed_var
+        """Access to seed variable"""
+        if hasattr(self.settings_manager, 'seed_var'):
+            return self.settings_manager.seed_var
+        return tk.StringVar(value="-1")
     
     @property
     def sync_mode_var(self):
-        """Get sync mode variable"""
-        return self.settings_manager.sync_mode_var
+        """Access to sync mode variable"""
+        if hasattr(self.settings_manager, 'sync_mode_var'):
+            return self.settings_manager.sync_mode_var
+        return tk.BooleanVar(value=False)
     
     @property
     def base64_var(self):
-        """Get base64 variable"""
-        return self.settings_manager.base64_var
+        """Access to base64 variable"""
+        if hasattr(self.settings_manager, 'base64_var'):
+            return self.settings_manager.base64_var
+        return tk.BooleanVar(value=False)
     
     @property
     def aspect_lock_var(self):
-        """Get aspect lock variable"""
-        return self.settings_manager.aspect_lock_var
+        """Access to aspect lock variable"""
+        if hasattr(self.settings_manager, 'aspect_lock_var'):
+            return self.settings_manager.aspect_lock_var
+        return tk.BooleanVar(value=False)
     
     @property
     def num_requests_var(self):
-        """Get number of requests variable"""
-        return self.actions_manager.num_requests_var
+        """Access to number of requests variable"""
+        if hasattr(self.actions_manager, 'num_requests_var'):
+            return self.actions_manager.num_requests_var
+        return tk.IntVar(value=1)
     
     # Status and state methods
     
