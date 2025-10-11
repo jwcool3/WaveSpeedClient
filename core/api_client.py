@@ -264,7 +264,15 @@ class WaveSpeedAPIClient:
                     'error': f'Invalid size format: {size}. Expected format: "width*height"'
                 }
             
-            # Validate seed range
+            # Validate seed range (convert to int if needed)
+            try:
+                seed = int(seed)
+            except (ValueError, TypeError):
+                return {
+                    'success': False,
+                    'error': f'Invalid seed value: {seed}. Must be an integer.'
+                }
+            
             if seed != -1 and (seed < 0 or seed > 2147483647):
                 return {
                     'success': False,

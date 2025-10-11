@@ -608,10 +608,18 @@ class SettingsPanelManager:
     def get_current_settings(self) -> Dict[str, Any]:
         """Get current settings as dictionary"""
         try:
+            # Convert seed from string to int
+            seed_str = self.seed_var.get()
+            try:
+                seed = int(seed_str) if seed_str else -1
+            except ValueError:
+                logger.warning(f"Invalid seed value '{seed_str}', using -1")
+                seed = -1
+            
             return {
                 'width': self.width_var.get(),
                 'height': self.height_var.get(),
-                'seed': self.seed_var.get(),
+                'seed': seed,  # Now properly converted to int
                 'sync_mode': self.sync_mode_var.get(),
                 'base64_output': self.base64_var.get(),
                 'aspect_locked': self.aspect_lock_var.get(),

@@ -225,13 +225,38 @@ class ComparisonController:
     
     def _show_overlay(self):
         """Show overlay mode with both images blended"""
-        # This is a simplified version - full implementation would blend images
-        # For now, just show both panels and log
-        self._show_side_by_side()
-        logger.debug(f"Showing overlay view with opacity: {self.overlay_opacity:.2f}")
-        
-        # TODO: Implement actual image blending if needed
-        # This would require creating a composite image in the same canvas
+        try:
+            # Get image paths
+            original_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    original_path = paths[0]
+            
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Use image manager's overlay display method
+            if original_path and result_path and hasattr(self.layout, 'image_manager'):
+                self.layout.image_manager.display_overlay_view(
+                    self.layout.original_canvas,
+                    original_path,
+                    result_path,
+                    self.layout.zoom_var
+                )
+                logger.debug(f"Showing overlay view with opacity: {self.overlay_opacity:.2f}")
+            else:
+                # Fall back to side-by-side if images not available
+                logger.warning("Cannot show overlay: missing images")
+                self._show_side_by_side()
+                
+        except Exception as e:
+            logger.error(f"Error showing overlay view: {e}")
+            self._show_side_by_side()
     
     def _show_single_panel(self, panel_type: str):
         """
@@ -317,7 +342,7 @@ class ComparisonController:
         # Apply zoom to both canvases via image manager
         if hasattr(self.layout, 'image_manager'):
             try:
-                # Refresh display with new zoom level
+                # Refresh original image display with new zoom level
                 if hasattr(self.layout.image_manager, 'selected_image_paths'):
                     paths = self.layout.image_manager.selected_image_paths
                     if paths and len(paths) > 0:
@@ -328,10 +353,16 @@ class ComparisonController:
                             self.layout.zoom_var
                         )
                 
-                # Refresh result if available
-                if hasattr(self.layout, 'result_image_path') and self.layout.result_image_path:
+                # Refresh result image if available (check results_manager)
+                result_path = None
+                if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                    result_path = self.layout.results_manager.result_image_path
+                elif hasattr(self.layout, 'result_image_path'):
+                    result_path = self.layout.result_image_path
+                
+                if result_path:
                     self.layout.image_manager.display_image_in_panel(
-                        self.layout.result_image_path,
+                        result_path,  # Use the variable we just set
                         'result',
                         self.layout.result_canvas,
                         self.layout.zoom_var

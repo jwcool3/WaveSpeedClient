@@ -6,3 +6,19 @@ WAVESPEED_API_KEY=your_api_key_here
 CLAUDE_API_KEY=your_claude_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 AI_ADVISOR_PROVIDER=claude
+
+# Image Upload Configuration (Required for Seedream V4)
+# Get a free API key from https://api.imgbb.com/
+# This is used to temporarily host images for Seedream V4 API (images expire after 1 hour)
+IMGBB_API_KEY=your_imgbb_api_key_here
+
+# Image Upload Settings
+# Disable base64 fallback if ImgBB upload fails (recommended to keep false for reliability)
+# If set to true, the application will fail instead of using base64 when ImgBB upload fails
+DISABLE_BASE64_FALLBACK=false
+
+# Enable image compression for files > 30 MB (DISABLED by default to preserve quality for AI)
+# When false (default), uploads preserve original image quality (lossless base64 encoding only)
+# When true, compresses large files to fit ImgBB limits (may reduce quality)
+# Recommended: Keep false for AI image editing tasks like Seedream V4
+ENABLE_IMAGE_COMPRESSION=false

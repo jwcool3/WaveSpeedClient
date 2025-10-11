@@ -374,10 +374,26 @@ class ActionsHandlerManager:
     def _single_request_thread(self, settings: Dict[str, Any]) -> None:
         """Background thread for single request processing"""
         try:
-            # Submit task
+            # Upload image to get URL (API requires URLs, not file paths)
+            from core.secure_upload import SecureImageUploader
+            uploader = SecureImageUploader()
+            success, image_url, error = uploader.upload_image_securely(settings['image_path'])
+            
+            if not success:
+                error_msg = f"Failed to upload image: {error}"
+                logger.error(error_msg)
+                self.parent_layout.parent_frame.after(
+                    0,
+                    lambda: self.handle_processing_error(error_msg)
+                )
+                return
+            
+            logger.info(f"Image uploaded successfully: {image_url}")
+            
+            # Submit task with uploaded image URL
             result = self.api_client.submit_seedream_v4_task(
                 prompt=settings['prompt'],
-                images=[settings['image_path']],
+                images=[image_url],  # Use uploaded URL instead of file path
                 size=f"{settings['width']}*{settings['height']}",
                 seed=settings['seed'],
                 enable_sync_mode=settings['sync_mode'],
@@ -413,12 +429,37 @@ class ActionsHandlerManager:
             submitted_tasks = []
             num_requests = len(request_settings_list)
             
+            # Upload image once for all requests (same image)
+            from core.secure_upload import SecureImageUploader
+            uploader = SecureImageUploader()
+            
+            # Get image path from first request (they all use the same image)
+            image_path = request_settings_list[0]['image_path'] if request_settings_list else None
+            if not image_path:
+                self.parent_layout.parent_frame.after(
+                    0,
+                    lambda: self.handle_processing_error("No image path provided")
+                )
+                return
+            
+            success, image_url, error = uploader.upload_image_securely(image_path)
+            if not success:
+                error_msg = f"Failed to upload image: {error}"
+                logger.error(error_msg)
+                self.parent_layout.parent_frame.after(
+                    0,
+                    lambda: self.handle_processing_error(error_msg)
+                )
+                return
+            
+            logger.info(f"Image uploaded successfully for multiple requests: {image_url}")
+            
             # Submit all requests
             for settings in request_settings_list:
                 try:
                     result = self.api_client.submit_seedream_v4_task(
                         prompt=settings['prompt'],
-                        images=[settings['image_path']],
+                        images=[image_url],  # Use uploaded URL instead of file path
                         size=f"{settings['width']}*{settings['height']}",
                         seed=settings['seed'],
                         enable_sync_mode=settings['sync_mode'],
@@ -691,6 +732,9 @@ class ActionsHandlerManager:
     def handle_results_ready(self, result_data: Dict[str, Any]) -> None:
         """Handle single result ready"""
         try:
+            # Stop processing state (stop progress bar)
+            self._stop_processing()
+            
             if self.on_results_ready_callback:
                 self.on_results_ready_callback(result_data)
             else:
@@ -848,14 +892,14 @@ class ActionsHandlerManager:
         try:
             self.generation_in_progress = True
             
-            # Show progress overlay
-            if hasattr(self.parent_layout, 'show_progress'):
-                message = "Generating variations..." if multiple else "Processing image..."
-                self.parent_layout.show_progress(
-                    message=message,
-                    cancelable=True,
-                    cancel_callback=self.cancel_processing
-                )
+            # Don't show full-screen progress overlay (user requested removal)
+            # if hasattr(self.parent_layout, 'show_progress'):
+            #     message = "Generating variations..." if multiple else "Processing image..."
+            #     self.parent_layout.show_progress(
+            #         message=message,
+            #         cancelable=True,
+            #         cancel_callback=self.cancel_processing
+            #     )
             
             # Update UI
             self.generate_btn.config(state='disabled')
@@ -877,9 +921,9 @@ class ActionsHandlerManager:
         try:
             self.generation_in_progress = False
             
-            # Hide progress overlay
-            if hasattr(self.parent_layout, 'hide_progress'):
-                self.parent_layout.hide_progress()
+            # Don't hide progress overlay (already disabled)
+            # if hasattr(self.parent_layout, 'hide_progress'):
+            #     self.parent_layout.hide_progress()
             
             # Update UI
             self.generate_btn.config(state='normal')
