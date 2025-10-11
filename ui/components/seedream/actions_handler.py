@@ -412,10 +412,37 @@ class ActionsHandlerManager:
                 
                 logger.info(f"Image uploaded to hosting site: {image_url}")
             else:
-                # Direct upload method (old way - for speed comparison)
-                logger.info("Using direct upload method (old way)")
-                image_url = settings['image_path']  # API will handle direct file upload
-                logger.info(f"Using direct file path: {image_url}")
+                # Direct method - convert to base64 data URI (faster - no external hosting)
+                logger.info("Using direct base64 method (no external hosting)")
+                try:
+                    import base64
+                    from PIL import Image
+                    
+                    # Read and encode image as base64
+                    with open(settings['image_path'], 'rb') as f:
+                        image_data = f.read()
+                    
+                    # Determine image format
+                    image_format = 'png'
+                    try:
+                        with Image.open(settings['image_path']) as img:
+                            image_format = img.format.lower() if img.format else 'png'
+                    except:
+                        pass
+                    
+                    # Create base64 data URI
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    image_url = f"data:image/{image_format};base64,{base64_data}"
+                    
+                    logger.info(f"Converted to base64 data URI (size: {len(image_data)} bytes, format: {image_format})")
+                except Exception as e:
+                    error_msg = f"Failed to encode image: {str(e)}"
+                    logger.error(error_msg)
+                    self.parent_layout.parent_frame.after(
+                        0,
+                        lambda: self.handle_processing_error(error_msg)
+                    )
+                    return
             
             # Submit task with uploaded image URL
             result = self.api_client.submit_seedream_v4_task(
@@ -485,10 +512,37 @@ class ActionsHandlerManager:
                 
                 logger.info(f"Image uploaded to hosting site for multiple requests: {image_url}")
             else:
-                # Direct upload method (old way - for speed comparison)
-                logger.info("Using direct upload method for multiple requests (old way)")
-                image_url = image_path  # API will handle direct file upload
-                logger.info(f"Using direct file path for {num_requests} requests: {image_url}")
+                # Direct method - convert to base64 data URI for all requests (faster - no external hosting)
+                logger.info(f"Using direct base64 method for {num_requests} requests (no external hosting)")
+                try:
+                    import base64
+                    from PIL import Image
+                    
+                    # Read and encode image as base64
+                    with open(image_path, 'rb') as f:
+                        image_data = f.read()
+                    
+                    # Determine image format
+                    image_format = 'png'
+                    try:
+                        with Image.open(image_path) as img:
+                            image_format = img.format.lower() if img.format else 'png'
+                    except:
+                        pass
+                    
+                    # Create base64 data URI (will be reused for all requests)
+                    base64_data = base64.b64encode(image_data).decode('utf-8')
+                    image_url = f"data:image/{image_format};base64,{base64_data}"
+                    
+                    logger.info(f"Converted to base64 data URI (size: {len(image_data)} bytes, format: {image_format})")
+                except Exception as e:
+                    error_msg = f"Failed to encode image for multiple requests: {str(e)}"
+                    logger.error(error_msg)
+                    self.parent_layout.parent_frame.after(
+                        0,
+                        lambda: self.handle_processing_error(error_msg)
+                    )
+                    return
             
             # Submit all requests
             for settings in request_settings_list:

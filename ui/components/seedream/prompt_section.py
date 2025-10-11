@@ -51,6 +51,7 @@ class PromptSectionManager:
         # Prompt history and management
         self.full_prompts = []
         self.prompt_line_ranges = []
+        self.full_prompt_list = []  # Store full prompts for history listbox (parallel to display)
         
         # Sample prompts for inspiration
         self.sample_prompts = [
@@ -266,7 +267,7 @@ class PromptSectionManager:
         
         self.history_listbox = tk.Listbox(
             history_container,
-            height=4,
+            height=15,  # Increased from 4 to 15 to show all recent prompts
             font=('Arial', 9),
             selectmode=tk.SINGLE
         )
@@ -280,6 +281,9 @@ class PromptSectionManager:
         )
         history_scrollbar.grid(row=0, column=1, sticky="ns")
         self.history_listbox.configure(yscrollcommand=history_scrollbar.set)
+        
+        # Store full prompts separately (parallel to listbox display)
+        self.full_prompt_list = []
         
         # Bind double-click to load prompt
         self.history_listbox.bind('<Double-Button-1>', self._on_history_double_click)
@@ -415,8 +419,17 @@ class PromptSectionManager:
         try:
             selection = self.history_listbox.curselection()
             if selection:
-                prompt_text = self.history_listbox.get(selection[0])
-                self.set_prompt_text(prompt_text)
+                index = selection[0]
+                # Use the full prompt from our stored list, not the truncated display text
+                if hasattr(self, 'full_prompt_list') and index < len(self.full_prompt_list):
+                    full_prompt = self.full_prompt_list[index]
+                    self.set_prompt_text(full_prompt)
+                    logger.info(f"📋 Loaded full prompt from history (index {index})")
+                else:
+                    # Fallback to listbox text if full_prompt_list not available
+                    prompt_text = self.history_listbox.get(index)
+                    self.set_prompt_text(prompt_text)
+                    logger.warning(f"Used truncated prompt from listbox (full list not available)")
         except Exception as e:
             logger.error(f"Error loading prompt from history: {e}")
     
@@ -639,8 +652,9 @@ class PromptSectionManager:
             if not hasattr(self, 'history_listbox') or not self.history_listbox:
                 return
             
-            # Clear existing items
+            # Clear existing items and full prompt list
             self.history_listbox.delete(0, tk.END)
+            self.full_prompt_list = []
             
             # Get saved prompts
             saved_prompts = self._get_saved_prompts()
@@ -655,12 +669,16 @@ class PromptSectionManager:
                         prompt_text = str(prompt_text)
                     
                     if prompt_text:
-                        # Truncate long prompts for display
+                        # Store full prompt for later retrieval
+                        self.full_prompt_list.append(prompt_text)
+                        
+                        # Truncate long prompts for display only
                         display_prompt = prompt_text if len(prompt_text) <= 80 else prompt_text[:77] + "..."
                         self.history_listbox.insert(tk.END, display_prompt)
             else:
                 # Add sample prompts if no saved prompts
                 for prompt in self.sample_prompts[:8]:
+                    self.full_prompt_list.append(prompt)
                     self.history_listbox.insert(tk.END, prompt)
                     
         except Exception as e:

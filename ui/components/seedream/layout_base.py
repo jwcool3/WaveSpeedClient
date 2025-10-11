@@ -565,12 +565,35 @@ class SeedreamLayoutV2:
                     hasattr(self.tab_instance.main_app, 'main_paned_window')):
                     main_paned = self.tab_instance.main_app.main_paned_window
                     main_paned.bind('<ButtonRelease-1>', self._on_splitter_moved, add='+')
-                    logger.debug("✓ Bound main app splitter (Recent Results panel) to track movements")
+                    logger.info("✅ Bound main app splitter (Recent Results panel) to track movements")
+                else:
+                    logger.warning("⚠️ Could not bind main app splitter - retrying in 1 second...")
+                    logger.warning(f"   - tab_instance: {hasattr(self, 'tab_instance') and self.tab_instance is not None}")
+                    if hasattr(self, 'tab_instance') and self.tab_instance:
+                        logger.warning(f"   - main_app: {hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app is not None}")
+                    # Retry binding after UI is fully loaded
+                    self.parent_frame.after(1000, self._retry_main_app_binding)
             except Exception as e:
-                logger.debug(f"Could not bind main app splitter: {e}")
+                logger.error(f"❌ Error binding main app splitter: {e}", exc_info=True)
+                # Retry after delay
+                self.parent_frame.after(1000, self._retry_main_app_binding)
             
         except Exception as e:
             logger.error(f"Error setting initial splitter position: {e}")
+    
+    def _retry_main_app_binding(self) -> None:
+        """Retry binding the main app splitter if initial attempt failed"""
+        try:
+            if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                hasattr(self.tab_instance.main_app, 'main_paned_window')):
+                main_paned = self.tab_instance.main_app.main_paned_window
+                main_paned.bind('<ButtonRelease-1>', self._on_splitter_moved, add='+')
+                logger.info("✅ Successfully bound main app splitter (Recent Results panel) on retry")
+            else:
+                logger.warning("⚠️ Still cannot bind main app splitter - will use cached values for save/load")
+        except Exception as e:
+            logger.error(f"❌ Retry binding main app splitter failed: {e}")
     
     def _load_splitter_position(self) -> Optional[int]:
         """Load saved splitter position from unified settings"""
@@ -726,15 +749,31 @@ class SeedreamLayoutV2:
                 logger.debug(f"Saved Seedream splitter: {self.paned_window.sashpos(0)}px")
             
             # Save main app splitter position (tabs | recent results panel)
+            main_app_position_saved = False
             try:
                 if (hasattr(self, 'tab_instance') and self.tab_instance and 
                     hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
                     hasattr(self.tab_instance.main_app, 'main_paned_window')):
                     main_paned = self.tab_instance.main_app.main_paned_window
-                    layout_prefs['main_app_splitter_position'] = main_paned.sashpos(0)
-                    logger.debug(f"Saved main app splitter: {main_paned.sashpos(0)}px")
+                    position = main_paned.sashpos(0)
+                    layout_prefs['main_app_splitter_position'] = position
+                    logger.info(f"✅ Saved main app splitter (Recent Results): {position}px")
+                    main_app_position_saved = True
+                else:
+                    logger.warning(f"⚠️ Could not access main_paned_window directly")
+                    logger.warning(f"   - tab_instance exists: {hasattr(self, 'tab_instance') and self.tab_instance is not None}")
+                    if hasattr(self, 'tab_instance') and self.tab_instance:
+                        logger.warning(f"   - main_app exists: {hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app is not None}")
+                        if hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app:
+                            logger.warning(f"   - main_paned_window exists: {hasattr(self.tab_instance.main_app, 'main_paned_window')}")
             except Exception as e:
-                logger.debug(f"Could not save main app splitter: {e}")
+                logger.error(f"❌ Error reading main app splitter from widget: {e}", exc_info=True)
+            
+            # Fall back to cached value if we couldn't read from widget
+            if not main_app_position_saved and 'main_app_splitter_position' in self.ui_preferences:
+                cached_position = self.ui_preferences['main_app_splitter_position']
+                layout_prefs['main_app_splitter_position'] = cached_position
+                logger.info(f"✅ Using cached main app splitter (Recent Results): {cached_position}px")
             
             # Save side panel splitter position (if visible)
             if hasattr(self, 'outer_paned_window') and self.side_panel_visible:
@@ -817,6 +856,25 @@ class SeedreamLayoutV2:
                 self.parent_frame.after(200, self._try_restore_splitters)
         except Exception as e:
             logger.debug(f"Error in visibility handler: {e}")
+    
+    def auto_set_resolution(self) -> None:
+        """Automatically set generation resolution to match the input image dimensions"""
+        try:
+            if not hasattr(self, 'image_manager') or not hasattr(self, 'settings_manager'):
+                return
+            
+            # Get original image dimensions
+            width = self.image_manager.original_image_width
+            height = self.image_manager.original_image_height
+            
+            if width and height:
+                # Update settings panel resolution
+                self.settings_manager.width_var.set(width)
+                self.settings_manager.height_var.set(height)
+                
+                logger.info(f"✨ Auto-set generation resolution to match input image: {width}x{height}")
+        except Exception as e:
+            logger.debug(f"Could not auto-set resolution: {e}")
     
     def _try_restore_splitters(self) -> None:
         """Try to restore splitters, checking if widgets are ready"""
@@ -936,7 +994,9 @@ class SeedreamLayoutV2:
             if 'recent_results_zoom' in current_settings:
                 message += f"🔍 Recent Results Thumbnail Size: {current_settings['recent_results_zoom']}px\n"
             
+            # Show what was saved
             message += f"\n📁 Saved to: data/seedream_settings.json"
+            message += f"\n📊 Total items saved: {len(current_settings)}"
             message += f"\n💡 Use Tools → Load Seedream Layout to reload!"
             message += f"\n\nNote: Generation settings (resolution, seed, etc.) are saved separately."
             
