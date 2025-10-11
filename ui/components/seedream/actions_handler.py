@@ -22,7 +22,7 @@ import os
 from typing import List, Dict, Any, Optional, Callable
 from core.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class ActionsHandlerManager:

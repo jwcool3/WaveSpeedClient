@@ -65,8 +65,8 @@ class SeedreamV4Tab(BaseTab):
     
     def setup_ui(self):
         """Setup the improved Seedream V4 UI with new compact layout"""
-        # Use the new improved layout instead of the old optimized layout
-        from ui.components.improved_seedream_layout import ImprovedSeedreamLayout
+        # Use the new improved layout (refactored modular system)
+        from ui.components.seedream import ImprovedSeedreamLayout
         self.improved_layout = ImprovedSeedreamLayout(self.scrollable_frame, self.api_client, self)
         
         # Connect the improved layout methods to our existing functionality
