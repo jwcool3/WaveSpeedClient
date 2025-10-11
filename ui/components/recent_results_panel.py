@@ -100,6 +100,14 @@ class RecentResultsPanel:
         controls_frame = ttk.Frame(header_frame)
         controls_frame.pack(side=tk.RIGHT)
         
+        # Comparison studio button
+        ttk.Button(
+            controls_frame,
+            text="🔍 Compare",
+            width=10,
+            command=self.open_comparison_studio
+        ).pack(side=tk.LEFT, padx=(0, 5))
+        
         # Size adjustment buttons
         ttk.Button(
             controls_frame,
@@ -288,6 +296,28 @@ class RecentResultsPanel:
             self.current_thumbnail_size = new_size
             self.size_label.config(text=f"{self.current_thumbnail_size}px")
             self._debounced_zoom_update()
+    
+    def open_comparison_studio(self):
+        """Open the result comparison studio"""
+        try:
+            from ui.components.result_comparison_tool import open_comparison_studio
+            
+            if not self.loaded_results:
+                from tkinter import messagebox
+                messagebox.showinfo(
+                    "No Results",
+                    "No results available to compare.\n\nGenerate some results first!"
+                )
+                return
+            
+            # Open comparison studio
+            open_comparison_studio(self.parent, self)
+            logger.info("Comparison Studio opened from Recent Results panel")
+            
+        except Exception as e:
+            logger.error(f"Error opening comparison studio: {e}")
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Failed to open comparison studio: {str(e)}")
     
     def _debounced_zoom_update(self):
         """Debounce zoom updates to prevent lag when clicking multiple times"""
