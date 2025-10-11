@@ -82,6 +82,10 @@ class SeedreamLayoutV2:
         # Splitter position persistence
         self.splitter_position_file = "data/seedream_splitter_position.txt"
         
+        # Side panel for AI prompts
+        self.side_panel = None
+        self.side_panel_visible = False
+        
         # Initialize all module managers
         self._initialize_managers()
         
@@ -128,9 +132,9 @@ class SeedreamLayoutV2:
         try:
             logger.info("Setting up main layout structure...")
             
-            # Main container
+            # Main container - minimal padding for fullscreen optimization
             self.main_container = ttk.Frame(self.parent_frame)
-            self.main_container.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+            self.main_container.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
             
             # Configure parent frame to expand properly
             self.parent_frame.columnconfigure(0, weight=1)
@@ -148,13 +152,14 @@ class SeedreamLayoutV2:
             self.left_pane = ttk.Frame(self.paned_window)
             self.right_pane = ttk.Frame(self.paned_window)
             
-            # Add panes with proper configuration (28/72 ratio for optimal viewing)
-            self.paned_window.add(self.left_pane, weight=28)   # Controls pane
-            self.paned_window.add(self.right_pane, weight=72)  # Images pane
+            # Add panes with optimized ratio for fullscreen (20/80 for better image viewing)
+            self.paned_window.add(self.left_pane, weight=20)   # Controls pane
+            self.paned_window.add(self.right_pane, weight=80)  # Images pane
             
             # Setup the content in each pane
             self._setup_left_column()
             self._setup_right_column()
+            self._setup_side_panel()
             
             # Setup splitter positioning
             self._setup_splitter_positioning()
@@ -172,7 +177,7 @@ class SeedreamLayoutV2:
             self.setup_status_console(self.left_pane)
             
             # Create left frame with proper structure
-            left_frame = ttk.Frame(self.left_pane, padding="2")
+            left_frame = ttk.Frame(self.left_pane, padding="1")
             left_frame.pack(fill=tk.BOTH, expand=True)
             left_frame.columnconfigure(0, weight=1)
             
@@ -204,8 +209,8 @@ class SeedreamLayoutV2:
     def _setup_right_column(self) -> None:
         """Setup right column with image display"""
         try:
-            # Create right frame
-            right_frame = ttk.Frame(self.right_pane, padding="4")
+            # Create right frame - minimal padding for fullscreen
+            right_frame = ttk.Frame(self.right_pane, padding="1")
             right_frame.pack(fill=tk.BOTH, expand=True)
             right_frame.columnconfigure(0, weight=1)
             right_frame.rowconfigure(1, weight=1)  # Display takes most space
@@ -335,20 +340,20 @@ class SeedreamLayoutV2:
     
     def _create_single_panel(self, parent, panel_type, column, title):
         """Create a single image panel"""
-        panel_frame = ttk.LabelFrame(parent, text=title, padding="2")
-        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(1, 1))
+        panel_frame = ttk.LabelFrame(parent, text=title, padding="1")
+        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(0, 0))
         panel_frame.columnconfigure(0, weight=1)
         panel_frame.rowconfigure(0, weight=1)
         
-        # Canvas for image display
+        # Canvas for image display - optimized for fullscreen
         canvas = tk.Canvas(
             panel_frame,
-            bg='#f8f9fa' if panel_type == "original" else '#fff8f0',
-            highlightthickness=1,
+            bg='#f5f5f5',  # Neutral gray for both panels (no tint)
+            highlightthickness=0,  # Remove border for cleaner look
             highlightcolor='#ddd',
             relief='flat',
-            width=600,
-            height=600
+            width=800,  # Larger default for better fullscreen
+            height=800
         )
         canvas.configure(takefocus=True)
         canvas.grid(row=0, column=0, sticky="nsew")
@@ -390,7 +395,7 @@ class SeedreamLayoutV2:
             
             # Also set a backup fallback position immediately
             try:
-                self.paned_window.sashpos(0, 350)  # Default 350px for controls
+                self.paned_window.sashpos(0, 320)  # Default 320px for controls (optimized for fullscreen)
             except:
                 pass
             
@@ -413,8 +418,8 @@ class SeedreamLayoutV2:
             if saved_position and 200 <= saved_position <= total_width - 200:
                 position = saved_position
             else:
-                # Default to 28% of total width (optimal for controls)
-                position = max(280, int(total_width * 0.28))
+                # Default to 20% of total width (optimized for fullscreen image viewing)
+                position = max(280, min(360, int(total_width * 0.20)))
             
             self.paned_window.sashpos(0, position)
             
@@ -688,6 +693,79 @@ class SeedreamLayoutV2:
                 self.status_console.log_status(message)
             except Exception as e:
                 logger.error(f"Error logging to status console: {e}")
+    
+    def _setup_side_panel(self) -> None:
+        """Setup expandable side panel for AI prompt display"""
+        try:
+            # Create side panel container (initially hidden)
+            self.side_panel = ttk.Frame(self.parent_frame, padding="10", relief="raised", borderwidth=2)
+            self.side_panel_content = None  # Will be set when showing content
+            
+            # Don't place it yet - it will be placed when shown
+            logger.info("Side panel initialized (hidden)")
+            
+        except Exception as e:
+            logger.error(f"Error setting up side panel: {e}")
+    
+    def show_side_panel(self, title: str, content_widget) -> None:
+        """
+        Show the side panel with content
+        
+        Args:
+            title: Title for the side panel
+            content_widget: Widget containing the content to display
+        """
+        try:
+            if self.side_panel_visible:
+                self.hide_side_panel()
+            
+            # Clear any existing content
+            for widget in self.side_panel.winfo_children():
+                widget.destroy()
+            
+            # Create header with close button
+            header_frame = ttk.Frame(self.side_panel)
+            header_frame.pack(fill="x", pady=(0, 10))
+            
+            title_label = ttk.Label(header_frame, text=title, font=('Arial', 12, 'bold'))
+            title_label.pack(side="left")
+            
+            close_btn = ttk.Button(
+                header_frame,
+                text="✕ Close",
+                command=self.hide_side_panel,
+                width=10
+            )
+            close_btn.pack(side="right")
+            
+            # Add separator
+            separator = ttk.Separator(self.side_panel, orient='horizontal')
+            separator.pack(fill="x", pady=(0, 10))
+            
+            # Add content (in_= reparents the widget to side_panel)
+            content_widget.pack(in_=self.side_panel, fill="both", expand=True)
+            
+            # Place side panel on right side of main window
+            # Position it to the right of the paned window
+            self.side_panel.place(relx=1.0, rely=0, relwidth=0.4, relheight=1.0, anchor="ne")
+            self.side_panel.lift()
+            
+            self.side_panel_visible = True
+            logger.info(f"Side panel shown: {title}")
+            
+        except Exception as e:
+            logger.error(f"Error showing side panel: {e}", exc_info=True)
+    
+    def hide_side_panel(self) -> None:
+        """Hide the side panel"""
+        try:
+            if self.side_panel and self.side_panel_visible:
+                self.side_panel.place_forget()
+                self.side_panel_visible = False
+                logger.info("Side panel hidden")
+                
+        except Exception as e:
+            logger.error(f"Error hiding side panel: {e}")
     
     def get_prompt_widget(self):
         """Get the prompt text widget (for backward compatibility)"""

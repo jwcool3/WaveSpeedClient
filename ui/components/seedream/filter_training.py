@@ -344,34 +344,23 @@ class FilterTrainingManager:
             return "person", "outfit"
     
     def _display_mild_examples(self, examples: List[str]) -> None:
-        """Display generated mild examples with 'Generate More' functionality"""
+        """Display generated mild examples in side panel with 'Generate More' functionality"""
         try:
-            # Create popup window
-            popup = tk.Toplevel(self.parent_layout.parent_frame)
-            popup.title("🔥 Filter Training - Mild Examples")
-            popup.geometry("700x600")
-            popup.resizable(True, True)
+            # Create content frame for side panel (use parent_frame, will be reparented to side_panel)
+            content_frame = ttk.Frame(self.parent_layout.parent_frame)
             
             # Main frame
-            main_frame = ttk.Frame(popup)
-            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            main_frame = ttk.Frame(content_frame)
+            main_frame.pack(fill="both", expand=True)
             
-            # Title (will be updated as more examples are added)
-            title_label = ttk.Label(
+            # Info label showing example count and hint
+            info_label = ttk.Label(
                 main_frame, 
-                text=f"🔥 Filter Training - {len(examples)} Mild Examples", 
-                font=("Arial", 12, "bold")
-            )
-            title_label.pack(pady=(0, 5))
-            
-            # Subtitle
-            subtitle_label = ttk.Label(
-                main_frame, 
-                text="Click 'Generate More' to add 6 more examples from different categories", 
+                text=f"📝 {len(examples)} examples generated | Click 'Generate More' for 6 more", 
                 font=("Arial", 9), 
                 foreground="gray"
             )
-            subtitle_label.pack(pady=(0, 10))
+            info_label.pack(pady=(0, 10))
             
             # Scrollable frame for examples
             canvas = tk.Canvas(main_frame, highlightthickness=0)
@@ -394,8 +383,8 @@ class FilterTrainingManager:
                 'examples_list': list(examples),
                 'used_categories': set(),
                 'scrollable_frame': scrollable_frame,
-                'title_label': title_label,
-                'popup': popup,
+                'info_label': info_label,
+                'content_frame': content_frame,
                 'canvas': canvas
             }
             
@@ -452,7 +441,7 @@ class FilterTrainingManager:
                     use_btn = ttk.Button(
                         buttons_frame,
                         text="✅ Use This",
-                        command=lambda text=prompt_text: self._use_prompt(text, popup)
+                        command=lambda text=prompt_text: self._use_prompt_sidepanel(text)
                     )
                     use_btn.pack(side="left")
             
@@ -463,7 +452,7 @@ class FilterTrainingManager:
             def generate_more_examples():
                 try:
                     generate_more_btn.config(state='disabled', text="🔄 Generating...")
-                    popup.update()
+                    content_frame.update()
                     
                     # Generate 6 more in background thread
                     threading.Thread(
@@ -482,8 +471,8 @@ class FilterTrainingManager:
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
             # Bottom buttons frame
-            bottom_frame = ttk.Frame(popup)
-            bottom_frame.pack(fill="x", padx=10, pady=(5, 10))
+            bottom_frame = ttk.Frame(content_frame)
+            bottom_frame.pack(fill="x", pady=(10, 0))
             
             # Generate More button
             generate_more_btn = ttk.Button(
@@ -501,13 +490,8 @@ class FilterTrainingManager:
             )
             export_btn.pack(side="left")
             
-            # Close button
-            close_btn = ttk.Button(bottom_frame, text="Close", command=popup.destroy)
-            close_btn.pack(side="right")
-            
-            # Focus on popup
-            popup.focus_set()
-            popup.grab_set()
+            # Show the side panel with the content
+            self.parent_layout.show_side_panel("🔥 Mild Filter Training Examples", content_frame)
             
         except Exception as e:
             logger.error(f"Error displaying mild examples: {e}")
@@ -543,9 +527,9 @@ class FilterTrainingManager:
                     # Add to display starting from current count + 1
                     add_examples_callback(new_examples, starting_index=current_count + 1)
                     
-                    # Update title
+                    # Update info label
                     new_count = len(popup_state['examples_list'])
-                    popup_state['title_label'].config(text=f"🔥 Filter Training - {new_count} Mild Examples")
+                    popup_state['info_label'].config(text=f"📝 {new_count} examples generated | Click 'Generate More' for 6 more")
                     
                     # Scroll to bottom to show new examples
                     popup_state['canvas'].yview_moveto(1.0)
@@ -1240,7 +1224,7 @@ class FilterTrainingManager:
             self._show_tooltip(f"❌ Error: {str(e)}")
     
     def _use_prompt(self, prompt: str, popup: tk.Toplevel) -> None:
-        """Use a prompt by inserting it into the prompt text"""
+        """Use a prompt by inserting it into the prompt text (for popup version)"""
         try:
             # Use prompt_manager API for proper handling
             if hasattr(self.parent_layout, 'prompt_manager'):
@@ -1260,6 +1244,34 @@ class FilterTrainingManager:
                 
                 self._show_tooltip("✅ Prompt inserted")
                 popup.destroy()
+        except Exception as e:
+            logger.error(f"Error using prompt: {e}")
+    
+    def _use_prompt_sidepanel(self, prompt: str) -> None:
+        """Use a prompt by inserting it into the prompt text (for side panel version)"""
+        try:
+            # Use prompt_manager API for proper handling
+            if hasattr(self.parent_layout, 'prompt_manager'):
+                self.parent_layout.prompt_manager.set_prompt_text(prompt)
+                self._show_tooltip("✅ Prompt inserted")
+                # Close side panel after using prompt
+                if hasattr(self.parent_layout, 'hide_side_panel'):
+                    self.parent_layout.hide_side_panel()
+            elif hasattr(self.parent_layout, 'prompt_text'):
+                # Fallback: direct access
+                self.parent_layout.prompt_text.delete("1.0", tk.END)
+                self.parent_layout.prompt_text.insert("1.0", prompt)
+                
+                if hasattr(self.parent_layout, 'prompt_has_placeholder'):
+                    self.parent_layout.prompt_has_placeholder = False
+                
+                if hasattr(self.parent_layout, '_on_prompt_text_changed'):
+                    self.parent_layout._on_prompt_text_changed()
+                
+                self._show_tooltip("✅ Prompt inserted")
+                # Close side panel
+                if hasattr(self.parent_layout, 'hide_side_panel'):
+                    self.parent_layout.hide_side_panel()
             else:
                 self._show_tooltip("❌ Prompt field not available")
                 

@@ -439,10 +439,103 @@ class EnhancedSyncManager:
         new_zoom = zoom_levels[new_index]
         if new_zoom != current_zoom:
             self.layout.zoom_var.set(new_zoom)
-            if hasattr(self.layout, 'on_zoom_changed'):
-                self.layout.on_zoom_changed()
+            
+            # Trigger zoom change through comparison controller
+            if hasattr(self.layout, 'comparison_controller') and hasattr(self.layout.comparison_controller, '_on_zoom_changed'):
+                self.layout.comparison_controller._on_zoom_changed()
+            else:
+                # Fallback: manually refresh both images
+                self._refresh_both_images_with_zoom(new_zoom)
             
             logger.debug(f"Applied debounced zoom: {current_zoom} -> {new_zoom} (size_ratio: {size_ratio:.2f})")
+    
+    def _refresh_both_images_with_zoom(self, zoom_level):
+        """Refresh both images with new zoom level"""
+        try:
+            # Refresh original image
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    self.layout.image_manager.display_image_in_panel(
+                        paths[0], 
+                        'original',
+                        self.layout.original_canvas,
+                        self.layout.zoom_var
+                    )
+            
+            # Refresh result image if available
+            result_path = None
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            
+            if result_path:
+                self.layout.image_manager.display_image_in_panel(
+                    result_path,
+                    'result',
+                    self.layout.result_canvas,
+                    self.layout.zoom_var
+                )
+        except Exception as e:
+            logger.error(f"Error refreshing images with zoom: {e}")
+    
+    def _calculate_synced_zoom_scale(self, current_img, current_panel_type, base_scale):
+        """
+        Calculate zoom scale adjusted for image size differences.
+        
+        This ensures both images show the same level of detail/magnification,
+        even if they're different sizes (e.g., 1024x1536 vs 1536x2048).
+        
+        Args:
+            current_img: PIL Image object for current panel
+            current_panel_type: 'original' or 'result'
+            base_scale: Base zoom scale from zoom percentage
+            
+        Returns:
+            Adjusted scale factor
+        """
+        try:
+            # Get the other panel's image size
+            other_panel_type = 'result' if current_panel_type == 'original' else 'original'
+            other_img = None
+            
+            # Try to get the other image
+            if other_panel_type == 'result':
+                if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                    result_path = self.layout.results_manager.result_image_path
+                    if result_path:
+                        other_img = self.get_cached_image(result_path)
+            else:
+                if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                    paths = self.layout.image_manager.selected_image_paths
+                    if paths and len(paths) > 0:
+                        other_img = self.get_cached_image(paths[0])
+            
+            # If we can't get the other image, use base scale
+            if not other_img:
+                return base_scale
+            
+            # Calculate the diagonal size ratio (accounts for both dimensions)
+            # Using diagonal gives a better "perceived size" match than just width or height
+            import math
+            current_diagonal = math.sqrt(current_img.width**2 + current_img.height**2)
+            other_diagonal = math.sqrt(other_img.width**2 + other_img.height**2)
+            
+            # If current image is the original, use base scale
+            # If current image is the result, adjust scale to match original's apparent size
+            if current_panel_type == 'original':
+                adjusted_scale = base_scale
+            else:
+                # Result image: scale it relative to original
+                # If result is larger, scale it down more to match original's zoom level
+                size_ratio = other_diagonal / current_diagonal  # original / result
+                adjusted_scale = base_scale * size_ratio
+            
+            logger.debug(f"{current_panel_type}: base_scale={base_scale:.3f}, adjusted={adjusted_scale:.3f} (ratio={other_diagonal/current_diagonal:.3f})")
+            return adjusted_scale
+            
+        except Exception as e:
+            logger.error(f"Error calculating synced zoom scale: {e}")
+            return base_scale
 
 
 class ImageSectionManager:
@@ -660,6 +753,10 @@ class ImageSectionManager:
             
             if not self._safe_config_widget(self.image_size_label, text=f"{original.width}×{original.height}"):
                 logger.warning(f"Failed to update image size label (widget: {self.image_size_label})")
+            
+            # Update settings manager with image dimensions (for resolution analysis)
+            if hasattr(self.layout, 'settings_manager') and hasattr(self.layout.settings_manager, 'update_original_image_dimensions'):
+                self.layout.settings_manager.update_original_image_dimensions(original.width, original.height)
             
             # Auto-set resolution if enabled
             if hasattr(self.layout, 'auto_set_resolution'):
@@ -1075,6 +1172,61 @@ class ImageSectionManager:
         self.photo_cache.clear()
         logger.info("Image caches cleared")
     
+    def _calculate_synced_zoom_scale(self, current_img, current_panel_type, base_scale):
+        """
+        Calculate zoom scale adjusted for image size differences.
+        
+        This ensures both images show the same level of detail/magnification,
+        even if they're different sizes (e.g., 1024x1536 vs 1536x2048).
+        
+        Args:
+            current_img: PIL Image object for current panel
+            current_panel_type: 'original' or 'result'
+            base_scale: Base zoom scale from zoom percentage
+            
+        Returns:
+            Adjusted scale factor
+        """
+        try:
+            # Get the other panel's image size
+            other_panel_type = 'result' if current_panel_type == 'original' else 'original'
+            other_img = None
+            
+            # Try to get the other image
+            if other_panel_type == 'result':
+                if self.result_image_path:
+                    other_img = self.get_cached_image(self.result_image_path)
+            else:
+                if self.selected_image_paths and len(self.selected_image_paths) > 0:
+                    other_img = self.get_cached_image(self.selected_image_paths[0])
+            
+            # If we can't get the other image, use base scale
+            if not other_img:
+                return base_scale
+            
+            # Calculate the diagonal size ratio (accounts for both dimensions)
+            # Using diagonal gives a better "perceived size" match than just width or height
+            import math
+            current_diagonal = math.sqrt(current_img.width**2 + current_img.height**2)
+            other_diagonal = math.sqrt(other_img.width**2 + other_img.height**2)
+            
+            # If current image is the original, use base scale
+            # If current image is the result, adjust scale to match original's apparent size
+            if current_panel_type == 'original':
+                adjusted_scale = base_scale
+            else:
+                # Result image: scale it relative to original
+                # If result is larger, scale it down more to match original's zoom level
+                size_ratio = other_diagonal / current_diagonal  # original / result
+                adjusted_scale = base_scale * size_ratio
+            
+            logger.debug(f"{current_panel_type}: base_scale={base_scale:.3f}, adjusted={adjusted_scale:.3f} (ratio={other_diagonal/current_diagonal:.3f})")
+            return adjusted_scale
+            
+        except Exception as e:
+            logger.error(f"Error calculating synced zoom scale: {e}")
+            return base_scale
+    
     def on_canvas_configure_debounced(self, event, panel_type):
         """Debounced canvas resize handler to prevent performance issues"""
         try:
@@ -1130,7 +1282,7 @@ class ImageSectionManager:
     
     def display_image_in_panel(self, image_path, panel_type, canvas, zoom_var):
         """
-        Display image in specific panel with caching.
+        Display image in specific panel with caching and synced zoom.
         
         Args:
             image_path: Path to the image file
@@ -1150,20 +1302,27 @@ class ImageSectionManager:
             canvas_height = canvas.winfo_height()
             
             if canvas_width <= 1:
-                canvas_width = 300  # Default for side-by-side
-                canvas_height = 400
+                canvas_width = 400  # Default for side-by-side (larger for fullscreen)
+                canvas_height = 600
             
             zoom_value = zoom_var.get()
             if zoom_value == "Fit":
-                # Better fit calculation - minimal padding for maximum display space
+                # Better fit calculation - minimal padding (4px) for maximum display space in fullscreen
                 scale_factor = min(
-                    (canvas_width - 10) / img.width,
-                    (canvas_height - 10) / img.height
+                    (canvas_width - 4) / img.width,
+                    (canvas_height - 4) / img.height
                 )
                 # Ensure minimum scale to prevent tiny images
                 scale_factor = max(scale_factor, 0.1)
             else:
-                scale_factor = float(zoom_value.rstrip('%')) / 100
+                # Get base scale from zoom percentage
+                base_scale = float(zoom_value.rstrip('%')) / 100
+                
+                # SYNCED ZOOM: Adjust scale based on image size ratio when sync is enabled
+                if hasattr(self.layout, 'sync_zoom_var') and self.layout.sync_zoom_var.get():
+                    scale_factor = self._calculate_synced_zoom_scale(img, panel_type, base_scale)
+                else:
+                    scale_factor = base_scale
             
             new_width = int(img.width * scale_factor)
             new_height = int(img.height * scale_factor)
@@ -1307,8 +1466,8 @@ class ImageSectionManager:
                 max_width = max(original_img.width, result_img.width)
                 max_height = max(original_img.height, result_img.height)
                 scale_factor = min(
-                    (canvas_width - 10) / max_width,
-                    (canvas_height - 10) / max_height
+                    (canvas_width - 4) / max_width,
+                    (canvas_height - 4) / max_height
                 )
             else:
                 scale_factor = float(zoom_value.rstrip('%')) / 100

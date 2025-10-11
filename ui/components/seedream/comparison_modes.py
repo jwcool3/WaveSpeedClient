@@ -226,6 +226,12 @@ class ComparisonController:
     def _show_overlay(self):
         """Show overlay mode with both images blended"""
         try:
+            # CRITICAL: Hide the result panel for overlay mode
+            # Overlay displays the blended image in the original panel only
+            if hasattr(self.layout, 'original_panel') and hasattr(self.layout, 'result_panel'):
+                self.layout.original_panel.grid()
+                self.layout.result_panel.grid_remove()  # ✅ Hide result panel
+            
             # Get image paths
             original_path = None
             result_path = None
