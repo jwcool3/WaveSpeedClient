@@ -837,3 +837,308 @@ class ActionsHandlerManager:
     def is_processing(self) -> bool:
         """Check if currently processing"""
         return self.generation_in_progress
+    
+    def get_active_tasks_summary(self) -> Dict[str, Any]:
+        """Get summary of all active tasks"""
+        try:
+            summary = {
+                "total": len(self.active_tasks),
+                "by_status": {},
+                "tasks": []
+            }
+            
+            for task_id, task_info in self.active_tasks.items():
+                status = task_info.get('status', 'unknown')
+                summary["by_status"][status] = summary["by_status"].get(status, 0) + 1
+                
+                summary["tasks"].append({
+                    "task_id": task_id,
+                    "request_num": task_info.get('request_num'),
+                    "status": status,
+                    "seed": task_info.get('seed'),
+                    "has_result": 'result_url' in task_info
+                })
+            
+            return summary
+            
+        except Exception as e:
+            logger.error(f"Error getting tasks summary: {e}")
+            return {"total": 0, "by_status": {}, "tasks": []}
+    
+    def reset_state(self) -> None:
+        """Reset all processing state"""
+        try:
+            self.generation_in_progress = False
+            self.current_task_id = None
+            self.active_tasks.clear()
+            self.completed_results.clear()
+            
+            # Reset UI if available
+            if self.generate_btn:
+                self.generate_btn.config(state='normal')
+            if self.cancel_btn:
+                self.cancel_btn.config(state='disabled')
+            if self.progress_bar:
+                self.progress_bar.stop()
+                self.progress_bar.grid_remove()
+            if self.status_label:
+                self.status_label.config(text="Ready to process", foreground="gray")
+            
+            logger.info("Actions handler state reset")
+            
+        except Exception as e:
+            logger.error(f"Error resetting state: {e}")
+    
+    def get_completed_results(self) -> List[Dict[str, Any]]:
+        """Get list of all completed results"""
+        return self.completed_results.copy()
+    
+    def clear_completed_results(self) -> None:
+        """Clear completed results cache"""
+        self.completed_results.clear()
+        logger.info("Completed results cleared")
+
+
+# Export public classes
+__all__ = ['ActionsHandlerManager']
+
+# Module metadata
+__version__ = "2.0.0"
+__author__ = "Seedream Refactoring Team"
+__description__ = "Actions processing management for Seedream V4"
+
+"""
+ACTIONS HANDLER MODULE - FEATURES
+
+✨ Core Features:
+  - Single and multiple request processing
+  - Concurrent task management (up to 5 simultaneous)
+  - Background threading for non-blocking operations
+  - Task polling with timeout handling
+  - Progress tracking and status updates
+  - Request cancellation support
+  - Auto-save integration
+  - Result management
+  
+🎯 Processing Workflow:
+  1. **Input Validation**
+     - Image path check
+     - Prompt validation (min 3 chars)
+     - API client availability
+     
+  2. **Task Submission**
+     - Single request mode
+     - Multiple request mode (1-5 concurrent)
+     - Random or sequential seed generation
+     - Settings gathering from managers
+     
+  3. **Task Polling**
+     - 3-second poll interval
+     - 5-minute timeout per task
+     - Status tracking (submitted → processing → completed/failed)
+     - Concurrent polling for multiple tasks
+     
+  4. **Results Handling**
+     - Single result callback
+     - Multiple results aggregation
+     - Auto-save integration
+     - Error recovery
+  
+🧵 Threading Model:
+  - Background thread for API calls
+  - UI updates via `after()` for thread safety
+  - Daemon threads for automatic cleanup
+  - Non-blocking UI during processing
+  
+📊 Multi-Request Features:
+  - Configure 1-5 concurrent requests
+  - Random seeds for variation
+  - Sequential seeds from base seed
+  - Independent task tracking
+  - Aggregate completion detection
+  - Partial success handling
+  
+🔄 State Management:
+  - `generation_in_progress` flag
+  - `current_task_id` for single request
+  - `active_tasks` dict for multiple requests
+  - `completed_results` list for result cache
+  - Task status: 'submitted' → 'completed' / 'failed'
+  
+⏱️ Polling & Timeout:
+  - Start delay: 2 seconds
+  - Poll interval: 3 seconds
+  - Max polling time: 5 minutes (300s)
+  - Timeout handling per task
+  - Cancel support at any time
+  
+📈 Progress Tracking:
+  - Progress bar (indeterminate mode)
+  - Status label with real-time updates
+  - Task counters (completed/failed/pending)
+  - Per-request status messages
+  - Overall completion percentage
+  
+🎨 UI Components:
+  - Generate button (dynamic text based on count)
+  - Multi-request spinbox (1-5)
+  - Cancel button (state-aware)
+  - Save button (result-aware)
+  - Clear button (full reset)
+  - Progress bar (shown during processing)
+  - Status label (color-coded)
+  
+🔧 Settings Integration:
+  - Width/height from SettingsPanelManager
+  - Seed from SettingsPanelManager
+  - Sync mode toggle
+  - Base64 output toggle
+  - Fallback to defaults if manager unavailable
+  
+🛡️ Error Handling:
+  - Input validation errors
+  - API submission errors
+  - Polling errors
+  - Timeout handling
+  - Partial failure handling (some tasks succeed)
+  - Complete failure handling (all tasks fail)
+  - Network error recovery
+  - Graceful degradation
+  
+🔄 Callbacks:
+  - `on_results_ready_callback`: Called when results are ready
+  - `on_processing_error_callback`: Called on processing errors
+  - Both support single and multiple result modes
+  
+💾 Result Management:
+  - Result URL extraction
+  - Result data storage
+  - Completed results cache
+  - Save functionality with file dialog
+  - Auto-save integration (if available)
+  
+📊 Usage Example:
+  ```python
+  from ui.components.seedream import ActionsHandlerManager
+  
+  # Initialize
+  actions_manager = ActionsHandlerManager(parent_layout)
+  
+  # Setup UI (if needed)
+  actions_manager.setup_actions_section(parent_frame)
+  
+  # Set callbacks
+  actions_manager.set_results_ready_callback(handle_results)
+  actions_manager.set_processing_error_callback(handle_error)
+  
+  # Process (called by UI button or programmatically)
+  actions_manager.process_seedream()
+  
+  # Check status
+  status = actions_manager.get_processing_status()
+  print(f"In progress: {status['generation_in_progress']}")
+  print(f"Active tasks: {status['active_tasks_count']}")
+  
+  # Cancel if needed
+  if actions_manager.is_processing():
+      actions_manager.cancel_processing()
+  
+  # Get tasks summary
+  summary = actions_manager.get_active_tasks_summary()
+  print(f"Total: {summary['total']}, By Status: {summary['by_status']}")
+  
+  # Reset state
+  actions_manager.reset_state()
+  ```
+
+🔗 Integration Points:
+  - API client for task submission and polling
+  - SettingsPanelManager for width/height/seed
+  - PromptSectionManager for prompt text
+  - ImageSectionManager for image paths
+  - Auto-save manager (optional)
+  - Parent layout for UI updates and logging
+  
+📈 Improvements Over Original:
+  - 900+ lines vs scattered across 6000+ lines
+  - Clear separation of concerns
+  - Comprehensive error handling
+  - Type hints throughout
+  - Detailed logging
+  - Better state management
+  - Callback system for flexibility
+  - Task summary reporting
+  - State reset functionality
+  - Result caching
+  
+⚡ Performance:
+  - Non-blocking background threading
+  - Efficient polling with configurable intervals
+  - Concurrent task management
+  - Minimal UI blocking
+  - Daemon threads for cleanup
+  
+🎯 Key Methods:
+  
+  **Public API:**
+  - `process_seedream()` - Main entry point for processing
+  - `handle_single_request()` - Process single request
+  - `handle_multiple_requests()` - Process multiple requests
+  - `cancel_processing()` - Cancel current processing
+  - `clear_all()` - Clear all inputs and results
+  - `save_result()` - Save result with file dialog
+  - `is_processing()` - Check processing state
+  - `get_processing_status()` - Get detailed status
+  - `get_active_tasks_summary()` - Get tasks overview
+  - `reset_state()` - Reset all state
+  
+  **Callbacks:**
+  - `set_results_ready_callback(callback)` - Set result handler
+  - `set_processing_error_callback(callback)` - Set error handler
+  
+  **Internal:**
+  - `_validate_inputs()` - Validate before processing
+  - `_get_current_settings()` - Gather settings
+  - `_single_request_thread()` - Background single request
+  - `_multiple_requests_thread()` - Background multiple requests
+  - `poll_for_results()` - Poll single task
+  - `poll_for_multiple_results()` - Poll individual task in multi-mode
+  - `check_all_tasks_completed()` - Check completion of all tasks
+  - `handle_task_submitted()` - Handle single task submission
+  - `handle_multiple_tasks_submitted()` - Handle multi-task submission
+  - `handle_results_ready()` - Handle single result
+  - `handle_multiple_results_ready()` - Handle multiple results
+  - `handle_processing_error()` - Handle errors
+  
+🔄 Multi-Request Flow:
+  1. User sets count (1-5) in spinbox
+  2. Clicks "Generate N Variations" button
+  3. System prepares N settings with different seeds
+  4. Submits all N tasks to API
+  5. Polls each task independently
+  6. Tracks completion of each task
+  7. When all done, aggregates results
+  8. Calls callback with all completed tasks
+  9. Handles partial failures gracefully
+  
+⚠️ Thread Safety:
+  - All API calls in background threads
+  - All UI updates via `after()` on main thread
+  - State changes properly synchronized
+  - Daemon threads prevent blocking on exit
+  - Cancel checks at each poll iteration
+  
+🎨 UI States:
+  - **Ready**: Generate enabled, Cancel disabled, No progress
+  - **Processing**: Generate disabled, Cancel enabled, Progress bar active
+  - **Completed**: Generate enabled, Cancel disabled, No progress, Status green
+  - **Error**: Generate enabled, Cancel disabled, No progress, Status red
+  - **Cancelled**: Generate enabled, Cancel disabled, No progress, Status gray
+  
+💡 Design Patterns:
+  - Manager pattern for state encapsulation
+  - Callback pattern for result handling
+  - Background worker pattern for threading
+  - State machine for processing states
+  - Factory pattern for settings generation
+"""

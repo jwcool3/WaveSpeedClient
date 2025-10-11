@@ -777,3 +777,334 @@ class ResultsDisplayManager:
             "cache_size": len(self.image_cache),
             "auto_save_enabled": self.auto_save_enabled
         }
+    
+    def get_all_results(self) -> List[Dict[str, Any]]:
+        """Get all completed results"""
+        return self.completed_results.copy()
+    
+    def get_result_by_index(self, index: int) -> Optional[Dict[str, Any]]:
+        """Get a specific result by index"""
+        try:
+            if 0 <= index < len(self.completed_results):
+                return self.completed_results[index]
+            return None
+        except Exception as e:
+            logger.error(f"Error getting result by index: {e}")
+            return None
+    
+    def remove_result(self, index: int) -> bool:
+        """Remove a result by index"""
+        try:
+            if 0 <= index < len(self.completed_results):
+                del self.completed_results[index]
+                logger.info(f"Removed result at index {index}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Error removing result: {e}")
+            return False
+
+
+# Export public classes
+__all__ = ['ResultsDisplayManager']
+
+# Module metadata
+__version__ = "2.0.0"
+__author__ = "Seedream Refactoring Team"
+__description__ = "Results display and management for Seedream V4"
+
+"""
+RESULTS DISPLAY MODULE - FEATURES
+
+✨ Core Features:
+  - Single and multiple result handling
+  - Background result downloading with threading
+  - Results browser with grid layout (3-column)
+  - Thumbnail generation and caching (300x300)
+  - Auto-save integration with metadata
+  - Individual and bulk result saving
+  - Result selection and management
+  - Image preview with click-to-use
+  - Result metadata (JSON) export
+  
+🖼️ Results Browser:
+  - Grid layout with 3 columns
+  - Thumbnail previews (300x300px)
+  - Request number and seed display
+  - Click-to-use functionality
+  - Individual save buttons
+  - "Save All" bulk export
+  - Scrollable content with mousewheel
+  - Responsive layout
+  
+📥 Download Management:
+  - Background threading for downloads
+  - 60-second timeout per download
+  - Progress messages per result
+  - Automatic retry logic
+  - Temporary file handling
+  - Error recovery per result
+  - Partial download support
+  
+💾 Auto-Save Integration:
+  - Automatic save to organized folders
+  - Filename generation with metadata
+  - Format: `seedream_v4_[timestamp]_[prompt]_[size]_req[N]_seed[seed].png`
+  - JSON metadata alongside each image
+  - Comprehensive metadata export
+  - Multi-request filename differentiation
+  
+📊 Metadata Export:
+  - JSON format with complete settings
+  - Timestamp and model info
+  - Prompt and settings preservation
+  - Input image references
+  - Multi-request details (request #, seed, total count)
+  - Result URLs and paths
+  - Settings snapshot
+  
+🖼️ Image Caching:
+  - Thumbnail caching for performance
+  - LRU cache with max size (20 images)
+  - Automatic cache eviction
+  - Cache key: path + size
+  - Memory-efficient storage
+  
+🎨 Display Features:
+  - Single result display in main panel
+  - Multiple results display in browser
+  - First result auto-selected for multi-mode
+  - Click image to select as main
+  - Hover cursor change (hand)
+  - Result info labels (seed, request #)
+  - Action buttons per result
+  
+💾 Save Features:
+  - Individual result save with file dialog
+  - Save all to folder (bulk export)
+  - Suggested filenames with metadata
+  - Format selection (PNG, JPEG, WebP)
+  - Success confirmation messages
+  - Error handling per save operation
+  - Copy (not move) to preserve originals
+  
+🔗 Integration Points:
+  - Parent layout for UI updates
+  - Settings manager for resolution/seed
+  - Prompt manager for prompt text
+  - Image panel display system
+  - Auto-save manager (optional)
+  - Logging system
+  
+📈 Thread Safety:
+  - Background threads for downloads
+  - UI updates via `after()` on main thread
+  - Thread-safe result list management
+  - Daemon threads for automatic cleanup
+  - Proper exception handling in threads
+  
+🎯 Usage Example:
+  ```python
+  from ui.components.seedream import ResultsDisplayManager
+  
+  # Initialize
+  results_manager = ResultsDisplayManager(parent_layout)
+  
+  # Set callback (optional)
+  results_manager.set_result_selected_callback(on_result_selected)
+  
+  # Handle single result
+  results_manager.handle_single_result_ready(result_data)
+  
+  # Handle multiple results
+  results_manager.handle_multiple_results_ready(completed_tasks)
+  
+  # Show results browser manually
+  results_manager.show_results_browser()
+  
+  # Save all results
+  results_manager.save_all_results()
+  
+  # Check status
+  status = results_manager.get_results_status()
+  print(f"Completed: {status['completed_results_count']}")
+  print(f"Cache size: {status['cache_size']}")
+  
+  # Get all results
+  all_results = results_manager.get_all_results()
+  for result in all_results:
+      print(f"Result #{result['request_num']}: {result['path']}")
+  
+  # Clear everything
+  results_manager.clear_results()
+  ```
+
+🔄 Single Result Flow:
+  1. Receive result data with URL
+  2. Start download in background thread
+  3. Download image with 60s timeout
+  4. Save to temporary file
+  5. Auto-save with metadata (if enabled)
+  6. Update UI with result path on main thread
+  7. Display in result panel
+  8. Enable result actions
+  9. Trigger selection callback
+
+🔄 Multiple Results Flow:
+  1. Receive list of completed tasks
+  2. Start downloads in background thread
+  3. Download each result sequentially
+  4. Save each to temporary file
+  5. Auto-save each with unique filename
+  6. Track all results in completed_results list
+  7. Update UI on main thread
+  8. Display first result in main panel
+  9. Show results browser popup
+  10. Enable result actions
+
+📊 Result Info Structure:
+  ```python
+  {
+      'path': str,           # Local file path
+      'url': str,            # Original result URL
+      'request_num': int,    # Request number (1-5)
+      'seed': int,           # Seed used
+      'temp_path': str,      # Temporary file path
+      'saved_path': str,     # Auto-saved path (or None)
+      'settings': dict       # Settings used for generation
+  }
+  ```
+
+📊 Metadata Structure:
+  ```python
+  {
+      "ai_model": "seedream_v4",
+      "timestamp": "2025-10-11 14:30:00",
+      "prompt": "transformation prompt text",
+      "result_url": "https://...",
+      "result_path": "/path/to/saved.png",
+      "result_filename": "seedream_v4_...",
+      "settings": {
+          "width": 1024,
+          "height": 1024,
+          "seed": 12345,
+          "sync_mode": false,
+          "base64_output": false
+      },
+      "multi_request": true,
+      "request_number": 1,
+      "total_requests": 3,
+      "input_images": ["/path/to/input.png"]
+  }
+  ```
+
+🎨 Results Browser UI:
+  - Window title: "Seedream Results (N images)"
+  - Window size: 1000x700, resizable
+  - Grid: 3 columns, auto-rows
+  - Per result:
+    * Frame with title: "Result #N (Seed: SEED)"
+    * Thumbnail image (300x300, click to use)
+    * Info label (seed, request #)
+    * "Use This" button
+    * "Save" button
+  - Bottom buttons:
+    * "Save All Results" (left)
+    * "Close" (right)
+  - Scrollable with mousewheel
+
+🖼️ Thumbnail Generation:
+  - Target size: 300x300px
+  - Aspect ratio preserved
+  - LANCZOS resampling for quality
+  - RGBA/P → RGB conversion
+  - Caching for performance
+  - Error handling with placeholder
+
+💾 Auto-Save Filenames:
+  - Single: `seedream_v4_[timestamp]_[prompt]_[size].png`
+  - Multiple: `seedream_v4_[timestamp]_[prompt]_[size]_req[N]_seed[seed].png`
+  - Prompt snippet: max 30 chars, alphanumeric + _ -
+  - Timestamp: YYYYMMDD_HHMMSS format
+  - Size: WIDTHxHEIGHT format
+  
+🛡️ Error Handling:
+  - Download failures per result
+  - Thumbnail generation errors
+  - Save operation errors
+  - Auto-save failures (non-blocking)
+  - JSON metadata errors (non-blocking)
+  - Cache errors
+  - Thread exceptions
+  - UI update errors
+  
+📈 Improvements Over Original:
+  - 850+ lines vs scattered across 6000+ lines
+  - Clear separation of concerns
+  - Comprehensive error handling
+  - Type hints throughout
+  - Detailed logging
+  - Thumbnail caching
+  - Result management methods
+  - Metadata export
+  - Better threading model
+  - Organized result structure
+  
+🎯 Key Methods:
+  
+  **Public API:**
+  - `handle_single_result_ready(result_data)` - Handle single result
+  - `handle_multiple_results_ready(tasks)` - Handle multiple results
+  - `download_and_display_result(url)` - Download single
+  - `download_and_display_multiple_results(tasks)` - Download multiple
+  - `show_results_browser()` - Show browser popup
+  - `use_result_from_browser(result_info, window)` - Select result
+  - `save_individual_result(result_info)` - Save one result
+  - `save_all_results()` - Bulk save
+  - `clear_results()` - Clear all
+  - `get_results_status()` - Get status
+  - `get_all_results()` - Get result list
+  - `get_result_by_index(index)` - Get specific result
+  - `remove_result(index)` - Remove result
+  - `set_result_selected_callback(callback)` - Set callback
+  
+  **Internal:**
+  - `_download_single_result_thread(url)` - Background single download
+  - `_download_multiple_results_thread(tasks)` - Background multi download
+  - `_auto_save_single_result(path, url)` - Auto-save single
+  - `_auto_save_multiple_result(path, url, num, seed, settings)` - Auto-save multi
+  - `_create_result_metadata(...)` - Generate metadata
+  - `_display_single_result(path)` - Display single in UI
+  - `_display_multiple_results()` - Display multiple in UI
+  - `_create_result_item(frame, info, window)` - Create result widget
+  - `_create_thumbnail(path, size)` - Generate thumbnail
+  - `_cache_image(key, photo)` - Cache thumbnail
+  - `_enable_result_actions()` - Enable UI actions
+  - `_get_prompt_snippet(max_length)` - Get filename snippet
+  - `_get_size_string()` - Get resolution string
+  - `_get_current_prompt()` - Get prompt text
+  - `_get_current_settings()` - Get settings dict
+  - `_show_message(message)` - Show status message
+  
+⚡ Performance Features:
+  - Background threading for downloads
+  - Thumbnail caching (20 image limit)
+  - Lazy thumbnail generation
+  - LRU cache eviction
+  - Efficient image loading with PIL
+  - Grid layout for responsive browsing
+  - Daemon threads for cleanup
+  
+🔄 Callback System:
+  - `on_result_selected_callback`: Called when user selects a result
+  - Receives result path as parameter
+  - Optional - gracefully skipped if not set
+  - Used for integration with parent layout
+  
+💡 Design Patterns:
+  - Manager pattern for encapsulation
+  - Background worker pattern for threading
+  - Callback pattern for event handling
+  - Cache pattern for thumbnails
+  - Factory pattern for UI components
+"""
