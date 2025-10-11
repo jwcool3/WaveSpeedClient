@@ -461,6 +461,18 @@ class SeedreamLayoutV2:
             if hasattr(self, 'image_manager') and hasattr(self, 'filter_manager'):
                 logger.debug("✓ Image → Filter Training connection ready")
             
+            # Connect actions manager to results manager (CRITICAL for displaying results!)
+            if hasattr(self, 'actions_manager') and hasattr(self, 'results_manager'):
+                # Create wrapper to handle both single and multiple results
+                def results_callback(data, multiple=False):
+                    if multiple:
+                        self.results_manager.handle_multiple_results_ready(data)
+                    else:
+                        self.results_manager.handle_single_result_ready(data)
+                
+                self.actions_manager.set_results_ready_callback(results_callback)
+                logger.debug("✓ Actions → Results connection established")
+            
             # Note: Actual image path updates happen in browse_image() wrapper
             
             logger.info("Module connections established successfully")

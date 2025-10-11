@@ -775,8 +775,14 @@ class ImageSectionManager:
                 show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
                 return
             
-            # Load the image
-            self.load_image(file_path)
+            # Load the image via load_images for proper state management
+            self.load_images([file_path])
+            
+            # Also update filter manager if available
+            if hasattr(self.layout, '_update_filter_manager_image'):
+                self.layout._update_filter_manager_image()
+            
+            logger.info(f"✓ Drag & drop: Image loaded successfully: {file_path}")
             
         except ImportError:
             logger.error("utils.utils module not available for drag and drop handling")
