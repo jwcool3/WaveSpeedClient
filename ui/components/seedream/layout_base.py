@@ -436,17 +436,17 @@ class SeedreamLayoutV2:
         self.display_paned_window = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
         self.display_paned_window.grid(row=row, column=0, sticky="nsew", padx=0, pady=0)
         
-        # Create container frames for each panel
-        original_container = ttk.Frame(self.display_paned_window, padding="0")
-        result_container = ttk.Frame(self.display_paned_window, padding="0")
+        # Create container frames for each panel (store as instance variables for comparison modes)
+        self.original_container = ttk.Frame(self.display_paned_window, padding="0")
+        self.result_container = ttk.Frame(self.display_paned_window, padding="0")
         
         # Add to paned window with equal weights
-        self.display_paned_window.add(original_container, weight=1)
-        self.display_paned_window.add(result_container, weight=1)
+        self.display_paned_window.add(self.original_container, weight=1)
+        self.display_paned_window.add(self.result_container, weight=1)
         
         # Create the panels inside their containers
-        self._create_single_panel(original_container, "original", 0, "📥 Original Image")
-        self._create_single_panel(result_container, "result", 0, "🌟 Generated Result")  # Column 0 since it's in its own container
+        self._create_single_panel(self.original_container, "original", 0, "📥 Original Image")
+        self._create_single_panel(self.result_container, "result", 0, "🌟 Generated Result")  # Column 0 since it's in its own container
         
         logger.debug("Image display panels created with adjustable splitter")
     

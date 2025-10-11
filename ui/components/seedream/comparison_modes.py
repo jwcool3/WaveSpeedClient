@@ -218,25 +218,37 @@ class ComparisonController:
     
     def _show_side_by_side(self):
         """Show both panels side by side"""
-        # Make both panels visible
-        if hasattr(self.layout, 'original_panel') and hasattr(self.layout, 'result_panel'):
-            self.layout.original_panel.grid()
-            self.layout.result_panel.grid()
-            
-            # Hide overlay if it exists
-            if self.overlay_canvas:
-                self.overlay_canvas.grid_remove()
+        # Make both panels visible by ensuring display paned window shows both
+        if hasattr(self.layout, 'display_paned_window'):
+            # Re-add both panels if they were removed
+            if hasattr(self.layout, 'original_container') and hasattr(self.layout, 'result_container'):
+                # Check if panels are already in the paned window
+                try:
+                    self.layout.display_paned_window.panes()
+                except:
+                    pass
+                
+                # Clear and re-add both panels
+                for pane in self.layout.display_paned_window.panes():
+                    self.layout.display_paned_window.forget(pane)
+                
+                self.layout.display_paned_window.add(self.layout.original_container, weight=1)
+                self.layout.display_paned_window.add(self.layout.result_container, weight=1)
         
         logger.debug("Showing side-by-side view")
     
     def _show_overlay(self):
         """Show overlay mode with both images blended"""
         try:
-            # CRITICAL: Hide the result panel for overlay mode
-            # Overlay displays the blended image in the original panel only
-            if hasattr(self.layout, 'original_panel') and hasattr(self.layout, 'result_panel'):
-                self.layout.original_panel.grid()
-                self.layout.result_panel.grid_remove()  # ✅ Hide result panel
+            # CRITICAL: Show only the original panel for overlay mode
+            # Remove result panel from paned window so original expands to full width
+            if hasattr(self.layout, 'display_paned_window') and hasattr(self.layout, 'original_container'):
+                # Clear paned window and add only original container (full width)
+                for pane in self.layout.display_paned_window.panes():
+                    self.layout.display_paned_window.forget(pane)
+                
+                self.layout.display_paned_window.add(self.layout.original_container, weight=1)
+                logger.debug("Showing overlay in full-width original panel")
             
             # Get image paths
             original_path = None
@@ -278,15 +290,20 @@ class ComparisonController:
         Args:
             panel_type: 'original' or 'result'
         """
-        if not hasattr(self.layout, 'original_panel') or not hasattr(self.layout, 'result_panel'):
+        if not hasattr(self.layout, 'display_paned_window'):
             return
         
+        if not hasattr(self.layout, 'original_container') or not hasattr(self.layout, 'result_container'):
+            return
+        
+        # Clear paned window and add only the requested panel
+        for pane in self.layout.display_paned_window.panes():
+            self.layout.display_paned_window.forget(pane)
+        
         if panel_type == "original":
-            self.layout.original_panel.grid()
-            self.layout.result_panel.grid_remove()
+            self.layout.display_paned_window.add(self.layout.original_container, weight=1)
         else:
-            self.layout.original_panel.grid_remove()
-            self.layout.result_panel.grid()
+            self.layout.display_paned_window.add(self.layout.result_container, weight=1)
         
         logger.debug(f"Showing {panel_type} only")
     

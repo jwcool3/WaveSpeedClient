@@ -521,7 +521,7 @@ class SettingsPanelManager:
                     pass
             
             # Schedule save after 500ms of no changes (debounce)
-            self._save_timer = self.parent_frame.after(500, self._do_auto_save)
+            #self._save_timer = self.parent_frame.after(500, self._do_auto_save)
             
             # Update resolution analysis (immediate feedback)
             self.update_resolution_analysis()

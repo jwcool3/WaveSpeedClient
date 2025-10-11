@@ -34,29 +34,29 @@ class BalanceIndicator:
     
     def setup_ui(self):
         """Setup the balance indicator UI"""
-        # Create main frame
+        # Create main frame (will be packed at bottom by main_app)
         self.frame = ttk.Frame(self.parent)
         
-        # Balance display frame with border
+        # Balance display frame with border (compact for corner display)
         self.balance_frame = ttk.Frame(self.frame, style="Card.TFrame")
-        self.balance_frame.pack(fill=tk.X, padx=5, pady=2)
+        self.balance_frame.pack(fill=tk.X, padx=0, pady=0)
         
-        # Balance icon and text
+        # Balance icon and text (compact padding)
         balance_container = ttk.Frame(self.balance_frame)
-        balance_container.pack(fill=tk.X, padx=8, pady=4)
+        balance_container.pack(fill=tk.X, padx=5, pady=2)
         
-        # Icon
-        self.icon_label = ttk.Label(balance_container, text="💰", font=('Arial', 12))
+        # Icon (smaller for corner display)
+        self.icon_label = ttk.Label(balance_container, text="💰", font=('Arial', 10))
         self.icon_label.pack(side=tk.LEFT)
         
-        # Balance amount
+        # Balance amount (compact)
         self.balance_label = ttk.Label(
             balance_container, 
             text="Loading...", 
-            font=('Arial', 10, 'bold'),
+            font=('Arial', 9, 'bold'),
             foreground='#2E7D32'  # Green color for balance
         )
-        self.balance_label.pack(side=tk.LEFT, padx=(4, 0))
+        self.balance_label.pack(side=tk.LEFT, padx=(3, 0))
         
         # Refresh button (small)
         self.refresh_button = ttk.Button(
@@ -67,14 +67,14 @@ class BalanceIndicator:
         )
         self.refresh_button.pack(side=tk.RIGHT)
         
-        # Last updated info (smaller text)
+        # Last updated info (smaller text, compact)
         self.update_info_label = ttk.Label(
             self.balance_frame,
             text="",
-            font=('Arial', 8),
+            font=('Arial', 7),
             foreground='#666666'
         )
-        self.update_info_label.pack(pady=(0, 2))
+        self.update_info_label.pack(pady=(0, 1))
     
     def start_balance_updates(self):
         """Start automatic balance updates"""

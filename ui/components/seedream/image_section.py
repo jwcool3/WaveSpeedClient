@@ -218,7 +218,7 @@ class EnhancedSyncManager:
         
         # Zoom debouncing
         self.zoom_timer = None
-        self.zoom_delay = 150  # ms delay to debounce scroll events
+        self.zoom_delay = 500  # ms delay to debounce scroll events
         self.pending_zoom_delta = 0
         
         logger.info("EnhancedSyncManager initialized")

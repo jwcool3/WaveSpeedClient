@@ -35,15 +35,19 @@ class RecentResultsPanel:
         self.current_filter = "All"
         self.selected_result = None
         
-        # Dynamic sizing variables
-        self.min_thumbnail_size = 45
-        self.max_thumbnail_size = 120
+        # Dynamic sizing variables (expanded range for more zoom levels)
+        self.min_thumbnail_size = 30   # Much smaller - show many at once
+        self.max_thumbnail_size = 300  # Much larger - 1-2 images at a time
         self.current_thumbnail_size = 60
-        self.min_cols = 2
-        self.max_cols = 6
+        self.min_cols = 1  # Allow single column for large images
+        self.max_cols = 8  # Allow more columns for tiny thumbnails
         self.current_cols = 3
         
         self.max_results = 50
+        
+        # Performance optimization: thumbnail cache
+        self._thumbnail_cache = {}  # Cache loaded thumbnails
+        self._zoom_debounce_id = None  # For debouncing zoom operations
         
         # Prevent recursion flags
         self._resizing = False
@@ -62,26 +66,26 @@ class RecentResultsPanel:
     
     def setup_ui(self):
         """Setup the enhanced recent results panel UI"""
-        # Main panel frame
-        self.panel_frame = ttk.Frame(self.parent)
-        self.panel_frame.pack(fill=tk.BOTH, expand=True)  # PACK THE FRAME!
+        # Main panel frame (no padding to fill all space, constrained to window)
+        self.panel_frame = ttk.Frame(self.parent, padding="0")
+        self.panel_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
-        # Header section
+        # Header section (fixed height)
         self.setup_header()
         
-        # Filter section
+        # Filter section (fixed height)
         self.setup_filter_section()
         
-        # Scrollable results area
+        # Scrollable results area (expands to fill remaining space)
         self.setup_scrollable_area()
         
-        # Status bar
+        # Status bar (fixed height at bottom)
         self.setup_status_bar()
     
     def setup_header(self):
         """Setup header with title and controls"""
         header_frame = ttk.Frame(self.panel_frame)
-        header_frame.pack(fill=tk.X, padx=3, pady=(3, 0))
+        header_frame.pack(fill=tk.X, padx=3, pady=(0, 0))  # No top padding
         
         # Title with icon
         title_label = ttk.Label(
@@ -138,13 +142,13 @@ class RecentResultsPanel:
         filter_combo.bind('<<ComboboxSelected>>', self.on_filter_changed)
     
     def setup_scrollable_area(self):
-        """Setup enhanced scrollable area for results grid"""
-        # Create canvas frame
+        """Setup enhanced scrollable area for results grid with proper height constraint"""
+        # Create canvas frame (will constrain to available height)
         canvas_frame = ttk.Frame(self.panel_frame)
         canvas_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=(3, 0))
         
-        # Canvas and scrollbar
-        self.canvas = tk.Canvas(canvas_frame, highlightthickness=0, bg='#f8f8f8')
+        # Canvas and scrollbar (canvas height will be constrained by parent)
+        self.canvas = tk.Canvas(canvas_frame, highlightthickness=0, bg='#f8f8f8', height=1)
         scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas)
         
@@ -157,7 +161,7 @@ class RecentResultsPanel:
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
         
-        # Pack canvas and scrollbar
+        # Pack canvas and scrollbar (canvas will expand to fill available space)
         self.canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
@@ -245,7 +249,10 @@ class RecentResultsPanel:
             
             # Calculate how many thumbnails can fit
             thumb_width = self.current_thumbnail_size + 10  # Add margin
-            optimal_cols = max(self.min_cols, min(self.max_cols, available_width // thumb_width))
+            if thumb_width > 0:
+                optimal_cols = max(self.min_cols, min(self.max_cols, available_width // thumb_width))
+            else:
+                optimal_cols = self.current_cols
             
             if optimal_cols != self.current_cols:
                 self.current_cols = optimal_cols
@@ -255,22 +262,41 @@ class RecentResultsPanel:
             logger.debug(f"Layout calculation error: {e}")
     
     def increase_thumbnail_size(self):
-        """Increase thumbnail size"""
-        new_size = min(self.max_thumbnail_size, self.current_thumbnail_size + 10)
+        """Increase thumbnail size (with debouncing for performance)"""
+        # Larger steps for faster zooming
+        step = 20 if self.current_thumbnail_size < 100 else 30
+        new_size = min(self.max_thumbnail_size, self.current_thumbnail_size + step)
         if new_size != self.current_thumbnail_size:
             self.current_thumbnail_size = new_size
             self.size_label.config(text=f"{self.current_thumbnail_size}px")
-            self.calculate_optimal_layout()
-            self.render_results_grid()
+            self._debounced_zoom_update()
     
     def decrease_thumbnail_size(self):
-        """Decrease thumbnail size"""
-        new_size = max(self.min_thumbnail_size, self.current_thumbnail_size - 10)
+        """Decrease thumbnail size (with debouncing for performance)"""
+        # Larger steps for faster zooming
+        step = 20 if self.current_thumbnail_size < 100 else 30
+        new_size = max(self.min_thumbnail_size, self.current_thumbnail_size - step)
         if new_size != self.current_thumbnail_size:
             self.current_thumbnail_size = new_size
             self.size_label.config(text=f"{self.current_thumbnail_size}px")
-            self.calculate_optimal_layout()
-            self.render_results_grid()
+            self._debounced_zoom_update()
+    
+    def _debounced_zoom_update(self):
+        """Debounce zoom updates to prevent lag when clicking multiple times"""
+        # Cancel any pending zoom update
+        if self._zoom_debounce_id:
+            self.parent.after_cancel(self._zoom_debounce_id)
+        
+        # Schedule new update after 150ms of inactivity
+        self._zoom_debounce_id = self.parent.after(300, self._apply_zoom_update)
+    
+    def _apply_zoom_update(self):
+        """Apply the zoom update (called after debounce delay)"""
+        self._zoom_debounce_id = None
+        # Clear thumbnail cache when size changes
+        self._thumbnail_cache.clear()
+        self.calculate_optimal_layout()
+        self.render_results_grid()
     
     def update_scroll_region(self):
         """Update scroll region"""
@@ -529,8 +555,16 @@ class RecentResultsPanel:
             error_label.pack(pady=5)
     
     def load_dynamic_thumbnail(self, image_path):
-        """Load thumbnail with dynamic sizing"""
+        """Load thumbnail with dynamic sizing and caching for performance"""
         try:
+            # Create cache key with path and size
+            cache_key = f"{image_path}_{self.current_thumbnail_size}"
+            
+            # Check cache first
+            if cache_key in self._thumbnail_cache:
+                return self._thumbnail_cache[cache_key]
+            
+            # Load and process image
             with Image.open(image_path) as img:
                 # Convert to RGB if necessary
                 if img.mode in ("RGBA", "P"):
@@ -538,7 +572,13 @@ class RecentResultsPanel:
                 
                 # Resize to current thumbnail size
                 img.thumbnail((self.current_thumbnail_size, self.current_thumbnail_size), Image.Resampling.LANCZOS)
-                return ImageTk.PhotoImage(img)
+                photo = ImageTk.PhotoImage(img)
+                
+                # Cache the thumbnail (limit cache size to prevent memory issues)
+                if len(self._thumbnail_cache) < 200:  # Max 200 cached thumbnails
+                    self._thumbnail_cache[cache_key] = photo
+                
+                return photo
                 
         except Exception as e:
             logger.debug(f"Error loading thumbnail for {image_path}: {e}")
@@ -881,7 +921,8 @@ class RecentResultsPanel:
         self.count_label.config(text=text)
     
     def refresh_results(self):
-        """Refresh the results list"""
+        """Refresh the results list and clear cache"""
+        self._thumbnail_cache.clear()  # Clear cache for fresh thumbnails
         self.load_recent_results()
     
     def get_frame(self):
