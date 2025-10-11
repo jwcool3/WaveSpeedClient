@@ -48,7 +48,10 @@ class SeedreamLayoutV2:
         self.api_client = api_client
         self.tab_instance = tab_instance
         
-        # Core state (managed by individual managers)
+        # Core state
+        self.selected_image_path = None
+        self.selected_image_paths = []  # Support for multiple images
+        self.result_image_path = None
         self.result_url = None
         self.current_task_id = None
         
@@ -147,19 +150,16 @@ class SeedreamLayoutV2:
             # Store reference
             self.left_frame = left_frame
             
-            # Let managers create their own UI
-            # (Managers have setup methods that create their UI)
-            # Image input UI handled by image manager
-            self._create_simple_image_input(left_frame, row=0)
+            # Let each manager create its own UI section
+            # (Managers handle UI creation and setup their own variables/bindings)
+            self._create_image_input_ui(left_frame, row=0)  # Image uses set_ui_references pattern
+            self.settings_manager.setup_settings_panel(left_frame)  # Row 1
+            self.prompt_manager.setup_prompt_section(left_frame)    # Row 2
+            self.actions_manager.setup_actions_section(left_frame)  # Row 3
             
-            # Settings panel creates its own UI
-            self.settings_manager.setup_settings_panel(left_frame)
-            
-            # Prompt section UI
-            self._create_simple_prompt_section(left_frame, row=2)
-            
-            # Actions section
-            self._create_simple_actions(left_frame, row=3)
+            # Create attribute references for backward compatibility
+            # (Some code may access these directly)
+            self.prompt_text = self.prompt_manager.prompt_text
             
             # Spacer
             spacer = ttk.Frame(left_frame)
@@ -196,44 +196,70 @@ class SeedreamLayoutV2:
             logger.error(f"Error setting up right column: {e}")
             raise
     
-    def _create_simple_image_input(self, parent, row=0):
-        """Create minimal image input section"""
+    def _create_image_input_ui(self, parent, row=0):
+        """Create the compact image input section UI"""
         input_frame = ttk.LabelFrame(parent, text="📥 Input Image", padding="6")
         input_frame.grid(row=row, column=0, sticky="ew", pady=(0, 6))
+        input_frame.columnconfigure(1, weight=1)
         
-        ttk.Button(
+        # Thumbnail + Info in one row
+        thumbnail_label = tk.Label(
             input_frame,
-            text="📁 Browse Image",
-            command=self.browse_image
-        ).pack(fill=tk.X, padx=5, pady=5)
-    
-    # Settings UI is created by settings_manager.setup_settings_panel()
-    
-    def _create_simple_prompt_section(self, parent, row=2):
-        """Create minimal prompt section"""
-        prompt_frame = ttk.LabelFrame(parent, text="✏️ Prompt", padding="6")
-        prompt_frame.grid(row=row, column=0, sticky="ew", pady=(0, 6))
+            text="📁",
+            width=8, height=4,
+            bg='#f5f5f5',
+            relief='solid',
+            borderwidth=1,
+            cursor="hand2",
+            font=('Arial', 10)
+        )
+        thumbnail_label.grid(row=0, column=0, padx=(0, 8), rowspan=2)
+        thumbnail_label.bind("<Button-1>", lambda e: self.browse_image())
         
-        self.prompt_text = tk.Text(prompt_frame, height=4, wrap=tk.WORD)
-        self.prompt_text.pack(fill=tk.BOTH, expand=True)
+        # Image info labels
+        image_name_label = ttk.Label(
+            input_frame,
+            text="No image selected",
+            font=('Arial', 9, 'bold'),
+            foreground="gray"
+        )
+        image_name_label.grid(row=0, column=1, sticky="w")
         
-        # Buttons
-        btn_frame = ttk.Frame(prompt_frame)
-        btn_frame.pack(fill=tk.X, pady=(5, 0))
-        ttk.Button(btn_frame, text="🌱 Mild", command=self.generate_mild_examples, width=8).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="🔥 Moderate", command=self.generate_moderate_examples, width=10).pack(side=tk.LEFT, padx=2)
-        ttk.Button(btn_frame, text="👗 Undress", command=self.generate_undress_transformations, width=9).pack(side=tk.LEFT, padx=2)
-    
-    def _create_simple_actions(self, parent, row=3):
-        """Create minimal actions section"""
-        action_frame = ttk.Frame(parent)
-        action_frame.grid(row=row, column=0, sticky="ew", pady=6)
+        info_frame = ttk.Frame(input_frame)
+        info_frame.grid(row=1, column=1, sticky="ew")
         
-        ttk.Button(
-            action_frame,
-            text="🌟 Generate with Seedream V4",
-            command=self.process_seedream
-        ).pack(fill=tk.X, padx=5, pady=5)
+        image_size_label = ttk.Label(
+            info_frame,
+            text="",
+            font=('Arial', 8),
+            foreground="gray"
+        )
+        image_size_label.pack(side=tk.LEFT)
+        
+        browse_btn = ttk.Button(
+            info_frame,
+            text="Browse",
+            command=self.browse_image,
+            width=8
+        )
+        browse_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        
+        reorder_btn = ttk.Button(
+            info_frame,
+            text="⚡ Order",
+            command=self.show_image_reorder_dialog,
+            width=8,
+            state="disabled"
+        )
+        reorder_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        
+        # Pass references to image manager
+        self.image_manager.set_ui_references(
+            thumbnail_label=thumbnail_label,
+            image_name_label=image_name_label,
+            image_size_label=image_size_label,
+            reorder_btn=reorder_btn
+        )
     
     def _create_comparison_controls_ui(self, parent, row=0):
         """Create image comparison controls"""
@@ -380,50 +406,14 @@ class SeedreamLayoutV2:
         try:
             logger.info("Connecting modules...")
             
-            # Connect image selection to other modules
-            def on_image_selected(image_path):
-                self.selected_image_path = image_path
-                self.selected_image_paths = [image_path] if image_path else []
-                
-                # Update filter training with new image
-                self.filter_manager.update_image_path(image_path)
-                
-                # Update original image dimensions in settings
-                if image_path:
-                    try:
-                        from PIL import Image
-                        with Image.open(image_path) as img:
-                            self.settings_manager.update_original_image_dimensions(
-                                img.width, img.height
-                            )
-                    except Exception as e:
-                        logger.error(f"Error getting image dimensions: {e}")
+            # Module connections will be added as needed
+            # For now, managers are self-contained and don't require cross-module callbacks
+            # Future enhancements can add:
+            # - Image selection callbacks to update filter training and settings
+            # - Processing completion callbacks to update results display
+            # - Result selection callbacks to update image panels
             
-            # Set image selection callback
-            self.image_manager.set_image_selected_callback(on_image_selected)
-            
-            # Connect actions to results
-            def on_results_ready(result_data, multiple=False):
-                if multiple:
-                    self.results_manager.handle_multiple_results_ready(result_data)
-                else:
-                    self.results_manager.handle_single_result_ready(result_data)
-            
-            def on_processing_error(error_message):
-                self.log_message(f"❌ Processing error: {error_message}")
-            
-            # Set action callbacks
-            self.actions_manager.set_results_ready_callback(on_results_ready)
-            self.actions_manager.set_processing_error_callback(on_processing_error)
-            
-            # Connect results to image display
-            def on_result_selected(result_path):
-                self.result_image_path = result_path
-                # Additional result selection logic can be added here
-            
-            self.results_manager.set_result_selected_callback(on_result_selected)
-            
-            logger.info("Module connections established successfully")
+            logger.info("Module connections established successfully (minimal for v1)")
             
         except Exception as e:
             logger.error(f"Error connecting modules: {e}")
@@ -441,11 +431,8 @@ class SeedreamLayoutV2:
     def _show_initial_state(self) -> None:
         """Show the initial state of the interface"""
         try:
-            # Show default messages in image panels
-            self.image_manager.show_default_messages()
-            
             # Log that the interface is ready
-            self.log_message("🎉 Seedream V4 interface ready! (Refactored)")
+            self.log_message("🎉 Seedream V4 interface ready! (Modular System)")
             
         except Exception as e:
             logger.error(f"Error showing initial state: {e}")
@@ -497,44 +484,7 @@ class SeedreamLayoutV2:
     def generate_random_seed(self) -> None:
         """Generate a random seed"""
         seed = random.randint(1, 2147483647)
-        self.settings_manager.seed_var.set(str(seed))
-    
-    def get_width(self) -> int:
-        """Get the current width setting"""
-        return self.settings_manager.width_var.get()
-    
-    def get_height(self) -> int:
-        """Get the current height setting"""
-        return self.settings_manager.height_var.get()
-    
-    def get_seed(self) -> str:
-        """Get the current seed"""
-        return self.settings_manager.seed_var.get()
-    
-    @property
-    def selected_image_path(self) -> Optional[str]:
-        """Get the currently selected image path"""
-        paths = self.image_manager.selected_image_paths
-        return paths[0] if paths else None
-    
-    @selected_image_path.setter
-    def selected_image_path(self, value: Optional[str]) -> None:
-        """Set the selected image path"""
-        if value:
-            self.image_manager.selected_image_paths = [value]
-        else:
-            self.image_manager.selected_image_paths = []
-    
-    @property
-    def result_image_path(self) -> Optional[str]:
-        """Get the result image path"""
-        return self.image_manager.result_image_path if hasattr(self.image_manager, 'result_image_path') else None
-    
-    @result_image_path.setter
-    def result_image_path(self, value: Optional[str]) -> None:
-        """Set the result image path"""
-        if hasattr(self.image_manager, 'result_image_path'):
-            self.image_manager.result_image_path = value
+        self.seed_var.set(str(seed))
     
     def swap_images(self) -> None:
         """Swap original and result images"""
@@ -547,18 +497,6 @@ class SeedreamLayoutV2:
     def show_prompt_browser(self) -> None:
         """Show prompt browser"""
         self.prompt_manager.show_prompt_browser()
-    
-    def get_prompt(self) -> str:
-        """Get the current prompt text"""
-        if hasattr(self, 'prompt_text'):
-            return self.prompt_text.get("1.0", tk.END).strip()
-        return ""
-    
-    def set_prompt(self, text: str) -> None:
-        """Set the prompt text"""
-        if hasattr(self, 'prompt_text'):
-            self.prompt_text.delete("1.0", tk.END)
-            self.prompt_text.insert("1.0", text)
     
     def save_preset(self) -> None:
         """Save current prompt as preset"""
@@ -580,6 +518,10 @@ class SeedreamLayoutV2:
         """Log a message"""
         logger.info(f"Seedream: {message}")
         # Additional logging can be added here (e.g., to a status console)
+    
+    def get_prompt_widget(self):
+        """Get the prompt text widget (for backward compatibility)"""
+        return getattr(self.prompt_manager, 'prompt_text', None)
     
     # Properties for backward compatibility
     
