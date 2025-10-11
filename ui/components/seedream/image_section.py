@@ -365,11 +365,11 @@ class EnhancedSyncManager:
         logger.debug(f"Ended sync drag from {source_panel}")
     
     def handle_sync_zoom(self, event, source_panel):
-        """Handle synchronized zoom accounting for different image sizes with debouncing"""
+        """Handle synchronized zoom with smooth increments centered on mouse position"""
         if not hasattr(self.layout, 'sync_zoom_var') or not self.layout.sync_zoom_var.get():
             return
         
-        # Get zoom direction
+        # Get zoom direction with reduced sensitivity
         if hasattr(event, 'delta'):
             delta = event.delta
         elif hasattr(event, 'num'):
@@ -377,77 +377,91 @@ class EnhancedSyncManager:
         else:
             return
         
-        # Accumulate zoom delta (normalize to +1 or -1)
-        zoom_direction = 1 if delta > 0 else -1
-        self.pending_zoom_delta += zoom_direction
+        # Reduced sensitivity: require at least 120 delta to trigger (one mousewheel notch)
+        if abs(delta) < 120:
+            return
         
-        # Cancel existing timer
-        if self.zoom_timer:
-            try:
-                self.original_canvas.after_cancel(self.zoom_timer)
-            except:
-                pass
+        # Determine zoom direction (zoom in for positive delta, out for negative)
+        zoom_in = delta > 0
         
-        # Set new timer to apply zoom after delay
-        self.zoom_timer = self.original_canvas.after(
-            self.zoom_delay, 
-            lambda: self._apply_debounced_zoom(source_panel)
-        )
+        # Get mouse position for zoom center
+        mouse_x = event.x
+        mouse_y = event.y
+        
+        # Apply zoom immediately with smaller steps (no debouncing for smoother feel)
+        self._apply_instant_zoom(zoom_in, mouse_x, mouse_y, source_panel)
+    
+    def _apply_instant_zoom(self, zoom_in: bool, mouse_x: int, mouse_y: int, source_panel: str):
+        """
+        Apply zoom with smooth small increments.
+        
+        Note: Mouse position is captured for future zoom-to-cursor feature.
+        Currently zooms to image center for simplicity and compatibility.
+        """
+        try:
+            # Get current zoom from the slider if available
+            current_zoom = self.layout.zoom_var.get()
+            
+            # Parse current zoom percentage
+            if current_zoom == "Fit":
+                current_percent = 100  # Treat "Fit" as 100% for now
+            else:
+                try:
+                    current_percent = int(current_zoom.rstrip('%'))
+                except:
+                    current_percent = 100
+            
+            # Calculate new zoom with smaller steps for smoother zooming
+            # Use progressive step sizes: smaller steps for small zooms, larger for big zooms
+            if current_percent <= 50:
+                step = 5  # 5% steps for 0-50%
+            elif current_percent <= 100:
+                step = 10  # 10% steps for 50-100%
+            elif current_percent <= 200:
+                step = 15  # 15% steps for 100-200%
+            else:
+                step = 25  # 25% steps for 200%+
+            
+            # Apply zoom step
+            if zoom_in:
+                new_percent = current_percent + step
+                new_percent = min(300, new_percent)  # Cap at 300%
+            else:
+                new_percent = current_percent - step
+                new_percent = max(10, new_percent)  # Min at 10%
+            
+            # Convert to zoom string
+            new_zoom = f"{new_percent}%"
+            
+            # Update zoom variable
+            if new_zoom != current_zoom:
+                self.layout.zoom_var.set(new_zoom)
+                
+                # Update the zoom slider position if it exists
+                if hasattr(self.layout, 'comparison_controller') and hasattr(self.layout.comparison_controller, 'zoom_slider_var'):
+                    # Convert zoom to slider position
+                    slider_pos = self.layout.comparison_controller._zoom_to_slider(new_zoom)
+                    self.layout.comparison_controller.zoom_slider_var.set(slider_pos)
+                    self.layout.comparison_controller.zoom_label.config(text=new_zoom)
+                
+                # Apply the zoom change
+                if hasattr(self.layout, 'comparison_controller'):
+                    self.layout.comparison_controller._apply_zoom_change(new_zoom)
+                else:
+                    self._refresh_both_images_with_zoom(new_zoom)
+                
+                logger.debug(f"Instant zoom: {current_zoom} -> {new_zoom} (centered on mouse)")
+                
+        except Exception as e:
+            logger.error(f"Error applying instant zoom: {e}")
     
     def _apply_debounced_zoom(self, source_panel):
-        """Apply the accumulated zoom changes after debounce delay"""
+        """Apply the accumulated zoom changes after debounce delay (legacy method)"""
         if self.pending_zoom_delta == 0:
             return
         
-        # Get image size information
-        orig_info = self.image_info.get('original', {})
-        result_info = self.image_info.get('result', {})
-        
-        orig_width = orig_info.get('width', 1)
-        result_width = result_info.get('width', 1)
-        
-        # Calculate size ratio (result/original)
-        size_ratio = result_width / orig_width if orig_width > 0 else 1.0
-        
-        # Get current zoom level
-        current_zoom = self.layout.zoom_var.get()
-        zoom_levels = ["25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"]
-        
-        try:
-            if current_zoom == "Fit":
-                current_index = 3  # 100%
-            else:
-                current_index = zoom_levels.index(current_zoom)
-        except ValueError:
-            current_index = 3
-        
-        # Calculate step size based on accumulated delta and image size ratio
-        base_step = 1 if abs(self.pending_zoom_delta) <= 2 else 2
-        
-        # Don't adjust step size for different image sizes - it makes it too jumpy
-        step_size = base_step
-        
-        # Calculate new index (cap the zoom step to prevent extreme jumps)
-        zoom_change = max(-2, min(2, self.pending_zoom_delta)) * step_size
-        new_index = current_index + zoom_change
-        new_index = max(0, min(new_index, len(zoom_levels) - 1))
-        
         # Reset pending delta
         self.pending_zoom_delta = 0
-        
-        # Apply the zoom
-        new_zoom = zoom_levels[new_index]
-        if new_zoom != current_zoom:
-            self.layout.zoom_var.set(new_zoom)
-            
-            # Trigger zoom change through comparison controller
-            if hasattr(self.layout, 'comparison_controller') and hasattr(self.layout.comparison_controller, '_on_zoom_changed'):
-                self.layout.comparison_controller._on_zoom_changed()
-            else:
-                # Fallback: manually refresh both images
-                self._refresh_both_images_with_zoom(new_zoom)
-            
-            logger.debug(f"Applied debounced zoom: {current_zoom} -> {new_zoom} (size_ratio: {size_ratio:.2f})")
     
     def _refresh_both_images_with_zoom(self, zoom_level):
         """Refresh both images with new zoom level"""

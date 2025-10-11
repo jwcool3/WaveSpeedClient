@@ -410,7 +410,8 @@ class ResultsDisplayManager:
                 "prompt": self._get_current_prompt(),
                 "result_url": result_url,
                 "result_path": saved_path,
-                "result_filename": Path(saved_path).name
+                "result_filename": Path(saved_path).name,
+                "tab_id": getattr(self.parent_layout.tab_instance, 'tab_id', '1') if hasattr(self.parent_layout, 'tab_instance') else '1'
             }
             
             # Add settings
@@ -427,15 +428,30 @@ class ResultsDisplayManager:
                 metadata["total_requests"] = len(self.completed_results) + 1  # +1 for current
             
             # Add input image info (path and filename)
-            if hasattr(self.parent_layout, 'selected_image_path') and self.parent_layout.selected_image_path:
+            input_path = None
+            
+            # Try to get from image_manager first (most reliable)
+            if (hasattr(self.parent_layout, 'image_manager') and 
+                hasattr(self.parent_layout.image_manager, 'selected_image_paths') and
+                self.parent_layout.image_manager.selected_image_paths):
+                input_path = self.parent_layout.image_manager.selected_image_paths[0]
+            # Fallback to selected_image_paths
+            elif hasattr(self.parent_layout, 'selected_image_paths') and self.parent_layout.selected_image_paths:
+                input_path = self.parent_layout.selected_image_paths[0]
+            # Fallback to selected_image_path (singular)
+            elif hasattr(self.parent_layout, 'selected_image_path') and self.parent_layout.selected_image_path:
                 input_path = self.parent_layout.selected_image_path
+            
+            if input_path:
                 metadata["input_image_path"] = input_path
                 metadata["input_image_filename"] = Path(input_path).name
                 # Keep old format for backward compatibility
                 metadata["input_images"] = [input_path]
+                logger.debug(f"Added input image to metadata: {Path(input_path).name}")
             else:
                 metadata["input_image_path"] = None
                 metadata["input_image_filename"] = None
+                logger.warning("No input image path found for metadata")
             
             return metadata
             

@@ -28,9 +28,10 @@ logger = get_logger()
 class SeedreamV4Tab(BaseTab):
     """Seedream V4 Multi-Modal Image Editor Tab - IMPROVED VERSION"""
     
-    def __init__(self, parent_frame, api_client, main_app=None):
+    def __init__(self, parent_frame, api_client, main_app=None, tab_id="1"):
         self.result_image = None
         self.main_app = main_app
+        self.tab_id = tab_id  # Unique identifier for this tab instance
         self.selected_image_path = None
         self.auto_resolution = True  # Auto-set resolution based on input image
         
