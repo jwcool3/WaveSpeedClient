@@ -41,8 +41,10 @@ class ActionsHandlerManager:
         # Processing state
         self.current_task_id = None
         self.active_tasks = {}  # Track multiple concurrent tasks
+        self.active_tasks_lock = threading.Lock()  # Thread-safe access
         self.completed_results = []  # Store all completed results
         self.generation_in_progress = False
+        self.active_timers = []  # Track polling timers for cleanup
         
         # Multi-request settings
         self.num_requests_var = tk.IntVar(value=1)
@@ -417,7 +419,9 @@ class ActionsHandlerManager:
                             'request_num': settings['request_num'],
                             'seed': settings['seed'],
                             'settings': settings,
-                            'status': 'submitted'
+                            'status': 'submitted',
+                            'start_time': time.time(),
+                            'retry_count': 0
                         })
                         
                         # Log successful submission
@@ -446,8 +450,9 @@ class ActionsHandlerManager:
                 )
                 return
             
-            # Store task information
-            self.active_tasks = {task['task_id']: task for task in submitted_tasks}
+            # Store task information (thread-safe)
+            with self.active_tasks_lock:
+                self.active_tasks = {task['task_id']: task for task in submitted_tasks}
             
             # Schedule multiple tasks submitted handler
             self.parent_layout.parent_frame.after(
@@ -550,9 +555,10 @@ class ActionsHandlerManager:
                 # Check for timeout
                 if time.time() - start_time > max_poll_time:
                     self._show_message(f"⏰ Request {request_num} timed out after 5 minutes")
-                    if task_id in self.active_tasks:
-                        self.active_tasks[task_id]['status'] = 'failed'
-                        self.active_tasks[task_id]['error'] = 'Timeout'
+                    with self.active_tasks_lock:
+                        if task_id in self.active_tasks:
+                            self.active_tasks[task_id]['status'] = 'failed'
+                            self.active_tasks[task_id]['error'] = 'Timeout'
                     self.check_all_tasks_completed()
                     return
                 
@@ -572,11 +578,12 @@ class ActionsHandlerManager:
                         # Get result URL
                         result_url = result.get('result_url') or result.get('output_url')
                         
-                        # Update task info
-                        if task_id in self.active_tasks:
-                            self.active_tasks[task_id]['status'] = 'completed'
-                            self.active_tasks[task_id]['result_url'] = result_url
-                            self.active_tasks[task_id]['result_data'] = result
+                        # Update task info (thread-safe)
+                        with self.active_tasks_lock:
+                            if task_id in self.active_tasks:
+                                self.active_tasks[task_id]['status'] = 'completed'
+                                self.active_tasks[task_id]['result_url'] = result_url
+                                self.active_tasks[task_id]['result_data'] = result
                         
                         # Check if all tasks are complete
                         self.check_all_tasks_completed()
@@ -586,10 +593,11 @@ class ActionsHandlerManager:
                         error_msg = result.get('error', 'Task failed')
                         self._show_message(f"❌ Request {request_num} failed: {error_msg}")
                         
-                        # Update task info
-                        if task_id in self.active_tasks:
-                            self.active_tasks[task_id]['status'] = 'failed'
-                            self.active_tasks[task_id]['error'] = error_msg
+                        # Update task info (thread-safe)
+                        with self.active_tasks_lock:
+                            if task_id in self.active_tasks:
+                                self.active_tasks[task_id]['status'] = 'failed'
+                                self.active_tasks[task_id]['error'] = error_msg
                         
                         # Check if all tasks are complete
                         self.check_all_tasks_completed()
@@ -602,10 +610,11 @@ class ActionsHandlerManager:
                     error_msg = result.get('error', 'Failed to get task status')
                     self._show_message(f"❌ Request {request_num} polling error: {error_msg}")
                     
-                    # Update task info
-                    if task_id in self.active_tasks:
-                        self.active_tasks[task_id]['status'] = 'failed'
-                        self.active_tasks[task_id]['error'] = error_msg
+                    # Update task info (thread-safe)
+                    with self.active_tasks_lock:
+                        if task_id in self.active_tasks:
+                            self.active_tasks[task_id]['status'] = 'failed'
+                            self.active_tasks[task_id]['error'] = error_msg
                     
                     # Check if all tasks are complete
                     self.check_all_tasks_completed()
@@ -613,10 +622,11 @@ class ActionsHandlerManager:
             except Exception as e:
                 logger.error(f"Error polling for request {request_num}: {e}")
                 
-                # Update task info
-                if task_id in self.active_tasks:
-                    self.active_tasks[task_id]['status'] = 'failed'
-                    self.active_tasks[task_id]['error'] = str(e)
+                # Update task info (thread-safe)
+                with self.active_tasks_lock:
+                    if task_id in self.active_tasks:
+                        self.active_tasks[task_id]['status'] = 'failed'
+                        self.active_tasks[task_id]['error'] = str(e)
                 
                 # Check if all tasks are complete
                 self.check_all_tasks_completed()
@@ -627,17 +637,19 @@ class ActionsHandlerManager:
     def check_all_tasks_completed(self) -> None:
         """Check if all active tasks have completed and handle results"""
         try:
-            # Count tasks by status
-            total_tasks = len(self.active_tasks)
-            completed_tasks = [t for t in self.active_tasks.values() if t['status'] == 'completed']
-            failed_tasks = [t for t in self.active_tasks.values() if t['status'] == 'failed']
-            pending_tasks = [t for t in self.active_tasks.values() if t['status'] == 'submitted']
+            # Count tasks by status (thread-safe)
+            with self.active_tasks_lock:
+                total_tasks = len(self.active_tasks)
+                completed_tasks = [t for t in self.active_tasks.values() if t['status'] == 'completed']
+                failed_tasks = [t for t in self.active_tasks.values() if t['status'] == 'failed']
+                pending_tasks = [t for t in self.active_tasks.values() if t['status'] == 'submitted']
             
             # Update status
             status_msg = f"{len(completed_tasks)}/{total_tasks} completed"
             if failed_tasks:
                 status_msg += f", {len(failed_tasks)} failed"
-            self.status_label.config(text=status_msg, foreground="blue")
+            if hasattr(self, 'status_label') and self.status_label:
+                self.status_label.config(text=status_msg, foreground="blue")
             
             # Check if all tasks are done
             if len(pending_tasks) == 0:
@@ -686,25 +698,74 @@ class ActionsHandlerManager:
             logger.error(f"Error handling multiple results ready: {e}")
     
     def handle_processing_error(self, error_message: str) -> None:
-        """Handle processing errors"""
+        """Handle processing errors with categorization"""
         try:
             self._stop_processing()
             
-            if self.on_processing_error_callback:
-                self.on_processing_error_callback(error_message)
+            # Categorize error for better handling
+            error_category = self._categorize_error(error_message)
+            
+            # Enhanced error message based on category
+            if error_category == "content_filter":
+                enhanced_msg = f"🚫 Content Filter: {error_message}\n\nTry rephrasing your prompt with less explicit language."
+            elif error_category == "api_error":
+                enhanced_msg = f"🔑 API Error: {error_message}\n\nCheck your API key and authentication."
+            elif error_category == "timeout":
+                enhanced_msg = f"⏰ Timeout: {error_message}\n\nThe request took too long. Try again."
+            elif error_category == "quota":
+                enhanced_msg = f"📊 Quota Exceeded: {error_message}\n\nYou've reached your API limit."
             else:
-                self._show_message(f"❌ Error: {error_message}")
-                messagebox.showerror("Processing Error", error_message)
+                enhanced_msg = error_message
+            
+            if self.on_processing_error_callback:
+                self.on_processing_error_callback(enhanced_msg)
+            else:
+                self._show_message(f"❌ {error_category.replace('_', ' ').title()}: {error_message}")
+                messagebox.showerror("Processing Error", enhanced_msg)
                 
         except Exception as e:
             logger.error(f"Error handling processing error: {e}")
+    
+    def _categorize_error(self, error_msg: str) -> str:
+        """Categorize error message for better handling"""
+        try:
+            error_lower = error_msg.lower()
+            
+            # Content filter errors
+            if any(keyword in error_lower for keyword in ['content policy', 'inappropriate', 'harmful', 'nsfw', 'explicit']):
+                return "content_filter"
+            
+            # API authentication errors
+            if any(keyword in error_lower for keyword in ['api key', 'authentication', 'unauthorized', 'forbidden', '401', '403']):
+                return "api_error"
+            
+            # Timeout errors
+            if any(keyword in error_lower for keyword in ['timeout', 'timed out', 'connection', 'network']):
+                return "timeout"
+            
+            # Quota/rate limit errors
+            if any(keyword in error_lower for keyword in ['quota', 'limit', 'rate limit', 'billing', '429', 'too many']):
+                return "quota"
+            
+            # Malformed prompt errors
+            if any(keyword in error_lower for keyword in ['invalid', 'malformed', 'bad request', '400']):
+                return "malformed_prompt"
+            
+            return "unknown"
+            
+        except Exception as e:
+            logger.error(f"Error categorizing error: {e}")
+            return "unknown"
     
     def cancel_processing(self) -> None:
         """Cancel current processing"""
         try:
             self.generation_in_progress = False
             self.current_task_id = None
-            self.active_tasks.clear()
+            
+            # Clear active tasks (thread-safe)
+            with self.active_tasks_lock:
+                self.active_tasks.clear()
             
             self._stop_processing()
             self._show_message("❌ Processing cancelled")
@@ -772,6 +833,15 @@ class ActionsHandlerManager:
         try:
             self.generation_in_progress = True
             
+            # Show progress overlay
+            if hasattr(self.parent_layout, 'show_progress'):
+                message = "Generating variations..." if multiple else "Processing image..."
+                self.parent_layout.show_progress(
+                    message=message,
+                    cancelable=True,
+                    cancel_callback=self.cancel_processing
+                )
+            
             # Update UI
             self.generate_btn.config(state='disabled')
             self.cancel_btn.config(state='normal')
@@ -791,6 +861,10 @@ class ActionsHandlerManager:
         """Stop processing state"""
         try:
             self.generation_in_progress = False
+            
+            # Hide progress overlay
+            if hasattr(self.parent_layout, 'hide_progress'):
+                self.parent_layout.hide_progress()
             
             # Update UI
             self.generate_btn.config(state='normal')
@@ -826,10 +900,13 @@ class ActionsHandlerManager:
     
     def get_processing_status(self) -> Dict[str, Any]:
         """Get current processing status"""
+        with self.active_tasks_lock:
+            active_tasks_count = len(self.active_tasks)
+        
         return {
             "generation_in_progress": self.generation_in_progress,
             "current_task_id": self.current_task_id,
-            "active_tasks_count": len(self.active_tasks),
+            "active_tasks_count": active_tasks_count,
             "num_requests": self.num_requests_var.get(),
             "completed_results_count": len(self.completed_results)
         }
@@ -842,18 +919,22 @@ class ActionsHandlerManager:
         """Get summary of all active tasks"""
         try:
             summary = {
-                "total": len(self.active_tasks),
+                "total": 0,
                 "by_status": {},
                 "tasks": []
             }
             
-            for task_id, task_info in self.active_tasks.items():
-                status = task_info.get('status', 'unknown')
-                summary["by_status"][status] = summary["by_status"].get(status, 0) + 1
+            # Access active_tasks safely
+            with self.active_tasks_lock:
+                summary["total"] = len(self.active_tasks)
                 
-                summary["tasks"].append({
-                    "task_id": task_id,
-                    "request_num": task_info.get('request_num'),
+                for task_id, task_info in self.active_tasks.items():
+                    status = task_info.get('status', 'unknown')
+                    summary["by_status"][status] = summary["by_status"].get(status, 0) + 1
+                    
+                    summary["tasks"].append({
+                        "task_id": task_id,
+                        "request_num": task_info.get('request_num'),
                     "status": status,
                     "seed": task_info.get('seed'),
                     "has_result": 'result_url' in task_info
@@ -870,7 +951,10 @@ class ActionsHandlerManager:
         try:
             self.generation_in_progress = False
             self.current_task_id = None
-            self.active_tasks.clear()
+            
+            # Clear state (thread-safe)
+            with self.active_tasks_lock:
+                self.active_tasks.clear()
             self.completed_results.clear()
             
             # Reset UI if available

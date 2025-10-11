@@ -106,8 +106,8 @@ class FilterTrainingManager:
                 self._show_tooltip("⏳ Generation already in progress...")
                 return
             
-            # Show loading state
-            self._show_tooltip("🔥 Generating mild examples...")
+            # Show progress
+            self._show_generation_progress("🔥 Generating mild examples...")
             self.generation_in_progress = True
             
             # Run generation in background thread
@@ -119,6 +119,7 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error generating mild examples: {e}")
             self._show_tooltip(f"❌ Error: {str(e)}")
+            self._hide_generation_progress()
             self.generation_in_progress = False
     
     def generate_moderate_examples(self) -> None:
@@ -132,8 +133,8 @@ class FilterTrainingManager:
                 self._show_tooltip("⏳ Generation already in progress...")
                 return
             
-            # Show loading state
-            self._show_tooltip("⚡ Generating sophisticated moderate examples...")
+            # Show progress
+            self._show_generation_progress("⚡ Generating sophisticated moderate examples...")
             self.generation_in_progress = True
             
             # Run generation in background thread
@@ -145,6 +146,7 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error generating moderate examples: {e}")
             self._show_tooltip(f"❌ Error: {str(e)}")
+            self._hide_generation_progress()
             self.generation_in_progress = False
     
     def _generate_mild_examples_thread(self) -> None:
@@ -167,14 +169,20 @@ class FilterTrainingManager:
             # Schedule UI update on main thread
             self.parent_layout.parent_frame.after(
                 0, 
-                lambda: self._display_mild_examples(mild_examples)
+                lambda: (
+                    self._hide_generation_progress(),
+                    self._display_mild_examples(mild_examples)
+                )
             )
             
         except Exception as e:
             logger.error(f"Error in mild examples thread: {e}")
             self.parent_layout.parent_frame.after(
                 0, 
-                lambda: self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                lambda: (
+                    self._hide_generation_progress(),
+                    self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                )
             )
         finally:
             self.generation_in_progress = False
@@ -199,14 +207,20 @@ class FilterTrainingManager:
             # Schedule UI update on main thread
             self.parent_layout.parent_frame.after(
                 0, 
-                lambda: self._display_moderate_examples(moderate_examples)
+                lambda: (
+                    self._hide_generation_progress(),
+                    self._display_moderate_examples(moderate_examples)
+                )
             )
             
         except Exception as e:
             logger.error(f"Error in moderate examples thread: {e}")
             self.parent_layout.parent_frame.after(
                 0, 
-                lambda: self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                lambda: (
+                    self._hide_generation_progress(),
+                    self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                )
             )
         finally:
             self.generation_in_progress = False
@@ -330,19 +344,19 @@ class FilterTrainingManager:
             return "person", "outfit"
     
     def _display_mild_examples(self, examples: List[str]) -> None:
-        """Display generated mild examples in a popup window"""
+        """Display generated mild examples with 'Generate More' functionality"""
         try:
             # Create popup window
             popup = tk.Toplevel(self.parent_layout.parent_frame)
             popup.title("🔥 Filter Training - Mild Examples")
-            popup.geometry("700x500")
+            popup.geometry("700x600")
             popup.resizable(True, True)
             
             # Main frame
             main_frame = ttk.Frame(popup)
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
             
-            # Title
+            # Title (will be updated as more examples are added)
             title_label = ttk.Label(
                 main_frame, 
                 text=f"🔥 Filter Training - {len(examples)} Mild Examples", 
@@ -353,7 +367,7 @@ class FilterTrainingManager:
             # Subtitle
             subtitle_label = ttk.Label(
                 main_frame, 
-                text="Generated using comprehensive vocabulary bank and varied terminology", 
+                text="Click 'Generate More' to add 6 more examples from different categories", 
                 font=("Arial", 9), 
                 foreground="gray"
             )
@@ -375,55 +389,109 @@ class FilterTrainingManager:
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
             
-            # Add examples to scrollable frame
-            for i, example in enumerate(examples, 1):
-                # Parse category label if present
-                category_match = re.match(r'^\[([^\]]+)\]\s*\n(.+)', example, re.DOTALL)
-                if category_match:
-                    category = category_match.group(1)
-                    prompt_text = category_match.group(2).strip()
-                else:
-                    category = None
-                    prompt_text = example.strip()
-                
-                # Example frame
-                example_frame = ttk.LabelFrame(
-                    scrollable_frame, 
-                    text=f"Example {i}" + (f" - {category}" if category else ""),
-                    padding="10"
-                )
-                example_frame.pack(fill="x", pady=(0, 5), padx=5)
-                
-                # Example text
-                example_text = tk.Text(
-                    example_frame,
-                    height=3,
-                    wrap=tk.WORD,
-                    font=('Arial', 10),
-                    relief='solid',
-                    borderwidth=1,
-                    bg='#f8f9fa'
-                )
-                example_text.pack(fill="x", pady=(0, 5))
-                example_text.insert("1.0", prompt_text)
-                example_text.config(state="readonly")
-                
-                # Copy button
-                copy_btn = ttk.Button(
-                    example_frame,
-                    text="📋 Copy",
-                    command=lambda text=prompt_text: self._copy_to_clipboard(text)
-                )
-                copy_btn.pack(anchor="e", pady=(5, 0))
+            # Store state for Generate More functionality
+            popup_state = {
+                'examples_list': list(examples),
+                'used_categories': set(),
+                'scrollable_frame': scrollable_frame,
+                'title_label': title_label,
+                'popup': popup,
+                'canvas': canvas
+            }
+            
+            # Helper function to add examples to display
+            def add_examples_to_display(examples_to_add, starting_index=1):
+                for i, example in enumerate(examples_to_add, starting_index):
+                    # Parse category label if present
+                    category_match = re.match(r'^\[([^\]]+)\]\s*\n(.+)', example, re.DOTALL)
+                    if category_match:
+                        category = category_match.group(1).strip()
+                        prompt_text = category_match.group(2).strip()
+                        frame_title = f"Example {i}: {category}"
+                        popup_state['used_categories'].add(category)
+                    else:
+                        category = None
+                        prompt_text = example.strip()
+                        frame_title = f"Example {i}"
+                    
+                    # Example frame with category in title
+                    example_frame = ttk.LabelFrame(
+                        scrollable_frame, 
+                        text=frame_title,
+                        padding="10"
+                    )
+                    example_frame.pack(fill="x", pady=(0, 5), padx=5)
+                    
+                    # Example text (selectable)
+                    example_text = tk.Text(
+                        example_frame,
+                        height=3,
+                        wrap=tk.WORD,
+                        font=('Arial', 10),
+                        relief='solid',
+                        borderwidth=1,
+                        bg='#f8f9fa'
+                    )
+                    example_text.pack(fill="x", pady=(0, 5))
+                    example_text.insert("1.0", prompt_text)
+                    example_text.configure(state='normal')  # Allow selection
+                    
+                    # Copy button
+                    copy_btn = ttk.Button(
+                        example_frame,
+                        text="📋 Copy",
+                        command=lambda text=prompt_text: self._copy_to_clipboard(text)
+                    )
+                    copy_btn.pack(anchor="e", pady=(5, 0))
+            
+            # Add initial examples
+            add_examples_to_display(examples)
+            
+            # Generate More button handler
+            def generate_more_examples():
+                try:
+                    generate_more_btn.config(state='disabled', text="🔄 Generating...")
+                    popup.update()
+                    
+                    # Generate 6 more in background thread
+                    threading.Thread(
+                        target=lambda: self._generate_more_mild_examples(popup_state, add_examples_to_display, generate_more_btn),
+                        daemon=True
+                    ).start()
+                    
+                except Exception as e:
+                    logger.error(f"Error in generate more: {e}")
+                    generate_more_btn.config(state='normal', text="🔥 Generate More")
+                    self._show_tooltip(f"❌ Error: {str(e)}")
             
             # Bind mousewheel
             def on_mousewheel(event):
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
+            # Bottom buttons frame
+            bottom_frame = ttk.Frame(popup)
+            bottom_frame.pack(fill="x", padx=10, pady=(5, 10))
+            
+            # Generate More button
+            generate_more_btn = ttk.Button(
+                bottom_frame, 
+                text="🔥 Generate More (6)",
+                command=generate_more_examples
+            )
+            generate_more_btn.pack(side="left", padx=(0, 5))
+            
+            # Export button
+            export_btn = ttk.Button(
+                bottom_frame,
+                text="💾 Export All",
+                command=lambda: self._export_examples(popup_state['examples_list'], "mild")
+            )
+            export_btn.pack(side="left")
+            
             # Close button
-            close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
-            close_btn.pack(pady=5)
+            close_btn = ttk.Button(bottom_frame, text="Close", command=popup.destroy)
+            close_btn.pack(side="right")
             
             # Focus on popup
             popup.focus_set()
@@ -432,6 +500,67 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error displaying mild examples: {e}")
             self._show_tooltip(f"❌ Error: {str(e)}")
+    
+    def _generate_more_mild_examples(self, popup_state, add_examples_callback, button) -> None:
+        """Generate 6 more mild examples in background thread"""
+        try:
+            # Generate 6 more examples
+            new_examples = []
+            
+            if self.ai_available:
+                new_examples = self._generate_mild_with_ai()
+            
+            if not new_examples and self.vocab_available:
+                new_examples = self._generate_mild_with_vocab()
+            
+            if not new_examples:
+                new_examples = self.fallback_mild_examples[:6]
+            
+            # Limit to 6
+            new_examples = new_examples[:6]
+            
+            # Update UI on main thread
+            def update_display():
+                try:
+                    # Get current count
+                    current_count = len(popup_state['examples_list'])
+                    
+                    # Add new examples to list
+                    popup_state['examples_list'].extend(new_examples)
+                    
+                    # Add to display starting from current count + 1
+                    add_examples_callback(new_examples, starting_index=current_count + 1)
+                    
+                    # Update title
+                    new_count = len(popup_state['examples_list'])
+                    popup_state['title_label'].config(text=f"🔥 Filter Training - {new_count} Mild Examples")
+                    
+                    # Scroll to bottom to show new examples
+                    popup_state['canvas'].yview_moveto(1.0)
+                    
+                    # Re-enable button
+                    button.config(state='normal', text="🔥 Generate More (6)")
+                    
+                    # Show success message
+                    self._show_tooltip(f"✅ Added {len(new_examples)} more examples!")
+                    
+                except Exception as e:
+                    logger.error(f"Error updating display: {e}")
+                    button.config(state='normal', text="🔥 Generate More (6)")
+                    self._show_tooltip(f"❌ Error: {str(e)}")
+            
+            # Schedule UI update
+            self.parent_layout.parent_frame.after(0, update_display)
+            
+        except Exception as e:
+            logger.error(f"Error generating more mild examples: {e}")
+            self.parent_layout.parent_frame.after(
+                0,
+                lambda: (
+                    button.config(state='normal', text="🔥 Generate More (6)"),
+                    self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                )
+            )
     
     def _display_moderate_examples(self, examples: List[str]) -> None:
         """Display generated moderate examples in a popup window"""
@@ -708,6 +837,42 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error showing tooltip: {e}")
     
+    def _show_generation_progress(self, message: str) -> None:
+        """Show progress bar during generation"""
+        try:
+            # Try to use actions_manager progress bar
+            if hasattr(self.parent_layout, 'actions_manager'):
+                actions_mgr = self.parent_layout.actions_manager
+                if hasattr(actions_mgr, 'progress_bar') and actions_mgr.progress_bar:
+                    actions_mgr.progress_bar.grid(row=1, column=0, sticky="ew", pady=(4, 0))
+                    actions_mgr.progress_bar.start(10)
+                if hasattr(actions_mgr, 'status_label') and actions_mgr.status_label:
+                    actions_mgr.status_label.config(text=message)
+            
+            # Also log message
+            self._show_tooltip(message)
+            logger.info(f"Progress: {message}")
+            
+        except Exception as e:
+            logger.error(f"Error showing generation progress: {e}")
+    
+    def _hide_generation_progress(self) -> None:
+        """Hide progress bar after generation"""
+        try:
+            # Try to use actions_manager progress bar
+            if hasattr(self.parent_layout, 'actions_manager'):
+                actions_mgr = self.parent_layout.actions_manager
+                if hasattr(actions_mgr, 'progress_bar') and actions_mgr.progress_bar:
+                    actions_mgr.progress_bar.stop()
+                    actions_mgr.progress_bar.grid_remove()
+                if hasattr(actions_mgr, 'status_label') and actions_mgr.status_label:
+                    actions_mgr.status_label.config(text="Ready")
+            
+            logger.debug("Progress hidden")
+            
+        except Exception as e:
+            logger.error(f"Error hiding generation progress: {e}")
+    
     def get_filter_training_status(self) -> Dict[str, Any]:
         """Get current filter training status"""
         return {
@@ -728,8 +893,8 @@ class FilterTrainingManager:
                 self._show_tooltip("⏳ Generation already in progress...")
                 return
             
-            # Show loading state
-            self._show_tooltip("👙 Generating outfit transformations...")
+            # Show progress
+            self._show_generation_progress("👙 Generating outfit transformations...")
             self.generation_in_progress = True
             
             # Run generation in background thread
@@ -741,6 +906,7 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error generating undress transformations: {e}")
             self._show_tooltip(f"❌ Error: {str(e)}")
+            self._hide_generation_progress()
             self.generation_in_progress = False
     
     def _generate_undress_transformations_thread(self) -> None:
@@ -754,7 +920,10 @@ class FilterTrainingManager:
                 ]
                 self.parent_layout.parent_frame.after(
                     0,
-                    lambda: self._display_undress_transformations(fallback_transformations)
+                    lambda: (
+                        self._hide_generation_progress(),
+                        self._display_undress_transformations(fallback_transformations)
+                    )
                 )
                 return
             
@@ -803,14 +972,20 @@ class FilterTrainingManager:
             # Show results in UI thread
             self.parent_layout.parent_frame.after(
                 0,
-                lambda: self._display_undress_transformations(transformations)
+                lambda: (
+                    self._hide_generation_progress(),
+                    self._display_undress_transformations(transformations)
+                )
             )
             
         except Exception as e:
             logger.error(f"Error in undress transformations thread: {e}")
             self.parent_layout.parent_frame.after(
                 0,
-                lambda: self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                lambda: (
+                    self._hide_generation_progress(),
+                    self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                )
             )
         finally:
             self.generation_in_progress = False
@@ -861,15 +1036,19 @@ class FilterTrainingManager:
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
             
-            # Define transformation types
-            transformation_types = ["Bikini", "Lingerie", "Nude", "Bikini (Full Body)", "Lingerie (Full Body)", "Nude (Full Body)"]
+            # Define transformation types with icons
+            transformation_types = ["BIKINI", "LINGERIE", "NUDE", "BIKINI (FULL BODY)", "LINGERIE (FULL BODY)", "NUDE (FULL BODY)"]
+            transformation_icons = ["👙", "💄", "🔞", "👙📏", "💄📏", "🔞📏"]
             
             # Add transformations to scrollable frame
-            for i, (transformation, type_name) in enumerate(zip(transformations, transformation_types), 1):
-                # Transformation frame
+            for i, transformation in enumerate(transformations[:6], 1):  # Ensure max 6
+                type_name = transformation_types[i-1] if i-1 < len(transformation_types) else f"Transform {i}"
+                icon = transformation_icons[i-1] if i-1 < len(transformation_icons) else "🔄"
+                
+                # Transformation frame with icon
                 transform_frame = ttk.LabelFrame(
                     scrollable_frame,
-                    text=f"Transformation {i}: {type_name}",
+                    text=f"{icon} {type_name}",
                     padding="10"
                 )
                 transform_frame.pack(fill="x", pady=(0, 8), padx=5)
@@ -886,7 +1065,7 @@ class FilterTrainingManager:
                 )
                 transform_text.pack(fill="x", pady=(0, 5))
                 transform_text.insert("1.0", transformation.strip())
-                transform_text.config(state="readonly")
+                transform_text.config(state="normal")  # Allow text selection
                 
                 # Action buttons
                 buttons_frame = ttk.Frame(transform_frame)
@@ -927,16 +1106,19 @@ class FilterTrainingManager:
     def _use_prompt(self, prompt: str, popup: tk.Toplevel) -> None:
         """Use a prompt by inserting it into the prompt text"""
         try:
-            if hasattr(self.parent_layout, 'prompt_text'):
-                # Insert into prompt field
+            # Use prompt_manager API for proper handling
+            if hasattr(self.parent_layout, 'prompt_manager'):
+                self.parent_layout.prompt_manager.set_prompt_text(prompt)
+                self._show_tooltip("✅ Prompt inserted")
+                popup.destroy()
+            elif hasattr(self.parent_layout, 'prompt_text'):
+                # Fallback: direct access
                 self.parent_layout.prompt_text.delete("1.0", tk.END)
                 self.parent_layout.prompt_text.insert("1.0", prompt)
                 
-                # Clear placeholder state if present
                 if hasattr(self.parent_layout, 'prompt_has_placeholder'):
                     self.parent_layout.prompt_has_placeholder = False
                 
-                # Update character counter if method exists
                 if hasattr(self.parent_layout, '_on_prompt_text_changed'):
                     self.parent_layout._on_prompt_text_changed()
                 

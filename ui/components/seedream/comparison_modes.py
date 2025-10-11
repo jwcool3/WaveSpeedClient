@@ -100,6 +100,45 @@ class ComparisonController:
             command=lambda: self.set_mode("result_only")
         ).pack(side=tk.LEFT, padx=2)
         
+        # Sync controls frame (Sync Zoom and Sync Drag)
+        sync_frame = ttk.Frame(controls_frame)
+        sync_frame.pack(side=tk.LEFT, padx=(20, 0))
+        
+        # Sync zoom toggle
+        sync_zoom_check = ttk.Checkbutton(
+            sync_frame,
+            text="🔗 Sync Zoom",
+            variable=self.layout.sync_zoom_var,
+            command=self._on_sync_zoom_changed
+        )
+        sync_zoom_check.pack(side=tk.LEFT, padx=(0, 8))
+        
+        # Sync drag toggle
+        sync_drag_check = ttk.Checkbutton(
+            sync_frame,
+            text="🔗 Sync Drag",
+            variable=self.layout.sync_drag_var,
+            command=self._on_sync_drag_changed
+        )
+        sync_drag_check.pack(side=tk.LEFT)
+        
+        # Zoom level dropdown
+        zoom_frame = ttk.Frame(controls_frame)
+        zoom_frame.pack(side=tk.LEFT, padx=(20, 0))
+        
+        ttk.Label(zoom_frame, text="Zoom:", font=('Arial', 9)).pack(side=tk.LEFT, padx=(0, 5))
+        
+        zoom_combo = ttk.Combobox(
+            zoom_frame,
+            textvariable=self.layout.zoom_var,
+            values=["Fit", "50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"],
+            state="readonly",
+            width=8,
+            font=('Arial', 9)
+        )
+        zoom_combo.pack(side=tk.LEFT)
+        zoom_combo.bind('<<ComboboxSelected>>', self._on_zoom_changed)
+        
         # Opacity control (only visible in overlay mode)
         self.opacity_frame = ttk.Frame(controls_frame)
         self.opacity_frame.pack(side=tk.LEFT, padx=(20, 0))
@@ -251,6 +290,54 @@ class ComparisonController:
     def get_opacity(self) -> float:
         """Get current overlay opacity"""
         return self.overlay_opacity
+    
+    def _on_sync_zoom_changed(self):
+        """Handle sync zoom checkbox change"""
+        is_synced = self.layout.sync_zoom_var.get()
+        logger.info(f"Sync zoom {'enabled' if is_synced else 'disabled'}")
+        
+        # Update enhanced sync manager if available
+        if hasattr(self.layout, 'enhanced_sync_manager'):
+            self.layout.enhanced_sync_manager.set_sync_zoom(is_synced)
+    
+    def _on_sync_drag_changed(self):
+        """Handle sync drag checkbox change"""
+        is_synced = self.layout.sync_drag_var.get()
+        logger.info(f"Sync drag {'enabled' if is_synced else 'disabled'}")
+        
+        # Update enhanced sync manager if available
+        if hasattr(self.layout, 'enhanced_sync_manager'):
+            self.layout.enhanced_sync_manager.set_sync_drag(is_synced)
+    
+    def _on_zoom_changed(self, event=None):
+        """Handle zoom dropdown change"""
+        zoom_level = self.layout.zoom_var.get()
+        logger.info(f"Zoom changed to: {zoom_level}")
+        
+        # Apply zoom to both canvases via image manager
+        if hasattr(self.layout, 'image_manager'):
+            try:
+                # Refresh display with new zoom level
+                if hasattr(self.layout.image_manager, 'selected_image_paths'):
+                    paths = self.layout.image_manager.selected_image_paths
+                    if paths and len(paths) > 0:
+                        self.layout.image_manager.display_image_in_panel(
+                            paths[0], 
+                            'original',
+                            self.layout.original_canvas,
+                            self.layout.zoom_var
+                        )
+                
+                # Refresh result if available
+                if hasattr(self.layout, 'result_image_path') and self.layout.result_image_path:
+                    self.layout.image_manager.display_image_in_panel(
+                        self.layout.result_image_path,
+                        'result',
+                        self.layout.result_canvas,
+                        self.layout.zoom_var
+                    )
+            except Exception as e:
+                logger.error(f"Error applying zoom change: {e}")
 
 
 # Export

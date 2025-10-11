@@ -15,10 +15,15 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import json
 import os
+import threading
 from typing import Optional, Dict, Any, Tuple, Callable
+from PIL import Image  # Import at module level for efficiency
 from core.logger import get_logger
 
 logger = get_logger()
+
+# File lock for settings save/load
+_settings_file_lock = threading.Lock()
 
 
 class SettingsPanelManager:
@@ -67,6 +72,10 @@ class SettingsPanelManager:
         
         # Settings persistence
         self.settings_file = "data/seedream_settings.json"
+        self._save_timer = None  # Debounce timer for auto-save
+        
+        # Entry change debouncing
+        self._entry_update_id = None  # Debounce timer for entry changes
         
         # Validation callbacks
         self.validation_callbacks = []
@@ -302,13 +311,23 @@ class SettingsPanelManager:
             if changed_dimension == 'width':
                 # Width changed, adjust height
                 new_height = int(new_value / self.locked_aspect_ratio)
-                new_height = max(256, min(4096, new_height))  # Clamp to valid range
-                self.height_var.set(new_height)
+                clamped_height = max(256, min(4096, new_height))  # Clamp to valid range
+                self.height_var.set(clamped_height)
+                
+                # Update locked ratio if clamping occurred
+                if clamped_height != new_height:
+                    self.locked_aspect_ratio = new_value / clamped_height
+                    logger.debug(f"Aspect ratio updated due to clamping: {self.locked_aspect_ratio:.4f}")
             else:
                 # Height changed, adjust width
                 new_width = int(new_value * self.locked_aspect_ratio)
-                new_width = max(256, min(4096, new_width))  # Clamp to valid range
-                self.width_var.set(new_width)
+                clamped_width = max(256, min(4096, new_width))  # Clamp to valid range
+                self.width_var.set(clamped_width)
+                
+                # Update locked ratio if clamping occurred
+                if clamped_width != new_width:
+                    self.locked_aspect_ratio = clamped_width / new_value
+                    logger.debug(f"Aspect ratio updated due to clamping: {self.locked_aspect_ratio:.4f}")
                 
         finally:
             self._updating_size = False
@@ -317,33 +336,51 @@ class SettingsPanelManager:
         """Validate width entry field"""
         try:
             value = self.width_entry.get()
-            if value:
-                width = int(value)
-                if 256 <= width <= 4096:
-                    self.width_var.set(width)
-                    self._handle_aspect_lock_change('width', width)
-                else:
-                    messagebox.showerror("Invalid Width", "Width must be between 256 and 4096")
-                    self.width_var.set(max(256, min(4096, width)))
+            if not value:  # Empty field - show validation error
+                logger.warning("Width entry is empty")
+                return
+            
+            width = int(value)
+            if 256 <= width <= 4096:
+                self.width_var.set(width)
+                self._handle_aspect_lock_change('width', width)
+            else:
+                # Out of range - clamp silently and log
+                clamped_width = max(256, min(4096, width))
+                logger.warning(f"Width {width} out of range, clamped to {clamped_width}")
+                self.width_var.set(clamped_width)
+                self.width_entry.delete(0, tk.END)
+                self.width_entry.insert(0, str(clamped_width))
         except ValueError:
-            messagebox.showerror("Invalid Width", "Width must be a valid number")
-            self.width_var.set(1024)  # Reset to default
+            logger.error(f"Invalid width value: {value}")
+            # Reset to current var value
+            self.width_entry.delete(0, tk.END)
+            self.width_entry.insert(0, str(self.width_var.get()))
     
     def _validate_height_entry(self, event=None) -> None:
         """Validate height entry field"""
         try:
             value = self.height_entry.get()
-            if value:
-                height = int(value)
-                if 256 <= height <= 4096:
-                    self.height_var.set(height)
-                    self._handle_aspect_lock_change('height', height)
-                else:
-                    messagebox.showerror("Invalid Height", "Height must be between 256 and 4096")
-                    self.height_var.set(max(256, min(4096, height)))
+            if not value:  # Empty field - show validation error
+                logger.warning("Height entry is empty")
+                return
+            
+            height = int(value)
+            if 256 <= height <= 4096:
+                self.height_var.set(height)
+                self._handle_aspect_lock_change('height', height)
+            else:
+                # Out of range - clamp silently and log
+                clamped_height = max(256, min(4096, height))
+                logger.warning(f"Height {height} out of range, clamped to {clamped_height}")
+                self.height_var.set(clamped_height)
+                self.height_entry.delete(0, tk.END)
+                self.height_entry.insert(0, str(clamped_height))
         except ValueError:
-            messagebox.showerror("Invalid Height", "Height must be a valid number")
-            self.height_var.set(1024)  # Reset to default
+            logger.error(f"Invalid height value: {value}")
+            # Reset to current var value
+            self.height_entry.delete(0, tk.END)
+            self.height_entry.insert(0, str(self.height_var.get()))
     
     def _on_seed_changed(self, *args) -> None:
         """Handle seed value changes"""
@@ -363,23 +400,35 @@ class SettingsPanelManager:
             logger.error(f"Error handling seed change: {e}")
     
     def _on_setting_changed(self) -> None:
-        """Called when any setting changes"""
+        """Called when any setting changes - debounced to prevent excessive file I/O"""
         try:
-            # Run validation callbacks
+            # Run validation callbacks immediately
             for callback in self.validation_callbacks:
                 try:
                     callback()
                 except Exception as e:
                     logger.error(f"Error in validation callback: {e}")
             
-            # Auto-save settings
-            self.save_settings()
+            # Cancel previous save timer
+            if self._save_timer is not None:
+                try:
+                    self.parent_frame.after_cancel(self._save_timer)
+                except:
+                    pass
             
-            # Log the change
-            logger.debug(f"Settings changed: {self.get_current_settings()}")
+            # Schedule save after 500ms of no changes (debounce)
+            self._save_timer = self.parent_frame.after(500, self._do_auto_save)
             
         except Exception as e:
             logger.error(f"Error handling setting change: {e}")
+    
+    def _do_auto_save(self) -> None:
+        """Actually save settings (called after debounce delay)"""
+        try:
+            self.save_settings()
+            logger.debug(f"Settings auto-saved: {self.get_current_settings()}")
+        except Exception as e:
+            logger.error(f"Error auto-saving settings: {e}")
     
     def toggle_aspect_lock(self) -> None:
         """Toggle aspect ratio lock"""
@@ -497,11 +546,22 @@ class SettingsPanelManager:
     def auto_set_resolution(self) -> None:
         """Auto-set resolution based on loaded image"""
         try:
-            if hasattr(self.parent_layout, 'selected_image_path') and self.parent_layout.selected_image_path:
-                # Try to get image dimensions
-                from PIL import Image
+            # Get image path from refactored image_manager
+            image_path = None
+            if hasattr(self.parent_layout, 'image_manager'):
+                if hasattr(self.parent_layout.image_manager, 'selected_image_paths'):
+                    paths = self.parent_layout.image_manager.selected_image_paths
+                    if paths and len(paths) > 0:
+                        image_path = paths[0]  # Use first image
+            
+            # Fallback: Check old attribute name for backward compatibility
+            if not image_path and hasattr(self.parent_layout, 'selected_image_path'):
+                image_path = self.parent_layout.selected_image_path
+            
+            if image_path:
+                # Try to get image dimensions (PIL imported at module level)
                 try:
-                    with Image.open(self.parent_layout.selected_image_path) as img:
+                    with Image.open(image_path) as img:
                         self.original_image_width, self.original_image_height = img.size
                         
                         # Set resolution to image size (clamped to valid range)
@@ -626,13 +686,15 @@ class SettingsPanelManager:
             return False, f"Validation error: {str(e)}"
     
     def save_settings(self) -> None:
-        """Save current settings to file"""
+        """Save current settings to file (thread-safe)"""
         try:
             settings = self.get_current_settings()
             os.makedirs(os.path.dirname(self.settings_file), exist_ok=True)
             
-            with open(self.settings_file, 'w') as f:
-                json.dump(settings, f, indent=2)
+            # Thread-safe file write
+            with _settings_file_lock:
+                with open(self.settings_file, 'w') as f:
+                    json.dump(settings, f, indent=2)
                 
             logger.debug(f"Settings saved to {self.settings_file}")
             
@@ -640,24 +702,80 @@ class SettingsPanelManager:
             logger.error(f"Error saving settings: {e}")
     
     def load_settings(self) -> None:
-        """Load settings from file"""
+        """Load settings from file with validation"""
         try:
             if os.path.exists(self.settings_file):
-                with open(self.settings_file, 'r') as f:
-                    settings = json.load(f)
+                # Thread-safe file read
+                with _settings_file_lock:
+                    with open(self.settings_file, 'r') as f:
+                        settings = json.load(f)
                 
-                self.apply_settings(settings)
-                logger.debug(f"Settings loaded from {self.settings_file}")
+                # Validate loaded settings
+                if self._validate_loaded_settings(settings):
+                    self.apply_settings(settings)
+                    logger.debug(f"Settings loaded from {self.settings_file}")
+                else:
+                    logger.warning("Invalid saved settings, using defaults")
             else:
                 logger.debug("No saved settings file found, using defaults")
                 
+        except json.JSONDecodeError as e:
+            logger.error(f"Corrupted settings file: {e}, using defaults")
         except Exception as e:
-            logger.error(f"Error loading settings: {e}")
+            logger.error(f"Error loading settings: {e}, using defaults")
+    
+    def _validate_loaded_settings(self, settings: Dict[str, Any]) -> bool:
+        """Validate settings loaded from file"""
+        try:
+            # Check required keys
+            if not isinstance(settings, dict):
+                return False
+            
+            # Validate width/height ranges
+            width = settings.get('width', 1024)
+            height = settings.get('height', 1024)
+            if not (256 <= width <= 4096 and 256 <= height <= 4096):
+                return False
+            
+            # Validate seed range
+            seed_str = settings.get('seed', '-1')
+            if seed_str != '-1':
+                try:
+                    seed_int = int(seed_str)
+                    if seed_int < 0 or seed_int > 2147483647:
+                        return False
+                except ValueError:
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error validating loaded settings: {e}")
+            return False
     
     def add_validation_callback(self, callback: Callable) -> None:
         """Add a validation callback that's called when settings change"""
         if callback not in self.validation_callbacks:
             self.validation_callbacks.append(callback)
+    
+    def cleanup(self) -> None:
+        """Cleanup resources and callbacks"""
+        try:
+            # Cancel any pending save timer
+            if self._save_timer is not None:
+                try:
+                    self.parent_frame.after_cancel(self._save_timer)
+                except:
+                    pass
+                self._save_timer = None
+            
+            # Clear callbacks to prevent memory leaks
+            self.validation_callbacks.clear()
+            
+            logger.debug("SettingsPanelManager cleanup completed")
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
     
     def remove_validation_callback(self, callback: Callable) -> None:
         """Remove a validation callback"""
@@ -694,7 +812,7 @@ class SettingsPanelManager:
     
     def validate_integer(self, value: str) -> bool:
         """
-        Validate that the input is a positive integer within valid range.
+        Validate that the input is a positive integer within valid range (256-4096).
         
         Args:
             value: String value to validate
@@ -707,7 +825,7 @@ class SettingsPanelManager:
         
         try:
             int_value = int(value)
-            return 0 < int_value <= 4096
+            return 256 <= int_value <= 4096  # Fixed: Match entry validation range
         except ValueError:
             return False
     

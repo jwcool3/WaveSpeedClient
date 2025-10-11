@@ -474,6 +474,11 @@ class ImageSectionManager:
         self.photo_cache = {}
         self.max_cache_size = 10
         
+        # Canvas resize debouncing
+        self.resize_timer = None
+        self.resize_delay = 750  # ms delay for debouncing canvas resize
+        self._last_canvas_size = {"original": (0, 0), "result": (0, 0)}
+        
         # Image paths (support for multiple images)
         self.selected_image_paths = []
         self.result_image_path = None
@@ -576,25 +581,41 @@ class ImageSectionManager:
             image_paths: List of paths to image files
         """
         try:
-            self.selected_image_paths = list(image_paths)
-            
-            if not self.selected_image_paths:
+            # Safety check: Ensure we have valid input
+            if not image_paths:
+                logger.warning("load_images called with empty image_paths")
                 return
+            
+            self.selected_image_paths = list(image_paths)
             
             # Use the first image for display and scale calculations
             first_image_path = self.selected_image_paths[0]
             logger.debug(f"Loading first image: {first_image_path}")
-            self.load_image(first_image_path)
             
-            # Update the image count display
+            # Load the first image
+            success = self.load_image(first_image_path)
+            if not success:
+                logger.warning(f"Failed to load first image: {first_image_path}")
+            
+            # Update the image count display (with defensive checks)
             logger.debug("Updating image count display...")
-            self.update_image_count_display()
+            try:
+                self.update_image_count_display()
+            except Exception as display_error:
+                logger.error(f"Error updating image count display: {display_error}", exc_info=True)
+                # Continue - this is not critical
             
             logger.info(f"Loaded {len(self.selected_image_paths)} images")
             
         except Exception as e:
             logger.error(f"Error in load_images: {e}", exc_info=True)
-            raise
+            # Don't re-raise - allow partial success
+            # Show error message to user if possible
+            if hasattr(self, 'layout') and hasattr(self.layout, 'log_message'):
+                try:
+                    self.layout.log_message(f"⚠️ Error loading images: {str(e)}")
+                except:
+                    pass
     
     def load_image(self, image_path: str) -> bool:
         """
@@ -665,8 +686,14 @@ class ImageSectionManager:
     def update_image_count_display(self) -> None:
         """Update the display to show number of selected images."""
         try:
-            if not self.image_name_label:
-                logger.debug("image_name_label is None, skipping update")
+            # Safety check: If UI widgets aren't set up yet, skip silently
+            if self.image_name_label is None:
+                logger.debug("image_name_label is None, UI not ready - skipping update")
+                return
+            
+            # Verify widget is still valid
+            if not hasattr(self.image_name_label, 'config'):
+                logger.warning(f"image_name_label has no config method: {self.image_name_label}")
                 return
             
             count = len(self.selected_image_paths)
@@ -1041,6 +1068,59 @@ class ImageSectionManager:
         self.image_cache.clear()
         self.photo_cache.clear()
         logger.info("Image caches cleared")
+    
+    def on_canvas_configure_debounced(self, event, panel_type):
+        """Debounced canvas resize handler to prevent performance issues"""
+        try:
+            # Get canvas size
+            new_size = (event.width, event.height)
+            
+            # Check if size actually changed
+            if self._last_canvas_size.get(panel_type) == new_size:
+                return
+            
+            # Cancel existing timer
+            if self.resize_timer:
+                try:
+                    self.layout.parent_frame.after_cancel(self.resize_timer)
+                except:
+                    pass
+            
+            # Set new timer to apply resize after delay
+            self.resize_timer = self.layout.parent_frame.after(
+                self.resize_delay,
+                lambda: self._apply_canvas_resize(event, panel_type, new_size)
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in debounced canvas configure: {e}")
+    
+    def _apply_canvas_resize(self, event, panel_type, new_size):
+        """Apply canvas resize after debounce delay"""
+        try:
+            # Update last size
+            self._last_canvas_size[panel_type] = new_size
+            
+            # Redraw image if present
+            if panel_type == "original" and self.selected_image_paths:
+                self.display_image_in_panel(
+                    self.selected_image_paths[0],
+                    "original",
+                    self.layout.original_canvas,
+                    self.layout.zoom_var
+                )
+            elif panel_type == "result" and self.result_image_path:
+                self.display_image_in_panel(
+                    self.result_image_path,
+                    "result",
+                    self.layout.result_canvas,
+                    self.layout.zoom_var
+                )
+            
+            logger.debug(f"Canvas {panel_type} resized to {new_size}")
+            
+        except Exception as e:
+            logger.error(f"Error applying canvas resize: {e}")
     
     def display_image_in_panel(self, image_path, panel_type, canvas, zoom_var):
         """
