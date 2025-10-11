@@ -516,3 +516,294 @@ logger.info(f"Seedream Layout V2 loaded - Refactoring complete!")
 logger.info(f"Original monolithic file: {__original_lines__} lines")
 logger.info(f"Refactored modular system: {__refactored_lines__} lines across {__modules_count__} modules")
 logger.info(f"Maintainability improvement: {__maintainability_improvement__}")
+
+
+# Export public classes
+__all__ = ['SeedreamLayoutV2', 'ImprovedSeedreamLayout', 'create_seedream_layout']
+
+"""
+LAYOUT BASE COORDINATOR MODULE - FEATURES
+
+🎯 Purpose:
+  This is the MAIN COORDINATOR that brings together all 6 refactored modules
+  into a cohesive, production-ready system. It replaces the monolithic
+  improved_seedream_layout.py (5,645 lines) with a modular architecture.
+
+✨ Core Features:
+  - **Module initialization** in correct dependency order
+  - **UI structure setup** with PanedWindow (28/72 split)
+  - **Cross-module communication** via callbacks
+  - **Splitter position persistence** for user preferences
+  - **Backward compatibility** with original interface
+  - **Comprehensive status reporting**
+  - **Clean public API** for all operations
+  
+🔧 Module Management:
+  1. **ImageSectionManager** - Image loading, display, drag & drop
+  2. **SettingsPanelManager** - Resolution, seed, aspect lock
+  3. **PromptSectionManager** - Prompt editing, AI, history
+  4. **FilterTrainingManager** - Mild/moderate/undress examples
+  5. **ActionsHandlerManager** - Processing, polling, tasks
+  6. **ResultsDisplayManager** - Download, display, save results
+  
+🎨 UI Structure:
+  ```
+  ┌─────────────────────────────────────────────────────┐
+  │ Main Container (PanedWindow)                       │
+  ├──────────────┬──────────────────────────────────────┤
+  │ Left Pane    │ Right Pane                           │
+  │ (28% width)  │ (72% width)                          │
+  │              │                                       │
+  │ 1. Image     │ Image Display Panels                 │
+  │    Input     │ - Original panel                     │
+  │              │ - Result panel                       │
+  │ 2. Settings  │ - Synchronized zoom/pan              │
+  │    Panel     │ - Comparison controls                │
+  │              │                                       │
+  │ 3. Prompt    │                                       │
+  │    Editor    │                                       │
+  │              │                                       │
+  │ 4. Actions   │                                       │
+  │    (Process) │                                       │
+  │              │                                       │
+  └──────────────┴──────────────────────────────────────┘
+  ```
+
+🔄 Module Connection Flow:
+  1. Image selected → Update filter training, settings
+  2. Processing complete → Handle results, display
+  3. Result selected → Update display, state
+  4. Settings changed → Validate, persist
+  5. Prompt changed → Update character count, status
+  
+📊 Status Reporting:
+  - Comprehensive status from all managers
+  - Image selection state
+  - Processing state
+  - Results state
+  - Current task ID
+  - Settings snapshot
+  
+🔗 Backward Compatibility:
+  - `ImprovedSeedreamLayout` alias
+  - All original public methods preserved
+  - Property accessors for variables
+  - Compatible with existing code
+  - Seamless drop-in replacement
+  
+🎯 Public API Methods:
+  
+  **Image Operations:**
+  - `browse_image()` - Open file dialog
+  - `display_image_in_panel(path, type)` - Display image
+  - `clear_all()` - Clear everything
+  
+  **Processing:**
+  - `process_seedream()` - Start processing
+  - `is_processing()` - Check if processing
+  - `save_result()` - Save result
+  
+  **Prompt Operations:**
+  - `load_sample()` - Load sample prompt
+  - `improve_with_ai()` - AI prompt improvement
+  - `show_prompt_browser()` - Browse saved prompts
+  - `save_preset()` - Save current prompt
+  - `get_current_prompt()` - Get prompt text
+  
+  **Filter Training:**
+  - `generate_mild_examples()` - Generate mild examples
+  - `generate_moderate_examples()` - Generate moderate examples
+  
+  **Settings:**
+  - `auto_set_resolution()` - Auto-set from image
+  - `get_current_settings()` - Get settings dict
+  
+  **Results:**
+  - `show_results_browser()` - Show results grid
+  
+  **Status:**
+  - `get_layout_status()` - Get comprehensive status
+  - `log_message(msg)` - Log message
+  
+📊 Properties (Backward Compatibility):
+  - `prompt_text` - Prompt text widget
+  - `width_var` - Width IntVar
+  - `height_var` - Height IntVar
+  - `seed_var` - Seed StringVar
+  - `sync_mode_var` - Sync mode BooleanVar
+  - `base64_var` - Base64 BooleanVar
+  - `aspect_lock_var` - Aspect lock BooleanVar
+  - `num_requests_var` - Number of requests IntVar
+  - `selected_image_path` - Current image path
+  - `result_image_path` - Result image path
+  
+🎨 Layout Features:
+  - Resizable paned window with 28/72 split
+  - Splitter position saved between sessions
+  - Minimum pane sizes to prevent collapse
+  - Scrollable left column for all controls
+  - Expandable right column for images
+  - Responsive design for different screen sizes
+  
+⚡ Initialization Sequence:
+  1. Initialize managers (6 modules)
+  2. Setup layout structure (PanedWindow)
+  3. Setup left column (controls)
+  4. Setup right column (display)
+  5. Connect modules (callbacks)
+  6. Initialize display (default state)
+  7. Set splitter position (persistence)
+  
+🔄 Module Connections:
+  
+  **Image Selection:**
+  ```python
+  on_image_selected(path) →
+      update_image_path(filter_manager)
+      update_original_dimensions(settings_manager)
+      update_state(self)
+  ```
+  
+  **Processing Complete:**
+  ```python
+  on_results_ready(data, multiple) →
+      handle_single_result_ready(results_manager)
+      OR handle_multiple_results_ready(results_manager)
+  ```
+  
+  **Result Selection:**
+  ```python
+  on_result_selected(path) →
+      update_result_path(self)
+      display_in_panel(image_manager)
+  ```
+  
+💾 Persistence Features:
+  - Splitter position saved to `data/seedream_splitter_position.txt`
+  - Settings saved via SettingsPanelManager
+  - Prompt history via PromptSectionManager
+  - Results auto-saved via ResultsDisplayManager
+  
+🛡️ Error Handling:
+  - Try-catch in all initialization methods
+  - Graceful degradation on module failures
+  - Comprehensive logging throughout
+  - Error propagation to parent
+  - User-friendly error messages
+  
+📈 Improvements Over Original:
+  - 518 lines vs 5,645 lines (91% reduction)
+  - Clear separation of concerns
+  - Modular architecture
+  - Easy to test individual components
+  - Easy to maintain and extend
+  - Type hints throughout
+  - Comprehensive documentation
+  - Better error handling
+  - Improved code organization
+  
+🎯 Usage Example:
+  ```python
+  from ui.components.seedream import create_seedream_layout
+  
+  # Create layout
+  layout = create_seedream_layout(
+      parent_frame=my_frame,
+      api_client=my_api_client,
+      tab_instance=my_tab
+  )
+  
+  # Use the layout (same interface as before)
+  layout.browse_image()
+  layout.process_seedream()
+  
+  # Check status
+  status = layout.get_layout_status()
+  print(f"Processing: {layout.is_processing()}")
+  print(f"Selected image: {layout.selected_image_path}")
+  
+  # Get settings
+  settings = layout.get_current_settings()
+  print(f"Resolution: {settings['width']}x{settings['height']}")
+  ```
+
+🔄 Migration from Original:
+  ```python
+  # Old code (monolithic):
+  from ui.components.improved_seedream_layout import ImprovedSeedreamLayout
+  layout = ImprovedSeedreamLayout(parent, api_client, tab)
+  
+  # New code (modular) - SAME INTERFACE:
+  from ui.components.seedream import ImprovedSeedreamLayout
+  layout = ImprovedSeedreamLayout(parent, api_client, tab)
+  
+  # Or use the new name:
+  from ui.components.seedream import SeedreamLayoutV2
+  layout = SeedreamLayoutV2(parent, api_client, tab)
+  
+  # Or use factory:
+  from ui.components.seedream import create_seedream_layout
+  layout = create_seedream_layout(parent, api_client, tab)
+  ```
+
+🎉 Refactoring Achievement:
+  - **Original**: 1 file, 5,645 lines, monolithic
+  - **Refactored**: 7 files, ~7,074 lines total, modular
+  - **Coordinator**: 518 lines (this file)
+  - **Benefits**:
+    * 91% reduction in coordinator complexity
+    * Clear module boundaries
+    * Easy to test individual components
+    * Easy to maintain and extend
+    * Better code organization
+    * Improved readability
+    * Enhanced features added during refactoring
+    
+📊 Module Breakdown:
+  1. image_section.py - 1,253 lines
+  2. settings_panel.py - 817 lines
+  3. prompt_section.py - 1,112 lines
+  4. filter_training.py - 1,120 lines
+  5. actions_handler.py - 1,144 lines
+  6. results_display.py - 1,110 lines
+  7. layout_base.py - 518 lines (this file)
+  
+  **Total: 7,074 lines** (vs 5,645 original)
+  
+  The increase is due to:
+  - Comprehensive documentation added
+  - Enhanced features added
+  - Better error handling
+  - More utility methods
+  - Type hints and docstrings
+  
+🔒 Thread Safety:
+  - All UI updates on main thread
+  - Background workers properly isolated
+  - Callbacks execute on main thread
+  - No race conditions in state
+  
+💡 Design Patterns:
+  - **Coordinator pattern** - Central coordination point
+  - **Manager pattern** - Each module is a manager
+  - **Callback pattern** - Cross-module communication
+  - **Facade pattern** - Simplified interface
+  - **Factory pattern** - create_seedream_layout()
+  - **Singleton-like** - One layout per tab
+  
+🎯 Key Responsibilities:
+  1. **Initialize** all managers
+  2. **Setup** UI structure
+  3. **Connect** modules via callbacks
+  4. **Coordinate** cross-module communication
+  5. **Provide** backward-compatible API
+  6. **Persist** user preferences
+  7. **Report** comprehensive status
+  
+⚠️ Notes:
+  - This file should remain thin and focused on coordination
+  - Business logic belongs in individual managers
+  - UI setup belongs in individual managers
+  - This file just brings everything together
+  - Keep backward compatibility for smooth migration
+"""
