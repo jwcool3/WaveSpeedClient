@@ -396,16 +396,25 @@ class PromptSectionManager:
             # Update character counter
             self.char_count_label.config(text=f"{char_count} / {self.max_char_limit}")
             
-            # Color code based on length
-            if char_count > self.max_char_limit:
+            # Color code based on length with detailed status
+            if char_count == 0:
+                self.char_count_label.config(foreground="gray")
+                self.status_label.config(text="Empty prompt", foreground="#dc3545")
+            elif char_count < 10:
+                self.char_count_label.config(foreground="#ffc107")
+                self.status_label.config(text="Too short", foreground="#ffc107")
+            elif char_count > self.max_char_limit:
                 self.char_count_label.config(foreground="red")
                 self.status_label.config(text="⚠️ Prompt too long", foreground="red")
             elif char_count > self.max_char_limit * 0.9:
                 self.char_count_label.config(foreground="orange")
                 self.status_label.config(text="⚠️ Approaching limit", foreground="orange")
+            elif char_count > 500:
+                self.char_count_label.config(foreground="#ffc107")
+                self.status_label.config(text="Very long prompt", foreground="#ffc107")
             else:
                 self.char_count_label.config(foreground="gray")
-                self.status_label.config(text="")
+                self.status_label.config(text="Good length", foreground="#28a745")
                 
         except Exception as e:
             logger.error(f"Error updating character count: {e}")

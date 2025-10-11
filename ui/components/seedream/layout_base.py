@@ -32,6 +32,7 @@ from .results_display import ResultsDisplayManager
 from .canvas_sync import ImprovedImageSync
 from .progress_overlay import ProgressOverlay
 from .comparison_modes import ComparisonController
+from ui.components.unified_status_console import UnifiedStatusConsole
 
 logger = get_logger()
 
@@ -113,6 +114,9 @@ class SeedreamLayoutV2:
             self.progress_overlay = ProgressOverlay(self.parent_frame)
             self.comparison_controller = ComparisonController(self)
             
+            # Initialize status console (will be set up in UI later)
+            self.status_console = None
+            
             logger.info("All module managers initialized successfully (including new features)")
             
         except Exception as e:
@@ -164,6 +168,9 @@ class SeedreamLayoutV2:
     def _setup_left_column(self) -> None:
         """Setup left column with all control modules"""
         try:
+            # Setup unified status console first
+            self.setup_status_console(self.left_pane)
+            
             # Create left frame with proper structure
             left_frame = ttk.Frame(self.left_pane, padding="2")
             left_frame.pack(fill=tk.BOTH, expand=True)
@@ -227,12 +234,7 @@ class SeedreamLayoutV2:
             logger.info("Setting up synchronization managers...")
             
             # Enhanced sync manager for zoom/pan synchronization
-            self.enhanced_sync_manager = EnhancedSyncManager(
-                self.original_canvas,
-                self.result_canvas,
-                self.sync_zoom_var,
-                self.sync_drag_var
-            )
+            self.enhanced_sync_manager = EnhancedSyncManager(self)
             
             # Synchronized panels for coordinate mapping
             self.synchronized_panels = SynchronizedImagePanels(
@@ -383,8 +385,14 @@ class SeedreamLayoutV2:
     def _setup_splitter_positioning(self) -> None:
         """Setup splitter positioning with persistence"""
         try:
-            # Set initial splitter position after a short delay
-            self.parent_frame.after(100, self._set_initial_splitter_position)
+            # Set initial splitter position after longer delay to ensure rendering
+            self.parent_frame.after(300, self._set_initial_splitter_position)
+            
+            # Also set a backup fallback position immediately
+            try:
+                self.paned_window.sashpos(0, 350)  # Default 350px for controls
+            except:
+                pass
             
         except Exception as e:
             logger.error(f"Error setting up splitter positioning: {e}")
@@ -448,14 +456,14 @@ class SeedreamLayoutV2:
         try:
             logger.info("Connecting modules...")
             
-            # Module connections will be added as needed
-            # For now, managers are self-contained and don't require cross-module callbacks
-            # Future enhancements can add:
-            # - Image selection callbacks to update filter training and settings
-            # - Processing completion callbacks to update results display
-            # - Result selection callbacks to update image panels
+            # Connect image loading to filter training manager
+            # When images are loaded, update filter manager with the image path
+            if hasattr(self, 'image_manager') and hasattr(self, 'filter_manager'):
+                logger.debug("✓ Image → Filter Training connection ready")
             
-            logger.info("Module connections established successfully (minimal for v1)")
+            # Note: Actual image path updates happen in browse_image() wrapper
+            
+            logger.info("Module connections established successfully")
             
         except Exception as e:
             logger.error(f"Error connecting modules: {e}")
@@ -484,14 +492,32 @@ class SeedreamLayoutV2:
     def browse_image(self) -> None:
         """Browse for an image file"""
         self.image_manager.browse_image()
+        # Update filter manager with selected image(s)
+        self._update_filter_manager_image()
     
     def load_images(self, image_paths) -> None:
         """Load and display multiple input images"""
         self.image_manager.load_images(image_paths)
+        # Update filter manager with first selected image
+        self._update_filter_manager_image()
     
     def load_image(self, image_path: str) -> None:
         """Load and display single input image"""
         self.image_manager.load_image(image_path)
+        # Update filter manager with selected image
+        self._update_filter_manager_image()
+    
+    def _update_filter_manager_image(self) -> None:
+        """Update filter manager with currently selected image path"""
+        try:
+            if hasattr(self, 'filter_manager') and hasattr(self.image_manager, 'selected_image_paths'):
+                paths = self.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    image_path = paths[0]  # Use first image for filter training
+                    self.filter_manager.update_image_path(image_path)
+                    logger.debug(f"✓ Updated filter manager with image: {image_path}")
+        except Exception as e:
+            logger.error(f"Error updating filter manager image: {e}")
     
     def update_image_count_display(self) -> None:
         """Update the display to show number of selected images"""
@@ -627,12 +653,29 @@ class SeedreamLayoutV2:
             self.zoom_var
         )
     
+    def setup_status_console(self, parent) -> None:
+        """Setup unified status console for professional feedback"""
+        try:
+            self.status_console = UnifiedStatusConsole(
+                parent, 
+                title="📊 Seedream V4 Status", 
+                height=3  # Compact height
+            )
+            self.status_console.pack(side="top", fill="x", pady=(0, 4))
+            logger.debug("Status console initialized")
+        except Exception as e:
+            logger.error(f"Error setting up status console: {e}")
+            self.status_console = None
+    
     def log_message(self, message: str) -> None:
-        """Log message for compatibility"""
+        """Log message with timing and status console integration"""
         logger.info(f"Layout: {message}")
-        # If status console exists, use it
-        if hasattr(self, 'status_console') and self.status_console:
-            self.status_console.log_status(message)
+        # Use status console if available
+        if self.status_console:
+            try:
+                self.status_console.log_status(message)
+            except Exception as e:
+                logger.error(f"Error logging to status console: {e}")
     
     def get_prompt_widget(self):
         """Get the prompt text widget (for backward compatibility)"""
@@ -706,6 +749,64 @@ class SeedreamLayoutV2:
             "result_image": self.result_image_path,
             "current_task": self.current_task_id
         }
+    
+    def validate_state(self) -> tuple[bool, list[str]]:
+        """
+        Validate cross-module state consistency.
+        
+        Returns:
+            tuple: (is_valid, list_of_errors)
+        """
+        errors = []
+        
+        try:
+            # Validate image state consistency
+            if self.selected_image_path and not self.image_manager.selected_image_paths:
+                errors.append("Image path mismatch between layout and image manager")
+            
+            # Validate settings consistency
+            settings = self.settings_manager.get_current_settings()
+            if settings['width'] < 256 or settings['width'] > 4096:
+                errors.append(f"Invalid width: {settings['width']} (must be 256-4096)")
+            if settings['height'] < 256 or settings['height'] > 4096:
+                errors.append(f"Invalid height: {settings['height']} (must be 256-4096)")
+            
+            # Validate prompt state
+            if hasattr(self, 'prompt_text') and self.prompt_text:
+                prompt = self.prompt_manager.get_current_prompt()
+                if len(prompt) > 2000:
+                    errors.append(f"Prompt too long: {len(prompt)} characters (max 2000)")
+            
+            # Validate processing state
+            if self.actions_manager.is_processing():
+                if not self.current_task_id:
+                    errors.append("Processing active but no task ID set")
+            
+            return (len(errors) == 0, errors)
+            
+        except Exception as e:
+            logger.error(f"Error validating state: {e}")
+            return (False, [f"State validation error: {str(e)}"])
+    
+    def sync_state(self) -> None:
+        """Synchronize state across all modules"""
+        try:
+            # Sync image paths
+            if self.image_manager.selected_image_paths:
+                self.selected_image_path = self.image_manager.selected_image_paths[0]
+            
+            # Sync result path
+            if self.results_manager.last_result_path:
+                self.result_image_path = self.results_manager.last_result_path
+            
+            # Sync task ID
+            if hasattr(self.actions_manager, 'current_task_id'):
+                self.current_task_id = self.actions_manager.current_task_id
+            
+            logger.debug("State synchronized across modules")
+            
+        except Exception as e:
+            logger.error(f"Error synchronizing state: {e}")
     
     def is_processing(self) -> bool:
         """Check if currently processing"""
