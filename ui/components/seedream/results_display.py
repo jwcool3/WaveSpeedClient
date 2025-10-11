@@ -317,7 +317,7 @@ class ResultsDisplayManager:
             
             # Save image using save_local_file method (returns tuple: success, path, error)
             success, saved_path, error = auto_save_manager.save_local_file(
-                ai_model="Seedream_V4",
+                ai_model="seedream_v4",  # Fixed: use lowercase to match config key
                 local_file_path=temp_path,
                 prompt=prompt_snippet,
                 extra_info=size,
@@ -365,7 +365,7 @@ class ResultsDisplayManager:
             
             # Save image using save_local_file method (returns tuple: success, path, error)
             success, saved_path, error = auto_save_manager.save_local_file(
-                ai_model="Seedream_V4",
+                ai_model="seedream_v4",  # Fixed: use lowercase to match config key
                 local_file_path=temp_path,
                 prompt=prompt_snippet,
                 extra_info=f"{size}_req{request_num}_seed{seed}",
@@ -426,9 +426,16 @@ class ResultsDisplayManager:
                 metadata["seed"] = seed
                 metadata["total_requests"] = len(self.completed_results) + 1  # +1 for current
             
-            # Add input image info
-            if hasattr(self.parent_layout, 'selected_image_path'):
-                metadata["input_images"] = [self.parent_layout.selected_image_path]
+            # Add input image info (path and filename)
+            if hasattr(self.parent_layout, 'selected_image_path') and self.parent_layout.selected_image_path:
+                input_path = self.parent_layout.selected_image_path
+                metadata["input_image_path"] = input_path
+                metadata["input_image_filename"] = Path(input_path).name
+                # Keep old format for backward compatibility
+                metadata["input_images"] = [input_path]
+            else:
+                metadata["input_image_path"] = None
+                metadata["input_image_filename"] = None
             
             return metadata
             
