@@ -59,10 +59,6 @@ class ResultsDisplayManager:
         
         logger.info("ResultsDisplayManager initialized")
     
-    def set_result_selected_callback(self, callback):
-        """Set callback for when a result is selected"""
-        self.on_result_selected_callback = callback
-    
     def _check_auto_save_available(self) -> bool:
         """Check if auto-save functionality is available"""
         try:

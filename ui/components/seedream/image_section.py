@@ -490,19 +490,7 @@ class ImageSectionManager:
         self.reorder_btn = None
         self.reorder_listbox = None
         
-        # Callbacks
-        self.image_selected_callback = None
-        
         logger.info("ImageSectionManager initialized")
-    
-    def set_image_selected_callback(self, callback):
-        """Set callback for when an image is selected"""
-        self.image_selected_callback = callback
-    
-    def show_default_messages(self):
-        """Show default messages in image panels (placeholder for now)"""
-        # This method can be implemented when canvas references are properly set up
-        logger.debug("show_default_messages called (stub)")
     
     def set_ui_references(self, thumbnail_label=None, image_name_label=None, 
                          image_size_label=None, reorder_btn=None):
