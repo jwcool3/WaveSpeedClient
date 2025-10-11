@@ -71,7 +71,7 @@ class ImprovedImageSync:
         
         # Zoom debouncing
         self.zoom_debounce_id = None
-        self.zoom_debounce_delay = 50  # ms
+        self.zoom_debounce_delay = 500  # ms
         
         logger.info("ImprovedImageSync initialized")
     

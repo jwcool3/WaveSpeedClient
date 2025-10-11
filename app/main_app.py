@@ -210,16 +210,24 @@ class WaveSpeedAIApp:
         # Create menu bar
         self.create_menu_bar()
         
-        # Create main container with paned window for resizable layout
-        self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        # Configure styles to remove all padding/borders
+        style = ttk.Style()
+        style.configure('Flat.TPanedwindow', background='white', borderwidth=0, relief='flat')
+        style.configure('Flat.TFrame', borderwidth=0, relief='flat')
+        # Remove notebook padding at the top
+        style.configure('TNotebook', borderwidth=0, relief='flat', padding=0)
+        style.configure('TNotebook.Tab', padding=[5, 2])
         
-        # Create left panel for main content with scrolling
-        self.left_panel = ttk.Frame(self.main_paned_window)
+        # Create main container with paned window for resizable layout (no borders/padding)
+        self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL, style='Flat.TPanedwindow')
+        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0, side=tk.TOP)
+        
+        # Create left panel for main content (no padding for full space)
+        self.left_panel = ttk.Frame(self.main_paned_window, padding="0")
         self.main_paned_window.add(self.left_panel, weight=3)
         
-        # Create right panel for recent results
-        self.right_panel = ttk.Frame(self.main_paned_window)
+        # Create right panel for recent results (no padding for full space)
+        self.right_panel = ttk.Frame(self.main_paned_window, padding="0")
         self.main_paned_window.add(self.right_panel, weight=1)
         
         # Create notebook for tabs in left panel
@@ -228,7 +236,7 @@ class WaveSpeedAIApp:
         # Create recent results panel in right panel
         self.create_recent_results_panel()
         
-        # Create balance indicator
+        # Create balance indicator at bottom left
         self.create_balance_indicator()
         
         # Setup keyboard shortcuts
@@ -286,13 +294,13 @@ class WaveSpeedAIApp:
     
     def create_notebook(self):
         """Create the main notebook for tabs"""
-        # Create container for notebook and balance
-        notebook_container = ttk.Frame(self.left_panel)
-        notebook_container.pack(fill=tk.BOTH, expand=True)
+        # Create container for notebook (pack at TOP to leave room for balance at BOTTOM)
+        notebook_container = ttk.Frame(self.left_panel, padding="0", style='Flat.TFrame')
+        notebook_container.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=0, pady=0)
         
-        # Create notebook
-        self.notebook = ttk.Notebook(notebook_container)
-        self.notebook.pack(fill=tk.BOTH, expand=True)
+        # Create notebook (flush with no padding)
+        self.notebook = ttk.Notebook(notebook_container, padding=0)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Create tabs
         self.create_tabs()
@@ -347,10 +355,12 @@ class WaveSpeedAIApp:
             logger.error(f"Error creating recent results panel: {str(e)}")
     
     def create_balance_indicator(self):
-        """Create the balance indicator"""
+        """Create the balance indicator at bottom left corner"""
         try:
             self.balance_indicator = BalanceIndicator(self.left_panel, self.api_client)
-            logger.info("Balance indicator created")
+            # Pack at bottom of left panel
+            self.balance_indicator.get_frame().pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
+            logger.info("Balance indicator created at bottom left")
         except Exception as e:
             logger.error(f"Error creating balance indicator: {str(e)}")
     
