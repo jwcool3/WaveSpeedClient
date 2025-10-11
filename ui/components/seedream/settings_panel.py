@@ -1038,35 +1038,28 @@ class SettingsPanelManager:
             recommended = nearest['recommended']
             adjustment = nearest['adjustment']
             
-            # Show confirmation dialog with details
-            pixel_change_pct = abs(adjustment['pixel_change_pct'])
-            message = (
-                f"Optimize resolution to:\n\n"
-                f"📊 {recommended['rounded_w']}×{recommended['rounded_h']} ({recommended['ratio']} {recommended['tier']})\n\n"
-                f"Changes:\n"
-                f"• Width: {width} → {recommended['rounded_w']} ({adjustment['width_diff']:+d})\n"
-                f"• Height: {height} → {recommended['rounded_h']} ({adjustment['height_diff']:+d})\n"
-                f"• Pixels: {pixel_change_pct:.1f}% {'increase' if adjustment['pixel_diff'] > 0 else 'decrease'}\n\n"
-                f"This will improve quality and align with Seedream V4's recommended resolutions."
-            )
+            # Apply the optimized resolution immediately (no confirmation)
+            self.width_var.set(recommended['rounded_w'])
+            self.height_var.set(recommended['rounded_h'])
             
-            if messagebox.askyesno("Optimize Resolution", message):
-                # Apply the optimized resolution
-                self.width_var.set(recommended['rounded_w'])
-                self.height_var.set(recommended['rounded_h'])
-                
-                # Update aspect ratio lock if enabled
-                if self.aspect_lock_var.get():
-                    self.locked_aspect_ratio = recommended['rounded_w'] / recommended['rounded_h']
-                
-                # Update analysis
-                self.update_resolution_analysis()
-                
-                # Trigger validation
-                for callback in self.validation_callbacks:
-                    callback()
-                
-                logger.info(f"Resolution optimized to {recommended['rounded_w']}×{recommended['rounded_h']}")
+            # Update aspect ratio lock if enabled
+            if self.aspect_lock_var.get():
+                self.locked_aspect_ratio = recommended['rounded_w'] / recommended['rounded_h']
+            
+            # Update analysis
+            self.update_resolution_analysis()
+            
+            # Trigger validation
+            for callback in self.validation_callbacks:
+                callback()
+            
+            # Log the optimization with details
+            pixel_change_pct = abs(adjustment['pixel_change_pct'])
+            logger.info(
+                f"✨ Resolution optimized: {width}×{height} → {recommended['rounded_w']}×{recommended['rounded_h']} "
+                f"({recommended['ratio']} {recommended['tier']}, {adjustment['width_diff']:+d}w {adjustment['height_diff']:+d}h, "
+                f"{pixel_change_pct:.1f}% {'increase' if adjustment['pixel_diff'] > 0 else 'decrease'})"
+            )
             
         except Exception as e:
             logger.error(f"Error optimizing resolution: {e}")

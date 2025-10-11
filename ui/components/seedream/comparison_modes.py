@@ -68,41 +68,36 @@ class ComparisonController:
         # Mode selection
         ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
         
-        # View mode buttons
-        btn_frame = ttk.Frame(controls_frame)
-        btn_frame.pack(side=tk.LEFT, padx=5)
+        # View mode dropdown (more compact than radio buttons)
+        # Create dropdown with view mode options
+        self.mode_dropdown = ttk.Combobox(
+            controls_frame,
+            values=[
+                "↔️ Side by Side",
+                "📊 Overlay", 
+                "📷 Original Only",
+                "✨ Result Only"
+            ],
+            state="readonly",
+            width=18,
+            font=('Arial', 9)
+        )
+        self.mode_dropdown.pack(side=tk.LEFT, padx=5)
         
-        ttk.Radiobutton(
-            btn_frame,
-            text="↔️ Side by Side",
-            variable=self.mode_var,
-            value="side_by_side",
-            command=lambda: self.set_mode("side_by_side")
-        ).pack(side=tk.LEFT, padx=2)
+        # Map display names to internal values
+        self.mode_display_to_value = {
+            "↔️ Side by Side": "side_by_side",
+            "📊 Overlay": "overlay",
+            "📷 Original Only": "original_only",
+            "✨ Result Only": "result_only"
+        }
+        self.mode_value_to_display = {v: k for k, v in self.mode_display_to_value.items()}
         
-        ttk.Radiobutton(
-            btn_frame,
-            text="📊 Overlay",
-            variable=self.mode_var,
-            value="overlay",
-            command=lambda: self.set_mode("overlay")
-        ).pack(side=tk.LEFT, padx=2)
+        # Set initial display value
+        self.mode_dropdown.set(self.mode_value_to_display.get(self.mode_var.get(), "↔️ Side by Side"))
         
-        ttk.Radiobutton(
-            btn_frame,
-            text="📷 Original",
-            variable=self.mode_var,
-            value="original_only",
-            command=lambda: self.set_mode("original_only")
-        ).pack(side=tk.LEFT, padx=2)
-        
-        ttk.Radiobutton(
-            btn_frame,
-            text="✨ Result",
-            variable=self.mode_var,
-            value="result_only",
-            command=lambda: self.set_mode("result_only")
-        ).pack(side=tk.LEFT, padx=2)
+        # Bind selection change
+        self.mode_dropdown.bind('<<ComboboxSelected>>', self._on_mode_dropdown_change)
         
         # Sync controls frame (Sync Zoom and Sync Drag)
         sync_frame = ttk.Frame(controls_frame)
@@ -126,22 +121,70 @@ class ComparisonController:
         )
         sync_drag_check.pack(side=tk.LEFT)
         
-        # Zoom level dropdown
-        zoom_frame = ttk.Frame(controls_frame)
-        zoom_frame.pack(side=tk.LEFT, padx=(20, 0))
+        # Zoom level slider (with non-linear scale)
+        zoom_outer_frame = ttk.Frame(controls_frame)
+        zoom_outer_frame.pack(side=tk.LEFT, padx=(20, 0))
         
-        ttk.Label(zoom_frame, text="Zoom:", font=('Arial', 9)).pack(side=tk.LEFT, padx=(0, 5))
+        # Top row: Label, current value, slider
+        zoom_top_frame = ttk.Frame(zoom_outer_frame)
+        zoom_top_frame.pack(side=tk.TOP)
         
-        zoom_combo = ttk.Combobox(
-            zoom_frame,
-            textvariable=self.layout.zoom_var,
-            values=["Fit", "50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"],
-            state="readonly",
-            width=8,
-            font=('Arial', 9)
+        ttk.Label(zoom_top_frame, text="Zoom:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Zoom value label
+        self.zoom_label = ttk.Label(zoom_top_frame, text="Fit", font=('Arial', 9), width=6)
+        self.zoom_label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Create slider with custom non-linear scale
+        # Slider range: 0-100 (will be mapped to zoom percentages)
+        self.zoom_slider_var = tk.IntVar(value=50)  # Default to middle (100%)
+        self.zoom_slider = ttk.Scale(
+            zoom_top_frame,
+            from_=0,
+            to=100,
+            orient=tk.HORIZONTAL,
+            variable=self.zoom_slider_var,
+            command=self._on_zoom_slider_changed,
+            length=200
         )
-        zoom_combo.pack(side=tk.LEFT)
-        zoom_combo.bind('<<ComboboxSelected>>', self._on_zoom_changed)
+        self.zoom_slider.pack(side=tk.LEFT, padx=5)
+        
+        # Bottom row: Tick marks (visual indicators)
+        tick_frame = ttk.Frame(zoom_outer_frame)
+        tick_frame.pack(side=tk.TOP, pady=(0, 0))
+        
+        # Add spacing to align with slider
+        ttk.Label(tick_frame, text="", width=10).pack(side=tk.LEFT)  # Align with "Zoom: Fit"
+        
+        # Tick marks container (aligned with slider)
+        tick_marks_frame = tk.Frame(tick_frame, width=200)
+        tick_marks_frame.pack(side=tk.LEFT, padx=5)
+        tick_marks_frame.pack_propagate(False)
+        
+        # Add tick marks at key positions
+        # Scale: 0-25 = Fit-25%, 25-50 = 25%-100%, 50-100 = 150%-300%
+        tick_labels = [
+            (0, "Fit"),
+            (25, "25%"),
+            (50, "100%"),
+            (75, "225%"),
+            (100, "300%")
+        ]
+        
+        for position, label_text in tick_labels:
+            # Calculate x position (0-200px range)
+            x_pos = int((position / 100) * 200)
+            
+            tick_label = ttk.Label(
+                tick_marks_frame, 
+                text=label_text, 
+                font=('Arial', 7), 
+                foreground='gray'
+            )
+            tick_label.place(x=x_pos, y=0, anchor='n')
+        
+        # Initialize zoom to 100%
+        self._set_zoom_from_slider(50)
         
         # Opacity control (only visible in overlay mode)
         self.opacity_frame = ttk.Frame(controls_frame)
@@ -191,6 +234,12 @@ class ComparisonController:
         
         self.current_mode = mode
         self.mode_var.set(mode)
+        
+        # Update dropdown display
+        if hasattr(self, 'mode_dropdown') and hasattr(self, 'mode_value_to_display'):
+            display_value = self.mode_value_to_display.get(mode)
+            if display_value:
+                self.mode_dropdown.set(display_value)
         
         # Show/hide opacity controls
         if mode == "overlay":
@@ -393,6 +442,17 @@ class ComparisonController:
         """Get current overlay opacity"""
         return self.overlay_opacity
     
+    def _on_mode_dropdown_change(self, event=None):
+        """Handle view mode dropdown selection change"""
+        try:
+            selected_display = self.mode_dropdown.get()
+            # Convert display name to internal value
+            mode = self.mode_display_to_value.get(selected_display)
+            if mode:
+                self.set_mode(mode)
+        except Exception as e:
+            logger.error(f"Error handling mode dropdown change: {e}")
+    
     def _on_sync_zoom_changed(self):
         """Handle sync zoom checkbox change"""
         is_synced = self.layout.sync_zoom_var.get()
@@ -405,9 +465,98 @@ class ComparisonController:
         logger.info(f"Sync drag {'enabled' if is_synced else 'disabled'}")
         # The sync manager reads directly from sync_drag_var, no method call needed
     
-    def _on_zoom_changed(self, event=None):
-        """Handle zoom dropdown change"""
-        zoom_level = self.layout.zoom_var.get()
+    def _slider_to_zoom(self, slider_value: float) -> str:
+        """
+        Convert slider position (0-100) to zoom percentage using non-linear scale.
+        
+        Scale breakdown:
+        - 0-25: Fit to 25% (tight range for small zooms)
+        - 25-50: 25% to 100% (medium zooms) - middle is 100%
+        - 50-100: 150% to 300% (large zooms)
+        
+        Args:
+            slider_value: Slider position (0-100)
+            
+        Returns:
+            Zoom string like "Fit", "50%", "100%", etc.
+        """
+        if slider_value <= 3:
+            return "Fit"
+        elif slider_value <= 25:
+            # Map 3-25 to 10%-25%
+            percent = int(10 + ((slider_value - 3) / 22) * 15)
+            # Snap to 5% increments
+            percent = round(percent / 5) * 5
+            return f"{percent}%"
+        elif slider_value <= 50:
+            # Map 25-50 to 25%-100% (middle point = 100%)
+            percent = int(25 + ((slider_value - 25) / 25) * 75)
+            # Snap to 10% increments
+            percent = round(percent / 10) * 10
+            return f"{percent}%"
+        else:
+            # Map 50-100 to 150%-300%
+            percent = int(150 + ((slider_value - 50) / 50) * 150)
+            # Snap to 25% increments for large zooms
+            percent = round(percent / 25) * 25
+            return f"{percent}%"
+    
+    def _zoom_to_slider(self, zoom_str: str) -> int:
+        """
+        Convert zoom percentage to slider position (reverse mapping).
+        
+        Args:
+            zoom_str: Zoom string like "Fit", "50%", "100%"
+            
+        Returns:
+            Slider position (0-100)
+        """
+        if zoom_str == "Fit":
+            return 0
+        
+        try:
+            # Extract percentage value
+            percent = int(zoom_str.rstrip('%'))
+            
+            if percent <= 25:
+                # Map 10%-25% to 3-25
+                return int(3 + ((percent - 10) / 15) * 22)
+            elif percent <= 100:
+                # Map 25%-100% to 25-50
+                return int(25 + ((percent - 25) / 75) * 25)
+            else:
+                # Map 150%-300% to 50-100
+                return int(50 + ((percent - 150) / 150) * 50)
+        except:
+            return 50  # Default to middle (100%)
+    
+    def _on_zoom_slider_changed(self, slider_value):
+        """Handle zoom slider change"""
+        try:
+            # Convert to int for mapping
+            slider_value = float(slider_value)
+            self._set_zoom_from_slider(slider_value)
+        except Exception as e:
+            logger.error(f"Error handling zoom slider: {e}")
+    
+    def _set_zoom_from_slider(self, slider_value: float):
+        """Set zoom level from slider position"""
+        try:
+            # Convert slider position to zoom string
+            zoom_str = self._slider_to_zoom(slider_value)
+            
+            # Update zoom variable and label
+            self.layout.zoom_var.set(zoom_str)
+            self.zoom_label.config(text=zoom_str)
+            
+            # Apply zoom
+            self._apply_zoom_change(zoom_str)
+            
+        except Exception as e:
+            logger.error(f"Error setting zoom from slider: {e}")
+    
+    def _apply_zoom_change(self, zoom_level: str):
+        """Apply zoom change to canvases"""
         logger.info(f"Zoom changed to: {zoom_level}")
         
         # Apply zoom to both canvases via image manager
@@ -433,7 +582,7 @@ class ComparisonController:
                 
                 if result_path:
                     self.layout.image_manager.display_image_in_panel(
-                        result_path,  # Use the variable we just set
+                        result_path,
                         'result',
                         self.layout.result_canvas,
                         self.layout.zoom_var

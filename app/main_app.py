@@ -277,17 +277,33 @@ class WaveSpeedAIApp:
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.on_closing)
         
+        # View menu (NEW!)
+        view_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="View", menu=view_menu)
+        
+        # Recent Results Panel toggle
+        self.show_recent_results = tk.BooleanVar(value=True)  # Default to visible
+        self.load_view_preferences()  # Load saved preference
+        view_menu.add_checkbutton(
+            label="📊 Show Recent Results Panel", 
+            variable=self.show_recent_results,
+            command=self.toggle_recent_results_panel
+        )
+        view_menu.add_separator()
+        
+        # Layout save/load (moved from Tools)
+        view_menu.add_command(label="💾 Save Seedream Layout", command=self.save_seedream_layout)
+        view_menu.add_command(label="📂 Load Seedream Layout", command=self.load_seedream_layout)
+        
         # Tools menu
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tools", menu=tools_menu)
         tools_menu.add_command(label="Switch to Nano Banana Editor", command=lambda: self.switch_to_tab(0))
         tools_menu.add_command(label="Switch to SeedEdit", command=lambda: self.switch_to_tab(1))
-        tools_menu.add_command(label="Switch to Image Upscaler", command=lambda: self.switch_to_tab(2))
-        tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(3))
-        tools_menu.add_command(label="Switch to SeedDance Pro", command=lambda: self.switch_to_tab(4))
-        tools_menu.add_separator()
-        tools_menu.add_command(label="💾 Save Seedream Layout", command=self.save_seedream_layout)
-        tools_menu.add_command(label="📂 Load Seedream Layout", command=self.load_seedream_layout)
+        tools_menu.add_command(label="⚡ Switch to Seedream V4 #1", command=lambda: self.switch_to_tab(2))
+        tools_menu.add_command(label="⚡ Switch to Seedream V4 #2", command=lambda: self.switch_to_tab(3))
+        tools_menu.add_command(label="Switch to Image Upscaler", command=lambda: self.switch_to_tab(4))
+        tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(5))
         tools_menu.add_separator()
         
         # Upload method toggle for Seedream V4 (for speed testing)
@@ -348,16 +364,27 @@ class WaveSpeedAIApp:
             self.video_tab = VideoGenerationTab(self.notebook, self.api_client, self)
             self.notebook.add(self.video_tab.container, text="🎬 Video Generation")
             
-            # Try to add Seedream V4 tab if available
+            # Try to add Seedream V4 tabs if available (TWO TABS for multitasking!)
             try:
                 from ui.tabs.seedream_v4_tab import SeedreamV4Tab
-                self.seedream_tab = SeedreamV4Tab(self.notebook, self.api_client, self)
-                # Insert before upscaler (at index 2)
-                self.notebook.insert(2, self.seedream_tab.container, text="🌟 Seedream V4")
-                logger.info("Seedream V4 tab added successfully")
+                
+                # Create first Seedream tab
+                self.seedream_tab_1 = SeedreamV4Tab(self.notebook, self.api_client, self, tab_id="1")
+                self.notebook.insert(2, self.seedream_tab_1.container, text="⚡ Seedream V4 #1")
+                
+                # Create second Seedream tab for multitasking
+                self.seedream_tab_2 = SeedreamV4Tab(self.notebook, self.api_client, self, tab_id="2")
+                self.notebook.insert(3, self.seedream_tab_2.container, text="⚡ Seedream V4 #2")
+                
+                # Keep seedream_tab for backward compatibility (points to tab 1)
+                self.seedream_tab = self.seedream_tab_1
+                
+                logger.info("Seedream V4 tabs added successfully (2 tabs for multitasking!)")
             except ImportError:
                 logger.info("Seedream V4 tab not available")
                 self.seedream_tab = None
+                self.seedream_tab_1 = None
+                self.seedream_tab_2 = None
             
             logger.info("All tabs created successfully")
             
@@ -440,11 +467,12 @@ class WaveSpeedAIApp:
             self.root.bind('<Control-equal>', lambda e: self.reset_layout())
             
             # Tab shortcuts
-            self.root.bind('<Control-1>', lambda e: self.switch_to_tab(0))
-            self.root.bind('<Control-2>', lambda e: self.switch_to_tab(1))
-            self.root.bind('<Control-3>', lambda e: self.switch_to_tab(2))
-            self.root.bind('<Control-4>', lambda e: self.switch_to_tab(3))
-            self.root.bind('<Control-5>', lambda e: self.switch_to_tab(4))
+            self.root.bind('<Control-1>', lambda e: self.switch_to_tab(0))  # Nano Banana
+            self.root.bind('<Control-2>', lambda e: self.switch_to_tab(1))  # SeedEdit
+            self.root.bind('<Control-3>', lambda e: self.switch_to_tab(2))  # Seedream V4 #1
+            self.root.bind('<Control-4>', lambda e: self.switch_to_tab(3))  # Seedream V4 #2
+            self.root.bind('<Control-5>', lambda e: self.switch_to_tab(4))  # Image Upscaler
+            self.root.bind('<Control-6>', lambda e: self.switch_to_tab(5))  # Video Generation
             
             logger.info("Keyboard shortcuts configured")
         except Exception as e:
@@ -523,6 +551,84 @@ class WaveSpeedAIApp:
         except Exception as e:
             logger.error(f"Error loading Seedream layout: {e}")
             show_error("Load Failed", f"Failed to load layout:\n{str(e)}")
+    
+    def toggle_recent_results_panel(self):
+        """Toggle visibility of the Recent Results panel"""
+        try:
+            show_panel = self.show_recent_results.get()
+            
+            if show_panel:
+                # Show the Recent Results panel
+                if hasattr(self, 'right_panel') and hasattr(self, 'main_paned_window'):
+                    # Check if already visible (panes() returns widget names as strings)
+                    panes = self.main_paned_window.panes()
+                    right_panel_name = str(self.right_panel)
+                    if right_panel_name not in panes:
+                        self.main_paned_window.add(self.right_panel)
+                        logger.info("✅ Recent Results panel shown")
+                    else:
+                        logger.debug("Recent Results panel already visible")
+            else:
+                # Hide the Recent Results panel
+                if hasattr(self, 'right_panel') and hasattr(self, 'main_paned_window'):
+                    self.main_paned_window.forget(self.right_panel)
+                    logger.info("🙈 Recent Results panel hidden")
+            
+            # Save preference
+            self.save_view_preferences()
+            
+        except Exception as e:
+            logger.error(f"Error toggling Recent Results panel: {e}", exc_info=True)
+    
+    def load_view_preferences(self):
+        """Load saved view preferences (Recent Results panel visibility)"""
+        try:
+            preferences_file = "data/view_preferences.json"
+            if os.path.exists(preferences_file):
+                with open(preferences_file, 'r') as f:
+                    import json
+                    prefs = json.load(f)
+                    show_results = prefs.get('show_recent_results', True)
+                    self.show_recent_results.set(show_results)
+                    logger.info(f"Loaded view preferences: Recent Results = {show_results}")
+                    
+                    # Apply the preference (schedule after UI is ready)
+                    if not show_results:
+                        self.root.after(100, self._apply_recent_results_visibility)
+        except Exception as e:
+            logger.debug(f"Could not load view preferences: {e}")
+    
+    def _apply_recent_results_visibility(self):
+        """Apply Recent Results panel visibility without saving (used on load)"""
+        try:
+            show_panel = self.show_recent_results.get()
+            
+            if not show_panel:
+                # Hide the panel
+                if hasattr(self, 'right_panel') and hasattr(self, 'main_paned_window'):
+                    self.main_paned_window.forget(self.right_panel)
+                    logger.info("🙈 Recent Results panel hidden (from saved preference)")
+        except Exception as e:
+            logger.debug(f"Error applying Recent Results visibility: {e}")
+    
+    def save_view_preferences(self):
+        """Save view preferences to file"""
+        try:
+            import json
+            preferences_file = "data/view_preferences.json"
+            prefs = {
+                'show_recent_results': self.show_recent_results.get()
+            }
+            
+            # Ensure data directory exists
+            os.makedirs(os.path.dirname(preferences_file), exist_ok=True)
+            
+            with open(preferences_file, 'w') as f:
+                json.dump(prefs, f, indent=2)
+            
+            logger.info(f"Saved view preferences: {prefs}")
+        except Exception as e:
+            logger.error(f"Error saving view preferences: {e}")
     
     def toggle_upload_method(self):
         """Toggle between image hosting and direct upload for Seedream V4"""
