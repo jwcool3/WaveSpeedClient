@@ -134,14 +134,39 @@ class ResultsDisplayManager:
     def _download_single_result_thread(self, result_url: str) -> None:
         """Background thread for downloading single result"""
         try:
-            # Download the image
-            response = requests.get(result_url, timeout=60)
-            response.raise_for_status()
-            
-            # Save to temporary file
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
-                temp_file.write(response.content)
-                temp_path = temp_file.name
+            # Check if this is a base64 data URL
+            if result_url.startswith('data:image'):
+                logger.info("Processing base64 result (not logging content for brevity)")
+                # Extract base64 data
+                import base64
+                import re
+                
+                # Extract the base64 part after the comma
+                match = re.match(r'data:image/\w+;base64,(.+)', result_url)
+                if not match:
+                    raise ValueError("Invalid base64 data URL format")
+                
+                base64_data = match.group(1)
+                image_data = base64.b64decode(base64_data)
+                
+                # Save to temporary file
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                    temp_file.write(image_data)
+                    temp_path = temp_file.name
+                
+                logger.info(f"✓ Base64 image decoded and saved to {temp_path}")
+            else:
+                # Regular URL - download normally
+                logger.info(f"Downloading result from URL...")
+                response = requests.get(result_url, timeout=60)
+                response.raise_for_status()
+                
+                # Save to temporary file
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                    temp_file.write(response.content)
+                    temp_path = temp_file.name
+                
+                logger.info(f"✓ Downloaded result to {temp_path}")
             
             # Auto-save if enabled
             saved_path = None
@@ -160,9 +185,10 @@ class ResultsDisplayManager:
             
         except Exception as e:
             logger.error(f"Error downloading single result: {e}")
+            error_msg = str(e)  # Capture error message before lambda
             self.parent_layout.parent_frame.after(
                 0,
-                lambda: self._show_message(f"❌ Download failed: {str(e)}")
+                lambda: self._show_message(f"❌ Download failed: {error_msg}")
             )
     
     def _download_multiple_results_thread(self, completed_tasks: List[Dict[str, Any]]) -> None:
@@ -185,17 +211,42 @@ class ResultsDisplayManager:
                     
                     self.parent_layout.parent_frame.after(
                         0,
-                        lambda n=request_num: self._show_message(f"📥 Downloading result {n}...")
+                        lambda n=request_num: self._show_message(f"📥 Processing result {n}...")
                     )
                     
-                    # Download the image
-                    response = requests.get(result_url, timeout=60)
-                    response.raise_for_status()
-                    
-                    # Save to temporary file
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
-                        temp_file.write(response.content)
-                        temp_path = temp_file.name
+                    # Check if this is a base64 data URL
+                    if result_url.startswith('data:image'):
+                        logger.info(f"Processing base64 result {request_num} (not logging content)")
+                        # Extract base64 data
+                        import base64
+                        import re
+                        
+                        # Extract the base64 part after the comma
+                        match = re.match(r'data:image/\w+;base64,(.+)', result_url)
+                        if not match:
+                            raise ValueError("Invalid base64 data URL format")
+                        
+                        base64_data = match.group(1)
+                        image_data = base64.b64decode(base64_data)
+                        
+                        # Save to temporary file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                            temp_file.write(image_data)
+                            temp_path = temp_file.name
+                        
+                        logger.info(f"✓ Base64 result {request_num} decoded and saved")
+                    else:
+                        # Regular URL - download normally
+                        logger.info(f"Downloading result {request_num} from URL...")
+                        response = requests.get(result_url, timeout=60)
+                        response.raise_for_status()
+                        
+                        # Save to temporary file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as temp_file:
+                            temp_file.write(response.content)
+                            temp_path = temp_file.name
+                        
+                        logger.info(f"✓ Downloaded result {request_num}")
                     
                     # Auto-save if enabled
                     saved_path = None
@@ -242,9 +293,10 @@ class ResultsDisplayManager:
                 
         except Exception as e:
             logger.error(f"Error in multiple download thread: {e}")
+            error_msg = str(e)  # Capture error message before lambda
             self.parent_layout.parent_frame.after(
                 0,
-                lambda: self._show_message(f"❌ Download failed: {str(e)}")
+                lambda: self._show_message(f"❌ Download failed: {error_msg}")
             )
     
     def _auto_save_single_result(self, temp_path: str, result_url: str) -> Optional[str]:

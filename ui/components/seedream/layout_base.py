@@ -79,12 +79,19 @@ class SeedreamLayoutV2:
         self.right_pane = None
         self.main_container = None
         
-        # Splitter position persistence
-        self.splitter_position_file = "data/seedream_splitter_position.txt"
+        # Splitter position persistence (now in unified settings)
+        self.splitter_position_file = "data/seedream_splitter_position.txt"  # Legacy fallback
         
         # Side panel for AI prompts
         self.side_panel = None
         self.side_panel_visible = False
+        
+        # UI preferences (loaded from settings)
+        self.ui_preferences = {}
+        
+        # Track if splitters have been restored
+        self._splitters_restored = False
+        self._visibility_check_scheduled = False
         
         # Initialize all module managers
         self._initialize_managers()
@@ -98,6 +105,11 @@ class SeedreamLayoutV2:
         # Initialize display
         self._initialize_display()
         
+        # Restore saved UI state (zoom, comparison mode, etc.)
+        self.load_ui_state()
+        
+        # Note: Auto-save is disabled. Use Tools > Save Layout to save manually.
+        
         logger.info("SeedreamLayoutV2 initialized successfully - Refactoring Complete!")
     
     def _initialize_managers(self) -> None:
@@ -108,6 +120,12 @@ class SeedreamLayoutV2:
             # Initialize managers in dependency order
             self.image_manager = ImageSectionManager(self)
             self.settings_manager = SettingsPanelManager(self)
+            
+            # Load UI preferences from settings (after settings manager is initialized)
+            loaded_settings = self.settings_manager.load_settings()
+            self.ui_preferences = loaded_settings.get('ui_preferences', {})
+            logger.debug(f"Loaded UI preferences: {self.ui_preferences}")
+            
             self.prompt_manager = PromptSectionManager(self)
             self.filter_manager = FilterTrainingManager(self)
             self.actions_manager = ActionsHandlerManager(self)
@@ -132,32 +150,42 @@ class SeedreamLayoutV2:
         try:
             logger.info("Setting up main layout structure...")
             
-            # Main container - zero padding for maximum fullscreen space usage
-            self.main_container = ttk.Frame(self.parent_frame)
-            self.main_container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+            # Configure parent frame FIRST - ensure it has no padding and expands fully
+            try:
+                # Try to configure padding if parent supports it
+                if hasattr(self.parent_frame, 'configure'):
+                    try:
+                        self.parent_frame.configure(padx=0, pady=0)
+                    except:
+                        pass  # Some frames don't support padx/pady in configure
+            except:
+                pass
             
-            # Configure parent frame to expand properly
             self.parent_frame.columnconfigure(0, weight=1)
             self.parent_frame.rowconfigure(0, weight=1)
             
-            # Create OUTER paned window for main content + side panel
+            # Main container - zero padding for maximum fullscreen space usage
+            self.main_container = ttk.Frame(self.parent_frame, padding="0")
+            self.main_container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+            
+            # Create OUTER paned window for main content + side panel - no padding
             self.outer_paned_window = ttk.PanedWindow(self.main_container, orient=tk.HORIZONTAL)
-            self.outer_paned_window.pack(fill=tk.BOTH, expand=True)
+            self.outer_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
             
-            # Create main content container (will contain left + right panes)
-            main_content_frame = ttk.Frame(self.outer_paned_window)
+            # Create main content container (will contain left + right panes) - no padding
+            main_content_frame = ttk.Frame(self.outer_paned_window, padding="0")
             
-            # Create PanedWindow for resizable layout (left controls | right images)
+            # Create PanedWindow for resizable layout (left controls | right images) - no padding
             self.paned_window = ttk.PanedWindow(main_content_frame, orient=tk.HORIZONTAL)
-            self.paned_window.pack(fill=tk.BOTH, expand=True)
+            self.paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
             
             # Configure main container
             self.main_container.columnconfigure(0, weight=1)
             self.main_container.rowconfigure(0, weight=1)
             
-            # Create frames with explicit minimum sizes to prevent collapse
-            self.left_pane = ttk.Frame(self.paned_window)
-            self.right_pane = ttk.Frame(self.paned_window)
+            # Create frames with zero padding to maximize space
+            self.left_pane = ttk.Frame(self.paned_window, padding="0")
+            self.right_pane = ttk.Frame(self.paned_window, padding="0")
             
             # Add panes with optimized ratio for fullscreen (15/85 for better image viewing)
             self.paned_window.add(self.left_pane, weight=15)   # Controls pane (narrower)
@@ -344,28 +372,38 @@ class SeedreamLayoutV2:
         )
     
     def _create_image_display_ui(self, parent, row=1):
-        """Create the side-by-side image display panels - maximize space"""
-        display_frame = ttk.Frame(parent, padding="0")
-        display_frame.grid(row=row, column=0, sticky="nsew", padx=0, pady=0)
-        display_frame.columnconfigure(0, weight=1)  # Original panel - equal weight
-        display_frame.columnconfigure(1, weight=1)  # Result panel - equal weight
-        display_frame.rowconfigure(0, weight=1)     # Expand vertically
+        """Create the side-by-side image display panels with adjustable splitter"""
+        # Create a PanedWindow for the two image panels so user can adjust their split
+        self.display_paned_window = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
+        self.display_paned_window.grid(row=row, column=0, sticky="nsew", padx=0, pady=0)
         
-        # Left panel - Original Image
-        self._create_single_panel(display_frame, "original", 0, "📥 Original Image")
+        # Create container frames for each panel
+        original_container = ttk.Frame(self.display_paned_window, padding="0")
+        result_container = ttk.Frame(self.display_paned_window, padding="0")
         
-        # Right panel - Result Image
-        self._create_single_panel(display_frame, "result", 1, "🌟 Generated Result")
+        # Add to paned window with equal weights
+        self.display_paned_window.add(original_container, weight=1)
+        self.display_paned_window.add(result_container, weight=1)
         
-        logger.debug("Image display panels created")
+        # Create the panels inside their containers
+        self._create_single_panel(original_container, "original", 0, "📥 Original Image")
+        self._create_single_panel(result_container, "result", 0, "🌟 Generated Result")  # Column 0 since it's in its own container
+        
+        # Bind the display splitter to track movements
+        self.display_paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
+        
+        logger.debug("Image display panels created with adjustable splitter")
     
     def _create_single_panel(self, parent, panel_type, column, title):
         """Create a single image panel - maximized for fullscreen"""
-        panel_frame = ttk.LabelFrame(parent, text=title, padding="0")
-        # No horizontal padding to eliminate gaps - both panels fill their columns completely
-        panel_frame.grid(row=0, column=column, sticky="nsew", padx=0, pady=0)
-        panel_frame.columnconfigure(0, weight=1)
-        panel_frame.rowconfigure(0, weight=1)
+        panel_frame = ttk.LabelFrame(parent, text=title, padding="0", borderwidth=0, relief='flat')
+        # Pack to fill entire container (no padding to maximize space)
+        panel_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        # Configure grid - canvas expands, scrollbar stays fixed width at edge
+        panel_frame.columnconfigure(0, weight=1)  # Canvas column - expands
+        panel_frame.columnconfigure(1, weight=0)  # Scrollbar column - fixed, flush right
+        panel_frame.rowconfigure(0, weight=1)     # Canvas/scrollbar row - expands
+        panel_frame.rowconfigure(1, weight=0)     # Horizontal scrollbar row - fixed
         
         # Canvas for image display - optimized for fullscreen with large defaults
         canvas = tk.Canvas(
@@ -374,20 +412,21 @@ class SeedreamLayoutV2:
             highlightthickness=0,  # Remove border for cleaner look
             highlightcolor='#ddd',
             relief='flat',
-            width=1200,  # Much larger default to fill fullscreen better
-            height=1000   # Taller default for vertical space usage
+            width=800,  # Default width (will expand with window)
+            height=1   # Minimal height, will expand to fill available space
         )
         canvas.configure(takefocus=True)
-        canvas.grid(row=0, column=0, sticky="nsew")
+        canvas.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)  # No padding for maximum space
         
-        # Scrollbars
+        # Scrollbars - flush to edges with no gaps
         v_scrollbar = ttk.Scrollbar(panel_frame, orient=tk.VERTICAL, command=canvas.yview)
         h_scrollbar = ttk.Scrollbar(panel_frame, orient=tk.HORIZONTAL, command=canvas.xview)
         
         canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
         
-        v_scrollbar.grid(row=0, column=1, sticky="ns")
-        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        # Position scrollbars flush to edges - no padding
+        v_scrollbar.grid(row=0, column=1, sticky="nse", padx=0, pady=0)  # Stick to north-south-east (right edge)
+        h_scrollbar.grid(row=1, column=0, sticky="ews", padx=0, pady=0)  # Stick to east-west-south (bottom edge)
         
         # Store canvas references
         if panel_type == "original":
@@ -445,38 +484,515 @@ class SeedreamLayoutV2:
             
             self.paned_window.sashpos(0, position)
             
-            # Bind event to save position when user drags splitter
+            # Set initial display splitter position (50/50 split between original and result)
+            if hasattr(self, 'display_paned_window'):
+                try:
+                    display_total_width = self.display_paned_window.winfo_width()
+                    if display_total_width > 1:
+                        # Default to 50/50 split
+                        display_position = display_total_width // 2
+                        self.display_paned_window.sashpos(0, display_position)
+                except Exception as e:
+                    logger.debug(f"Could not set initial display splitter: {e}")
+            
+            # Bind event to track position when user drags main splitter
             self.paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
+            
+            # Also bind the display and outer paned windows to track splitters
+            if hasattr(self, 'display_paned_window'):
+                self.display_paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
+            
+            if hasattr(self, 'outer_paned_window'):
+                self.outer_paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
             
         except Exception as e:
             logger.error(f"Error setting initial splitter position: {e}")
     
     def _load_splitter_position(self) -> Optional[int]:
-        """Load saved splitter position from file"""
+        """Load saved splitter position from unified settings"""
         try:
+            # First try to load from unified settings (preferred)
+            if self.ui_preferences and 'splitter_position' in self.ui_preferences:
+                position = self.ui_preferences['splitter_position']
+                logger.debug(f"Loaded splitter position from settings: {position}")
+                return position
+            
+            # Fallback to legacy file for backward compatibility
             if os.path.exists(self.splitter_position_file):
                 with open(self.splitter_position_file, 'r') as f:
-                    return int(f.read().strip())
+                    position = int(f.read().strip())
+                    logger.debug(f"Loaded splitter position from legacy file: {position}")
+                    return position
         except Exception as e:
             logger.debug(f"Could not load splitter position: {e}")
         return None
     
     def _save_splitter_position(self, position: int) -> None:
-        """Save splitter position to file"""
+        """Save splitter position to unified settings"""
         try:
-            os.makedirs(os.path.dirname(self.splitter_position_file), exist_ok=True)
-            with open(self.splitter_position_file, 'w') as f:
-                f.write(str(position))
+            # Update in-memory cache
+            self.ui_preferences['splitter_position'] = position
+            
+            # Save to unified settings file via settings manager
+            if hasattr(self, 'settings_manager'):
+                self.settings_manager.save_settings(ui_preferences=self.ui_preferences)
+                logger.debug(f"Splitter position saved to settings: {position}")
+            else:
+                # Fallback to legacy file if settings manager not available
+                os.makedirs(os.path.dirname(self.splitter_position_file), exist_ok=True)
+                with open(self.splitter_position_file, 'w') as f:
+                    f.write(str(position))
+                    logger.debug(f"Splitter position saved to legacy file: {position}")
         except Exception as e:
             logger.debug(f"Could not save splitter position: {e}")
     
     def _on_splitter_moved(self, event) -> None:
-        """Handle splitter movement to save position"""
+        """Handle splitter movement with detailed logging for ALL splitters"""
         try:
-            position = self.paned_window.sashpos(0)
-            self._save_splitter_position(position)
+            # Get main splitter position
+            main_position = self.paned_window.sashpos(0)
+            main_total_width = self.paned_window.winfo_width()
+            main_percentage = (main_position / main_total_width * 100) if main_total_width > 0 else 0
+            
+            # Get display splitter position (between original and result images)
+            display_position = None
+            display_total_width = None
+            display_percentage = None
+            if hasattr(self, 'display_paned_window'):
+                try:
+                    display_position = self.display_paned_window.sashpos(0)
+                    display_total_width = self.display_paned_window.winfo_width()
+                    display_percentage = (display_position / display_total_width * 100) if display_total_width > 0 else 0
+                except:
+                    pass
+            
+            # Get outer splitter position (if side panel visible)
+            outer_position = None
+            outer_total_width = None
+            outer_percentage = None
+            if hasattr(self, 'outer_paned_window') and self.side_panel_visible:
+                try:
+                    outer_position = self.outer_paned_window.sashpos(0)
+                    outer_total_width = self.outer_paned_window.winfo_width()
+                    outer_percentage = (outer_position / outer_total_width * 100) if outer_total_width > 0 else 0
+                except:
+                    pass
+            
+            # Get window state
+            window_state = "unknown"
+            window_width = 0
+            window_height = 0
+            try:
+                root = self.parent_frame.winfo_toplevel()
+                window_state = root.state()  # 'normal', 'zoomed', 'iconic', 'withdrawn'
+                window_width = root.winfo_width()
+                window_height = root.winfo_height()
+            except:
+                pass
+            
+            # Detailed logging for user to see preferred layout
+            logger.info("=" * 80)
+            logger.info("📐 LAYOUT CHANGED")
+            logger.info("=" * 80)
+            logger.info("🖥️  WINDOW STATE:")
+            logger.info(f"   State: {window_state}")
+            logger.info(f"   Size: {window_width}x{window_height}px")
+            logger.info("-" * 80)
+            logger.info("📏 MAIN SPLITTER (Controls | Image Display):")
+            logger.info(f"   Left Panel Width: {main_position}px")
+            logger.info(f"   Total Width: {main_total_width}px")
+            logger.info(f"   Percentage: {main_percentage:.1f}%")
+            logger.info(f"   Right Panel Width: {main_total_width - main_position}px")
+            
+            if display_position is not None:
+                logger.info("-" * 80)
+                logger.info("📏 DISPLAY SPLITTER (Original | Result):")
+                logger.info(f"   Original Panel Width: {display_position}px")
+                logger.info(f"   Total Width: {display_total_width}px")
+                logger.info(f"   Percentage: {display_percentage:.1f}%")
+                logger.info(f"   Result Panel Width: {display_total_width - display_position}px")
+            
+            if outer_position is not None:
+                logger.info("-" * 80)
+                logger.info("📏 SIDE PANEL SPLITTER (Main | Side Panel):")
+                logger.info(f"   Main Content Width: {outer_position}px")
+                logger.info(f"   Total Width: {outer_total_width}px")
+                logger.info(f"   Percentage: {outer_percentage:.1f}%")
+                logger.info(f"   Side Panel Width: {outer_total_width - outer_position}px")
+            
+            logger.info("=" * 80)
+            logger.info("💡 To set this as default, add to your settings:")
+            logger.info(f"   'splitter_position': {main_position}")
+            if display_position is not None:
+                logger.info(f"   'display_splitter_position': {display_position}")
+            if outer_position is not None:
+                logger.info(f"   'side_panel_position': {outer_position}")
+            logger.info("=" * 80)
+            
+            # Store in memory (but don't auto-save to file)
+            self.ui_preferences['splitter_position'] = main_position
+            if display_position is not None:
+                self.ui_preferences['display_splitter_position'] = display_position
+            if outer_position is not None:
+                self.ui_preferences['side_panel_position'] = outer_position
+                
         except Exception as e:
-            logger.debug(f"Error saving splitter position: {e}")
+            logger.error(f"Error handling splitter movement: {e}")
+    
+    def save_ui_state(self) -> None:
+        """Save current UI state (zoom, comparison mode, splitters, window state, etc.)"""
+        try:
+            # Update UI preferences with current state
+            if hasattr(self, 'zoom_var'):
+                self.ui_preferences['zoom_level'] = self.zoom_var.get()
+            
+            if hasattr(self, 'comparison_mode_var'):
+                self.ui_preferences['comparison_mode'] = self.comparison_mode_var.get()
+            
+            if hasattr(self, 'opacity_var'):
+                self.ui_preferences['overlay_opacity'] = self.opacity_var.get()
+            
+            if hasattr(self, 'sync_zoom_var'):
+                self.ui_preferences['sync_zoom'] = self.sync_zoom_var.get()
+            
+            if hasattr(self, 'sync_drag_var'):
+                self.ui_preferences['sync_drag'] = self.sync_drag_var.get()
+            
+            # Save main splitter position
+            if hasattr(self, 'paned_window'):
+                self.ui_preferences['splitter_position'] = self.paned_window.sashpos(0)
+            
+            # Save display splitter position (between original and result)
+            if hasattr(self, 'display_paned_window'):
+                try:
+                    self.ui_preferences['display_splitter_position'] = self.display_paned_window.sashpos(0)
+                except:
+                    pass
+            
+            # Save side panel splitter position (if visible)
+            if hasattr(self, 'outer_paned_window') and self.side_panel_visible:
+                try:
+                    self.ui_preferences['side_panel_position'] = self.outer_paned_window.sashpos(0)
+                except:
+                    pass
+            
+            # Save window state (maximized, size, position)
+            try:
+                root = self.parent_frame.winfo_toplevel()
+                self.ui_preferences['window_state'] = root.state()
+                self.ui_preferences['window_width'] = root.winfo_width()
+                self.ui_preferences['window_height'] = root.winfo_height()
+                self.ui_preferences['window_x'] = root.winfo_x()
+                self.ui_preferences['window_y'] = root.winfo_y()
+            except Exception as e:
+                logger.debug(f"Could not save window state: {e}")
+            
+            # Save to file
+            if hasattr(self, 'settings_manager'):
+                logger.info(f"💾 Saving UI preferences: {list(self.ui_preferences.keys())}")
+                self.settings_manager.save_settings(ui_preferences=self.ui_preferences)
+                logger.info(f"✅ UI state saved successfully: {len(self.ui_preferences)} items")
+            else:
+                logger.error("❌ Settings manager not available - cannot save UI state")
+        except Exception as e:
+            logger.error(f"Error saving UI state: {e}", exc_info=True)
+    
+    def load_ui_state(self) -> None:
+        """Load and apply saved UI state"""
+        try:
+            if not self.ui_preferences:
+                return
+            
+            # Apply saved zoom level
+            if 'zoom_level' in self.ui_preferences and hasattr(self, 'zoom_var'):
+                self.zoom_var.set(self.ui_preferences['zoom_level'])
+                logger.debug(f"Restored zoom level: {self.ui_preferences['zoom_level']}")
+            
+            # Apply saved comparison mode
+            if 'comparison_mode' in self.ui_preferences and hasattr(self, 'comparison_mode_var'):
+                self.comparison_mode_var.set(self.ui_preferences['comparison_mode'])
+                logger.debug(f"Restored comparison mode: {self.ui_preferences['comparison_mode']}")
+            
+            # Apply saved overlay opacity
+            if 'overlay_opacity' in self.ui_preferences and hasattr(self, 'opacity_var'):
+                self.opacity_var.set(self.ui_preferences['overlay_opacity'])
+                logger.debug(f"Restored overlay opacity: {self.ui_preferences['overlay_opacity']}")
+            
+            # Apply saved sync options
+            if 'sync_zoom' in self.ui_preferences and hasattr(self, 'sync_zoom_var'):
+                self.sync_zoom_var.set(self.ui_preferences['sync_zoom'])
+                logger.debug(f"Restored sync zoom: {self.ui_preferences['sync_zoom']}")
+            
+            if 'sync_drag' in self.ui_preferences and hasattr(self, 'sync_drag_var'):
+                self.sync_drag_var.set(self.ui_preferences['sync_drag'])
+                logger.debug(f"Restored sync drag: {self.ui_preferences['sync_drag']}")
+            
+            # Schedule splitter restoration with multiple attempts
+            # This needs to happen late because splitters don't work until widgets are visible
+            self.parent_frame.after(500, self._try_restore_splitters)
+            # Also bind to visibility to restore when tab becomes visible
+            self.parent_frame.bind('<Visibility>', self._on_visibility_changed, add='+')
+            
+            # Restore window state (if saved)
+            if 'window_state' in self.ui_preferences:
+                try:
+                    root = self.parent_frame.winfo_toplevel()
+                    saved_state = self.ui_preferences['window_state']
+                    
+                    # Restore window size and position
+                    if 'window_width' in self.ui_preferences and 'window_height' in self.ui_preferences:
+                        width = self.ui_preferences['window_width']
+                        height = self.ui_preferences['window_height']
+                        x = self.ui_preferences.get('window_x', 100)
+                        y = self.ui_preferences.get('window_y', 100)
+                        
+                        # Only restore if not maximized
+                        if saved_state == 'normal':
+                            root.geometry(f"{width}x{height}+{x}+{y}")
+                            logger.info(f"Restored window size: {width}x{height}")
+                        elif saved_state == 'zoomed':
+                            # Restore maximized state
+                            root.state('zoomed')
+                            logger.info("Restored window state: Maximized")
+                except Exception as e:
+                    logger.debug(f"Could not restore window state: {e}")
+            
+            logger.info("UI state restored successfully")
+        except Exception as e:
+            logger.error(f"Error loading UI state: {e}")
+    
+    def _on_visibility_changed(self, event=None) -> None:
+        """Called when widget visibility changes (tab becomes visible)"""
+        try:
+            if not self._splitters_restored and not self._visibility_check_scheduled:
+                logger.debug("Tab became visible, scheduling splitter restoration check")
+                self._visibility_check_scheduled = True
+                self.parent_frame.after(200, self._try_restore_splitters)
+        except Exception as e:
+            logger.debug(f"Error in visibility handler: {e}")
+    
+    def _try_restore_splitters(self) -> None:
+        """Try to restore splitters, checking if widgets are ready"""
+        try:
+            # Check if main paned window is visible and has width
+            if hasattr(self, 'paned_window'):
+                width = self.paned_window.winfo_width()
+                if width > 1:
+                    # Widgets are visible, proceed with restoration
+                    self._restore_all_splitters()
+                    self._splitters_restored = True
+                    self._visibility_check_scheduled = False
+                    logger.info("✓ Splitter restoration successful")
+                else:
+                    # Not ready yet, retry later
+                    if not self._visibility_check_scheduled:
+                        logger.debug(f"Widgets not ready (width={width}), retrying...")
+                        self._visibility_check_scheduled = True
+                        self.parent_frame.after(500, self._try_restore_splitters)
+                    self._visibility_check_scheduled = False
+        except Exception as e:
+            logger.error(f"Error trying to restore splitters: {e}")
+            self._visibility_check_scheduled = False
+    
+    def _restore_all_splitters(self) -> None:
+        """Restore all splitter positions after UI is fully rendered"""
+        try:
+            if self._splitters_restored:
+                logger.debug("Splitters already restored, skipping")
+                return
+            
+            logger.info("Restoring splitter positions...")
+            restored_count = 0
+            
+            # Restore main splitter (controls | images)
+            if 'splitter_position' in self.ui_preferences and hasattr(self, 'paned_window'):
+                try:
+                    position = self.ui_preferences['splitter_position']
+                    self.paned_window.sashpos(0, position)
+                    logger.info(f"✓ Restored main splitter: {position}px")
+                    restored_count += 1
+                except Exception as e:
+                    logger.debug(f"Could not restore main splitter: {e}")
+            
+            # Restore display splitter (original | result)
+            if 'display_splitter_position' in self.ui_preferences and hasattr(self, 'display_paned_window'):
+                try:
+                    position = self.ui_preferences['display_splitter_position']
+                    self.display_paned_window.sashpos(0, position)
+                    logger.info(f"✓ Restored display splitter: {position}px")
+                    restored_count += 1
+                except Exception as e:
+                    logger.debug(f"Could not restore display splitter: {e}")
+            
+            # Restore side panel splitter (if was visible)
+            if 'side_panel_position' in self.ui_preferences and hasattr(self, 'outer_paned_window') and self.side_panel_visible:
+                try:
+                    position = self.ui_preferences['side_panel_position']
+                    self.outer_paned_window.sashpos(0, position)
+                    logger.info(f"✓ Restored side panel splitter: {position}px")
+                    restored_count += 1
+                except Exception as e:
+                    logger.debug(f"Could not restore side panel splitter: {e}")
+            
+            logger.info(f"Splitter restoration complete ({restored_count} splitters restored)")
+            self._splitters_restored = True
+            
+        except Exception as e:
+            logger.error(f"Error restoring splitters: {e}")
+    
+    def save_layout_manually(self) -> None:
+        """
+        Manually save current layout and UI preferences to file.
+        Called from Tools menu.
+        """
+        try:
+            # Capture current UI state
+            self.save_ui_state()
+            
+            # Show success message
+            from tkinter import messagebox
+            current_settings = self.ui_preferences.copy()
+            
+            message = "✅ Layout saved successfully!\n\n"
+            message += "Current Settings:\n\n"
+            
+            # Window state
+            if 'window_state' in current_settings:
+                state_text = {
+                    'normal': 'Normal',
+                    'zoomed': 'Maximized',
+                    'iconic': 'Minimized'
+                }.get(current_settings['window_state'], current_settings['window_state'])
+                message += f"🖥️  Window State: {state_text}\n"
+                if 'window_width' in current_settings and 'window_height' in current_settings:
+                    message += f"   Size: {current_settings['window_width']}x{current_settings['window_height']}px\n"
+                message += "\n"
+            
+            # Splitter positions
+            if 'splitter_position' in current_settings:
+                message += f"📏 Main Splitter (Controls|Images): {current_settings['splitter_position']}px\n"
+            if 'display_splitter_position' in current_settings:
+                message += f"📏 Display Splitter (Original|Result): {current_settings['display_splitter_position']}px\n"
+            if 'side_panel_position' in current_settings:
+                message += f"📏 Side Panel Splitter: {current_settings['side_panel_position']}px\n"
+            
+            if any(k in current_settings for k in ['splitter_position', 'display_splitter_position', 'side_panel_position']):
+                message += "\n"
+            
+            # View settings
+            if 'zoom_level' in current_settings:
+                message += f"🔍 Zoom Level: {current_settings['zoom_level']}\n"
+            if 'comparison_mode' in current_settings:
+                mode_text = current_settings['comparison_mode'].replace('_', ' ').title()
+                message += f"📊 View Mode: {mode_text}\n"
+            if 'overlay_opacity' in current_settings:
+                message += f"🎨 Blend Opacity: {int(current_settings['overlay_opacity'] * 100)}%\n"
+            
+            if any(k in current_settings for k in ['zoom_level', 'comparison_mode', 'overlay_opacity']):
+                message += "\n"
+            
+            # Sync settings
+            if 'sync_zoom' in current_settings:
+                message += f"🔗 Sync Zoom: {'✓ On' if current_settings['sync_zoom'] else '✗ Off'}\n"
+            if 'sync_drag' in current_settings:
+                message += f"🔗 Sync Drag: {'✓ On' if current_settings['sync_drag'] else '✗ Off'}\n"
+            
+            message += f"\n📁 Saved to: data/seedream_settings.json"
+            message += f"\n💡 Use Tools → Load Seedream Layout to reload!"
+            
+            messagebox.showinfo("Layout Saved", message)
+            logger.info("✅ Layout saved manually by user")
+            logger.info(f"Settings: {current_settings}")
+            
+        except Exception as e:
+            from tkinter import messagebox
+            logger.error(f"Error saving layout: {e}")
+            messagebox.showerror("Save Failed", f"Failed to save layout:\n{str(e)}")
+    
+    def load_layout_manually(self) -> None:
+        """
+        Manually load and apply saved layout from file.
+        Called from Tools menu - forces immediate application.
+        """
+        try:
+            from tkinter import messagebox
+            import os
+            
+            # Check if settings file exists
+            settings_file = "data/seedream_settings.json"
+            if not os.path.exists(settings_file):
+                messagebox.showwarning("No Settings File", 
+                                     "Settings file not found.\n\n"
+                                     "Use Tools → Save Seedream Layout to create it!")
+                return
+            
+            # Force reload settings from file
+            if hasattr(self, 'settings_manager'):
+                loaded_settings = self.settings_manager.load_settings()
+                logger.info(f"📂 Loaded settings keys: {list(loaded_settings.keys())}")
+                
+                self.ui_preferences = loaded_settings.get('ui_preferences', {})
+                logger.info(f"📂 UI preferences: {self.ui_preferences}")
+            else:
+                messagebox.showerror("Load Failed", "Settings manager not available.")
+                return
+            
+            if not self.ui_preferences:
+                # Show what's actually in the file
+                file_keys = list(loaded_settings.keys())
+                messagebox.showwarning("No Layout Settings", 
+                                     f"No UI layout settings found in file.\n\n"
+                                     f"File contains: {', '.join(file_keys)}\n\n"
+                                     f"Adjust your layout, then use:\n"
+                                     f"Tools → Save Seedream Layout\n\n"
+                                     f"This will save splitter positions and view preferences.")
+                logger.warning(f"ui_preferences not found. File contains: {file_keys}")
+                return
+            
+            # Force restore all UI state
+            logger.info("🔄 Force loading UI state...")
+            
+            # Restore zoom, comparison mode, opacity, sync settings
+            if 'zoom_level' in self.ui_preferences and hasattr(self, 'zoom_var'):
+                self.zoom_var.set(self.ui_preferences['zoom_level'])
+            
+            if 'comparison_mode' in self.ui_preferences and hasattr(self, 'comparison_mode_var'):
+                self.comparison_mode_var.set(self.ui_preferences['comparison_mode'])
+            
+            if 'overlay_opacity' in self.ui_preferences and hasattr(self, 'opacity_var'):
+                self.opacity_var.set(self.ui_preferences['overlay_opacity'])
+            
+            if 'sync_zoom' in self.ui_preferences and hasattr(self, 'sync_zoom_var'):
+                self.sync_zoom_var.set(self.ui_preferences['sync_zoom'])
+            
+            if 'sync_drag' in self.ui_preferences and hasattr(self, 'sync_drag_var'):
+                self.sync_drag_var.set(self.ui_preferences['sync_drag'])
+            
+            # Force restore splitters immediately (bypass the automatic restoration)
+            self._splitters_restored = False  # Reset flag
+            self._restore_all_splitters()
+            
+            # Build summary message
+            message = "✅ Layout loaded successfully!\n\n"
+            message += "Applied Settings:\n\n"
+            
+            if 'splitter_position' in self.ui_preferences:
+                message += f"📏 Main Splitter: {self.ui_preferences['splitter_position']}px\n"
+            if 'display_splitter_position' in self.ui_preferences:
+                message += f"📏 Display Splitter: {self.ui_preferences['display_splitter_position']}px\n"
+            if 'zoom_level' in self.ui_preferences:
+                message += f"🔍 Zoom: {self.ui_preferences['zoom_level']}\n"
+            if 'comparison_mode' in self.ui_preferences:
+                mode = self.ui_preferences['comparison_mode'].replace('_', ' ').title()
+                message += f"📊 View Mode: {mode}\n"
+            
+            messagebox.showinfo("Layout Loaded", message)
+            logger.info("✅ Layout loaded and applied by user")
+            
+        except Exception as e:
+            from tkinter import messagebox
+            logger.error(f"Error loading layout: {e}", exc_info=True)
+            messagebox.showerror("Load Failed", f"Failed to load layout:\n{str(e)}")
     
     def _connect_modules(self) -> None:
         """Connect modules together and setup cross-module communication"""
