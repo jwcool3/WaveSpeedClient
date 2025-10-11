@@ -63,6 +63,14 @@ class ActionsHandlerManager:
         
         logger.info("ActionsHandlerManager initialized")
     
+    def set_results_ready_callback(self, callback):
+        """Set callback for when results are ready"""
+        self.on_results_ready_callback = callback
+    
+    def set_processing_error_callback(self, callback):
+        """Set callback for processing errors"""
+        self.on_processing_error_callback = callback
+    
     def _check_auto_save_available(self) -> bool:
         """Check if auto-save functionality is available"""
         try:
