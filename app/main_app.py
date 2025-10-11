@@ -262,6 +262,9 @@ class WaveSpeedAIApp:
         tools_menu.add_command(label="Switch to Video Generator", command=lambda: self.switch_to_tab(3))
         tools_menu.add_command(label="Switch to SeedDance Pro", command=lambda: self.switch_to_tab(4))
         tools_menu.add_separator()
+        tools_menu.add_command(label="💾 Save Seedream Layout", command=self.save_seedream_layout)
+        tools_menu.add_command(label="📂 Load Seedream Layout", command=self.load_seedream_layout)
+        tools_menu.add_separator()
         tools_menu.add_command(label="📊 Prompt Analytics", command=self.show_prompt_analytics)
         
         # AI Assistant menu (improved)
@@ -449,6 +452,38 @@ class WaveSpeedAIApp:
                            f"{Config.AUTO_SAVE_FOLDER}")
         except Exception as e:
             show_error("Error", f"Failed to open results folder: {str(e)}")
+    
+    def save_seedream_layout(self):
+        """Save the current Seedream V4 layout configuration"""
+        try:
+            if hasattr(self, 'seedream_tab') and self.seedream_tab:
+                if hasattr(self.seedream_tab, 'improved_layout') and self.seedream_tab.improved_layout:
+                    self.seedream_tab.improved_layout.save_layout_manually()
+                else:
+                    show_warning("Not Available", "Seedream layout is not initialized yet.")
+            else:
+                show_warning("Not Available", 
+                           "Seedream V4 tab is not available.\n\n"
+                           "Please switch to the Seedream V4 tab first.")
+        except Exception as e:
+            logger.error(f"Error saving Seedream layout: {e}")
+            show_error("Save Failed", f"Failed to save layout:\n{str(e)}")
+    
+    def load_seedream_layout(self):
+        """Load and apply the saved Seedream V4 layout configuration"""
+        try:
+            if hasattr(self, 'seedream_tab') and self.seedream_tab:
+                if hasattr(self.seedream_tab, 'improved_layout') and self.seedream_tab.improved_layout:
+                    self.seedream_tab.improved_layout.load_layout_manually()
+                else:
+                    show_warning("Not Available", "Seedream layout is not initialized yet.")
+            else:
+                show_warning("Not Available", 
+                           "Seedream V4 tab is not available.\n\n"
+                           "Please switch to the Seedream V4 tab first.")
+        except Exception as e:
+            logger.error(f"Error loading Seedream layout: {e}")
+            show_error("Load Failed", f"Failed to load layout:\n{str(e)}")
     
     def show_privacy_settings(self):
         """Show privacy settings dialog"""

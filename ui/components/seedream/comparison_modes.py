@@ -312,9 +312,36 @@ class ComparisonController:
             )
     
     def _apply_overlay_with_opacity(self):
-        """Apply overlay with current opacity value"""
+        """Apply overlay with current opacity value (without triggering full mode refresh)"""
         try:
-            self._apply_mode()  # Re-apply overlay with new opacity
+            # Directly update the overlay display without going through _apply_mode
+            # to avoid triggering zoom or other unwanted refreshes
+            if self.current_mode != "overlay":
+                return
+            
+            # Get image paths
+            original_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    original_path = paths[0]
+            
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Update only the overlay with new opacity
+            if original_path and result_path and hasattr(self.layout, 'image_manager'):
+                self.layout.image_manager.display_overlay_view(
+                    self.layout.original_canvas,
+                    original_path,
+                    result_path,
+                    self.layout.zoom_var,
+                    opacity=self.overlay_opacity
+                )
         except Exception as e:
             logger.error(f"Error applying overlay opacity: {e}")
     

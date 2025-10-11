@@ -794,24 +794,54 @@ class SettingsPanelManager:
             logger.error(f"Error validating settings: {e}")
             return False, f"Validation error: {str(e)}"
     
-    def save_settings(self) -> None:
-        """Save current settings to file (thread-safe)"""
+    def save_settings(self, ui_preferences: Dict[str, Any] = None) -> None:
+        """
+        Save current settings to file (thread-safe)
+        
+        Args:
+            ui_preferences: Optional dict of UI preferences to merge (splitter_position, zoom_level, etc.)
+        """
         try:
             settings = self.get_current_settings()
+            
+            # Merge UI preferences if provided
+            if ui_preferences:
+                if 'ui_preferences' not in settings:
+                    settings['ui_preferences'] = {}
+                settings['ui_preferences'].update(ui_preferences)
+                logger.info(f"💾 Merging {len(ui_preferences)} UI preferences into settings")
+                logger.debug(f"UI preferences keys: {list(ui_preferences.keys())}")
+            
             os.makedirs(os.path.dirname(self.settings_file), exist_ok=True)
             
             # Thread-safe file write
             with _settings_file_lock:
                 with open(self.settings_file, 'w') as f:
                     json.dump(settings, f, indent=2)
-                
-            logger.debug(f"Settings saved to {self.settings_file}")
+            
+            # Verify the write by reading back
+            try:
+                with open(self.settings_file, 'r') as f:
+                    verified = json.load(f)
+                logger.info(f"✅ Settings saved to {self.settings_file}")
+                logger.info(f"   - File contains keys: {list(verified.keys())}")
+                if 'ui_preferences' in verified:
+                    logger.info(f"   - UI preferences: {list(verified['ui_preferences'].keys())}")
+                else:
+                    logger.warning(f"   - WARNING: ui_preferences not in saved file!")
+            except Exception as e:
+                logger.warning(f"Could not verify saved file: {e}")
             
         except Exception as e:
-            logger.error(f"Error saving settings: {e}")
+            logger.error(f"Error saving settings: {e}", exc_info=True)
     
-    def load_settings(self) -> None:
-        """Load settings from file with validation"""
+    def load_settings(self) -> Dict[str, Any]:
+        """
+        Load settings from file with validation
+        
+        Returns:
+            Dict containing loaded settings and ui_preferences
+        """
         try:
             if os.path.exists(self.settings_file):
                 # Thread-safe file read
@@ -823,6 +853,9 @@ class SettingsPanelManager:
                 if self._validate_loaded_settings(settings):
                     self.apply_settings(settings)
                     logger.debug(f"Settings loaded from {self.settings_file}")
+                    
+                    # Return full settings including UI preferences
+                    return settings
                 else:
                     logger.warning("Invalid saved settings, using defaults")
             else:
@@ -832,30 +865,46 @@ class SettingsPanelManager:
             logger.error(f"Corrupted settings file: {e}, using defaults")
         except Exception as e:
             logger.error(f"Error loading settings: {e}, using defaults")
+        
+        return {}
     
     def _validate_loaded_settings(self, settings: Dict[str, Any]) -> bool:
         """Validate settings loaded from file"""
         try:
             # Check required keys
             if not isinstance(settings, dict):
+                logger.warning("Settings validation failed: not a dictionary")
                 return False
             
             # Validate width/height ranges
             width = settings.get('width', 1024)
             height = settings.get('height', 1024)
-            if not (256 <= width <= 4096 and 256 <= height <= 4096):
+            
+            # Ensure width/height are integers
+            try:
+                width = int(width)
+                height = int(height)
+            except (ValueError, TypeError):
+                logger.warning(f"Settings validation failed: invalid width/height types ({width}, {height})")
                 return False
             
-            # Validate seed range
-            seed_str = settings.get('seed', '-1')
-            if seed_str != '-1':
+            if not (256 <= width <= 4096 and 256 <= height <= 4096):
+                logger.warning(f"Settings validation failed: width/height out of range ({width}, {height})")
+                return False
+            
+            # Validate seed range (can be string or int)
+            seed_value = settings.get('seed', '-1')
+            if seed_value not in ['-1', -1]:  # Allow both string and int -1
                 try:
-                    seed_int = int(seed_str)
+                    seed_int = int(seed_value)
                     if seed_int < 0 or seed_int > 2147483647:
+                        logger.warning(f"Settings validation failed: seed out of range ({seed_int})")
                         return False
-                except ValueError:
+                except (ValueError, TypeError):
+                    logger.warning(f"Settings validation failed: invalid seed type ({seed_value})")
                     return False
             
+            logger.debug("✓ Settings validation passed")
             return True
             
         except Exception as e:
