@@ -92,6 +92,7 @@ class SeedreamLayoutV2:
         # Track if splitters have been restored
         self._splitters_restored = False
         self._visibility_check_scheduled = False
+        self._restoring_splitters = False
         
         # Initialize all module managers
         self._initialize_managers()
@@ -158,9 +159,67 @@ class SeedreamLayoutV2:
                         self.parent_frame.configure(padx=0, pady=0)
                     except:
                         pass  # Some frames don't support padx/pady in configure
-            except:
-                pass
-            
+                
+                # CRITICAL: If parent is a scrollable frame in a canvas, make it fill canvas height
+                # This ensures the UI expands vertically instead of just growing with content
+                try:
+                    # Check if parent has a master canvas (BaseTab pattern)
+                    if hasattr(self.parent_frame, 'master') and isinstance(self.parent_frame.master, tk.Canvas):
+                        canvas = self.parent_frame.master
+                        
+                        # Store original configure handler if any
+                        original_handler = None
+                        try:
+                            original_handler = canvas.bind('<Configure>')
+                        except:
+                            pass
+                        
+                        # Prevent recursion in canvas height updates
+                        _updating_canvas_height = [False]  # Use list to allow modification in nested function
+                        _last_canvas_height = [0]
+                        
+                        # Bind to canvas resize to update scrollable frame height
+                        def update_frame_height(event):
+                            try:
+                                # Prevent recursive calls
+                                if _updating_canvas_height[0]:
+                                    return
+                                
+                                canvas_height = event.height if event else canvas.winfo_height()
+                                
+                                # Only update if height changed significantly (debounce)
+                                if abs(canvas_height - _last_canvas_height[0]) < 5:
+                                    return
+                                
+                                if canvas_height > 100:  # Canvas is rendered and has reasonable size
+                                    _updating_canvas_height[0] = True
+                                    try:
+                                        # Find the canvas window containing our parent frame
+                                        for item in canvas.find_all():
+                                            if canvas.type(item) == 'window':
+                                                window = canvas.itemcget(item, 'window')
+                                                if window == str(self.parent_frame):
+                                                    canvas.itemconfig(item, height=canvas_height)
+                                                    _last_canvas_height[0] = canvas_height
+                                                    logger.debug(f"✓ Updated frame height to {canvas_height}px")
+                                                    break
+                                    except Exception as e:
+                                        logger.debug(f"Could not update frame height: {e}")
+                                    finally:
+                                        _updating_canvas_height[0] = False
+                            except Exception as e:
+                                logger.debug(f"Error in update_frame_height: {e}")
+                                _updating_canvas_height[0] = False
+                        
+                        canvas.bind('<Configure>', update_frame_height, add='+')
+                        # Trigger once immediately after a short delay
+                        self.parent_frame.after(100, lambda: update_frame_height(None))
+                        logger.debug("✓ Bound canvas height update for vertical expansion")
+                except Exception as e:
+                    logger.debug(f"Could not bind canvas height update: {e}")
+            except Exception as e:
+                logger.debug(f"Error configuring parent frame: {e}")
+                
             self.parent_frame.columnconfigure(0, weight=1)
             self.parent_frame.rowconfigure(0, weight=1)
             
@@ -389,9 +448,6 @@ class SeedreamLayoutV2:
         self._create_single_panel(original_container, "original", 0, "📥 Original Image")
         self._create_single_panel(result_container, "result", 0, "🌟 Generated Result")  # Column 0 since it's in its own container
         
-        # Bind the display splitter to track movements
-        self.display_paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
-        
         logger.debug("Image display panels created with adjustable splitter")
     
     def _create_single_panel(self, parent, panel_type, column, title):
@@ -495,15 +551,23 @@ class SeedreamLayoutV2:
                 except Exception as e:
                     logger.debug(f"Could not set initial display splitter: {e}")
             
-            # Bind event to track position when user drags main splitter
+            # Bind event to track position when user drags splitters
             self.paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
             
-            # Also bind the display and outer paned windows to track splitters
-            if hasattr(self, 'display_paned_window'):
-                self.display_paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
-            
+            # Bind the outer paned window (for side panel)
             if hasattr(self, 'outer_paned_window'):
                 self.outer_paned_window.bind('<ButtonRelease-1>', self._on_splitter_moved)
+            
+            # Bind the main app's paned window (tabs | recent results)
+            try:
+                if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                    hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                    hasattr(self.tab_instance.main_app, 'main_paned_window')):
+                    main_paned = self.tab_instance.main_app.main_paned_window
+                    main_paned.bind('<ButtonRelease-1>', self._on_splitter_moved, add='+')
+                    logger.debug("✓ Bound main app splitter (Recent Results panel) to track movements")
+            except Exception as e:
+                logger.debug(f"Could not bind main app splitter: {e}")
             
         except Exception as e:
             logger.error(f"Error setting initial splitter position: {e}")
@@ -549,22 +613,30 @@ class SeedreamLayoutV2:
     def _on_splitter_moved(self, event) -> None:
         """Handle splitter movement with detailed logging for ALL splitters"""
         try:
-            # Get main splitter position
+            # Skip logging during restoration to prevent recursion/noise
+            if hasattr(self, '_restoring_splitters') and self._restoring_splitters:
+                return
+            
+            # Get main splitter position (within Seedream: controls | images)
             main_position = self.paned_window.sashpos(0)
             main_total_width = self.paned_window.winfo_width()
             main_percentage = (main_position / main_total_width * 100) if main_total_width > 0 else 0
             
-            # Get display splitter position (between original and result images)
-            display_position = None
-            display_total_width = None
-            display_percentage = None
-            if hasattr(self, 'display_paned_window'):
-                try:
-                    display_position = self.display_paned_window.sashpos(0)
-                    display_total_width = self.display_paned_window.winfo_width()
-                    display_percentage = (display_position / display_total_width * 100) if display_total_width > 0 else 0
-                except:
-                    pass
+            # Get main app splitter position (tabs | recent results panel)
+            app_splitter_position = None
+            app_splitter_total_width = None
+            app_splitter_percentage = None
+            try:
+                # Access main app through tab instance
+                if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                    hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                    hasattr(self.tab_instance.main_app, 'main_paned_window')):
+                    main_paned = self.tab_instance.main_app.main_paned_window
+                    app_splitter_position = main_paned.sashpos(0)
+                    app_splitter_total_width = main_paned.winfo_width()
+                    app_splitter_percentage = (app_splitter_position / app_splitter_total_width * 100) if app_splitter_total_width > 0 else 0
+            except Exception as e:
+                logger.debug(f"Could not get main app splitter: {e}")
             
             # Get outer splitter position (if side panel visible)
             outer_position = None
@@ -597,20 +669,22 @@ class SeedreamLayoutV2:
             logger.info("🖥️  WINDOW STATE:")
             logger.info(f"   State: {window_state}")
             logger.info(f"   Size: {window_width}x{window_height}px")
+            
+            if app_splitter_position is not None:
+                logger.info("-" * 80)
+                logger.info("📏 MAIN APP SPLITTER (Tabs ◄────► Recent Results Panel):")
+                logger.info(f"   Tabs Area Width: {app_splitter_position}px")
+                logger.info(f"   Total Width: {app_splitter_total_width}px")
+                logger.info(f"   Percentage: {app_splitter_percentage:.1f}%")
+                logger.info(f"   Recent Results Panel Width: {app_splitter_total_width - app_splitter_position}px")
+                logger.info(f"   💡 Drag this splitter LEFT ← to give more space to Recent Results")
+            
             logger.info("-" * 80)
-            logger.info("📏 MAIN SPLITTER (Controls | Image Display):")
-            logger.info(f"   Left Panel Width: {main_position}px")
+            logger.info("📏 SEEDREAM SPLITTER (Controls | Image Display):")
+            logger.info(f"   Controls Width: {main_position}px")
             logger.info(f"   Total Width: {main_total_width}px")
             logger.info(f"   Percentage: {main_percentage:.1f}%")
-            logger.info(f"   Right Panel Width: {main_total_width - main_position}px")
-            
-            if display_position is not None:
-                logger.info("-" * 80)
-                logger.info("📏 DISPLAY SPLITTER (Original | Result):")
-                logger.info(f"   Original Panel Width: {display_position}px")
-                logger.info(f"   Total Width: {display_total_width}px")
-                logger.info(f"   Percentage: {display_percentage:.1f}%")
-                logger.info(f"   Result Panel Width: {display_total_width - display_position}px")
+            logger.info(f"   Images Width: {main_total_width - main_position}px")
             
             if outer_position is not None:
                 logger.info("-" * 80)
@@ -621,18 +695,18 @@ class SeedreamLayoutV2:
                 logger.info(f"   Side Panel Width: {outer_total_width - outer_position}px")
             
             logger.info("=" * 80)
-            logger.info("💡 To set this as default, add to your settings:")
+            logger.info("💡 To save this layout, use: Tools → Save Seedream Layout")
+            if app_splitter_position is not None:
+                logger.info(f"   'main_app_splitter_position': {app_splitter_position}")
             logger.info(f"   'splitter_position': {main_position}")
-            if display_position is not None:
-                logger.info(f"   'display_splitter_position': {display_position}")
             if outer_position is not None:
                 logger.info(f"   'side_panel_position': {outer_position}")
             logger.info("=" * 80)
             
             # Store in memory (but don't auto-save to file)
             self.ui_preferences['splitter_position'] = main_position
-            if display_position is not None:
-                self.ui_preferences['display_splitter_position'] = display_position
+            if app_splitter_position is not None:
+                self.ui_preferences['main_app_splitter_position'] = app_splitter_position
             if outer_position is not None:
                 self.ui_preferences['side_panel_position'] = outer_position
                 
@@ -658,16 +732,20 @@ class SeedreamLayoutV2:
             if hasattr(self, 'sync_drag_var'):
                 self.ui_preferences['sync_drag'] = self.sync_drag_var.get()
             
-            # Save main splitter position
+            # Save main splitter position (within Seedream)
             if hasattr(self, 'paned_window'):
                 self.ui_preferences['splitter_position'] = self.paned_window.sashpos(0)
             
-            # Save display splitter position (between original and result)
-            if hasattr(self, 'display_paned_window'):
-                try:
-                    self.ui_preferences['display_splitter_position'] = self.display_paned_window.sashpos(0)
-                except:
-                    pass
+            # Save main app splitter position (tabs | recent results)
+            try:
+                if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                    hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                    hasattr(self.tab_instance.main_app, 'main_paned_window')):
+                    main_paned = self.tab_instance.main_app.main_paned_window
+                    self.ui_preferences['main_app_splitter_position'] = main_paned.sashpos(0)
+                    logger.debug(f"Saved main app splitter: {main_paned.sashpos(0)}px")
+            except Exception as e:
+                logger.debug(f"Could not save main app splitter: {e}")
             
             # Save side panel splitter position (if visible)
             if hasattr(self, 'outer_paned_window') and self.side_panel_visible:
@@ -774,25 +852,36 @@ class SeedreamLayoutV2:
     def _try_restore_splitters(self) -> None:
         """Try to restore splitters, checking if widgets are ready"""
         try:
+            # Skip if already restored
+            if self._splitters_restored:
+                logger.debug("Splitters already restored, skipping")
+                return
+            
             # Check if main paned window is visible and has width
             if hasattr(self, 'paned_window'):
                 width = self.paned_window.winfo_width()
                 if width > 1:
                     # Widgets are visible, proceed with restoration
-                    self._restore_all_splitters()
                     self._splitters_restored = True
                     self._visibility_check_scheduled = False
+                    self._restore_all_splitters()
                     logger.info("✓ Splitter restoration successful")
                 else:
-                    # Not ready yet, retry later
+                    # Not ready yet, retry later (only if not already scheduled)
                     if not self._visibility_check_scheduled:
-                        logger.debug(f"Widgets not ready (width={width}), retrying...")
+                        logger.debug(f"Widgets not ready (width={width}), scheduling retry...")
                         self._visibility_check_scheduled = True
-                        self.parent_frame.after(500, self._try_restore_splitters)
-                    self._visibility_check_scheduled = False
+                        self.parent_frame.after(500, lambda: self._try_restore_splitters_callback())
+                    else:
+                        logger.debug(f"Retry already scheduled, width={width}")
         except Exception as e:
             logger.error(f"Error trying to restore splitters: {e}")
             self._visibility_check_scheduled = False
+    
+    def _try_restore_splitters_callback(self) -> None:
+        """Callback for retry - resets flag before calling try again"""
+        self._visibility_check_scheduled = False
+        self._try_restore_splitters()
     
     def _restore_all_splitters(self) -> None:
         """Restore all splitter positions after UI is fully rendered"""
@@ -801,28 +890,35 @@ class SeedreamLayoutV2:
                 logger.debug("Splitters already restored, skipping")
                 return
             
+            # Set flag to prevent recursion from splitter movement callbacks
+            self._restoring_splitters = True
+            
             logger.info("Restoring splitter positions...")
             restored_count = 0
             
-            # Restore main splitter (controls | images)
+            # Restore main app splitter (tabs | recent results)
+            if 'main_app_splitter_position' in self.ui_preferences:
+                try:
+                    if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                        hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                        hasattr(self.tab_instance.main_app, 'main_paned_window')):
+                        main_paned = self.tab_instance.main_app.main_paned_window
+                        position = self.ui_preferences['main_app_splitter_position']
+                        main_paned.sashpos(0, position)
+                        logger.info(f"✓ Restored main app splitter (Recent Results panel): {position}px")
+                        restored_count += 1
+                except Exception as e:
+                    logger.debug(f"Could not restore main app splitter: {e}")
+            
+            # Restore main splitter (controls | images within Seedream)
             if 'splitter_position' in self.ui_preferences and hasattr(self, 'paned_window'):
                 try:
                     position = self.ui_preferences['splitter_position']
                     self.paned_window.sashpos(0, position)
-                    logger.info(f"✓ Restored main splitter: {position}px")
+                    logger.info(f"✓ Restored Seedream splitter: {position}px")
                     restored_count += 1
                 except Exception as e:
-                    logger.debug(f"Could not restore main splitter: {e}")
-            
-            # Restore display splitter (original | result)
-            if 'display_splitter_position' in self.ui_preferences and hasattr(self, 'display_paned_window'):
-                try:
-                    position = self.ui_preferences['display_splitter_position']
-                    self.display_paned_window.sashpos(0, position)
-                    logger.info(f"✓ Restored display splitter: {position}px")
-                    restored_count += 1
-                except Exception as e:
-                    logger.debug(f"Could not restore display splitter: {e}")
+                    logger.debug(f"Could not restore Seedream splitter: {e}")
             
             # Restore side panel splitter (if was visible)
             if 'side_panel_position' in self.ui_preferences and hasattr(self, 'outer_paned_window') and self.side_panel_visible:
@@ -839,6 +935,9 @@ class SeedreamLayoutV2:
             
         except Exception as e:
             logger.error(f"Error restoring splitters: {e}")
+        finally:
+            # Always reset the restoring flag
+            self._restoring_splitters = False
     
     def save_layout_manually(self) -> None:
         """
@@ -869,14 +968,14 @@ class SeedreamLayoutV2:
                 message += "\n"
             
             # Splitter positions
+            if 'main_app_splitter_position' in current_settings:
+                message += f"📏 Recent Results Panel Splitter: {current_settings['main_app_splitter_position']}px\n"
             if 'splitter_position' in current_settings:
-                message += f"📏 Main Splitter (Controls|Images): {current_settings['splitter_position']}px\n"
-            if 'display_splitter_position' in current_settings:
-                message += f"📏 Display Splitter (Original|Result): {current_settings['display_splitter_position']}px\n"
+                message += f"📏 Seedream Controls Splitter: {current_settings['splitter_position']}px\n"
             if 'side_panel_position' in current_settings:
                 message += f"📏 Side Panel Splitter: {current_settings['side_panel_position']}px\n"
             
-            if any(k in current_settings for k in ['splitter_position', 'display_splitter_position', 'side_panel_position']):
+            if any(k in current_settings for k in ['main_app_splitter_position', 'splitter_position', 'side_panel_position']):
                 message += "\n"
             
             # View settings
@@ -976,10 +1075,10 @@ class SeedreamLayoutV2:
             message = "✅ Layout loaded successfully!\n\n"
             message += "Applied Settings:\n\n"
             
+            if 'main_app_splitter_position' in self.ui_preferences:
+                message += f"📏 Recent Results Panel: {self.ui_preferences['main_app_splitter_position']}px\n"
             if 'splitter_position' in self.ui_preferences:
-                message += f"📏 Main Splitter: {self.ui_preferences['splitter_position']}px\n"
-            if 'display_splitter_position' in self.ui_preferences:
-                message += f"📏 Display Splitter: {self.ui_preferences['display_splitter_position']}px\n"
+                message += f"📏 Seedream Controls: {self.ui_preferences['splitter_position']}px\n"
             if 'zoom_level' in self.ui_preferences:
                 message += f"🔍 Zoom: {self.ui_preferences['zoom_level']}\n"
             if 'comparison_mode' in self.ui_preferences:

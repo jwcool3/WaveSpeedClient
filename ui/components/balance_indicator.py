@@ -26,9 +26,11 @@ class BalanceIndicator:
         self.should_update = True
         self.last_update = 0
         self.update_interval = 300  # 5 minutes between updates
+        self._updates_started = False
         
         self.setup_ui()
-        self.start_balance_updates()
+        # Don't start updates immediately - wait for main loop to be ready
+        # self.start_balance_updates() will be called after mainloop starts
     
     def setup_ui(self):
         """Setup the balance indicator UI"""
@@ -76,10 +78,12 @@ class BalanceIndicator:
     
     def start_balance_updates(self):
         """Start automatic balance updates"""
-        if self.update_thread is None or not self.update_thread.is_alive():
+        if not self._updates_started and (self.update_thread is None or not self.update_thread.is_alive()):
+            self._updates_started = True
             self.should_update = True
             self.update_thread = threading.Thread(target=self._balance_update_loop, daemon=True)
             self.update_thread.start()
+            logger.info("Balance updates started")
     
     def stop_balance_updates(self):
         """Stop automatic balance updates"""
@@ -109,12 +113,24 @@ class BalanceIndicator:
             try:
                 balance, error = self.api_client.get_balance()
                 
-                # Update UI in main thread
-                self.parent.after(0, lambda: self._update_balance_ui(balance, error))
+                # Update UI in main thread - check if parent still exists
+                try:
+                    self.parent.after(0, lambda: self._update_balance_ui(balance, error))
+                except (RuntimeError, tk.TclError) as e:
+                    if "main thread is not in main loop" in str(e) or "application has been destroyed" in str(e):
+                        logger.debug("Skipping balance UI update - main loop not ready yet")
+                    else:
+                        raise
                 
             except Exception as e:
                 logger.error(f"Balance update error: {e}")
-                self.parent.after(0, lambda: self._update_balance_ui(None, str(e)))
+                try:
+                    self.parent.after(0, lambda: self._update_balance_ui(None, str(e)))
+                except (RuntimeError, tk.TclError) as e:
+                    if "main thread is not in main loop" in str(e) or "application has been destroyed" in str(e):
+                        logger.debug("Skipping balance error UI update - main loop not ready yet")
+                    else:
+                        raise
         
         # Run in background thread
         threading.Thread(target=_update_in_background, daemon=True).start()

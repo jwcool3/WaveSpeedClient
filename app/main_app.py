@@ -212,7 +212,7 @@ class WaveSpeedAIApp:
         
         # Create main container with paned window for resizable layout
         self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Create left panel for main content with scrolling
         self.left_panel = ttk.Frame(self.main_paned_window)

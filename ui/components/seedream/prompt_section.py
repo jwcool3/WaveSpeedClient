@@ -255,7 +255,7 @@ class PromptSectionManager:
         # History section (initially collapsed)
         history_frame = ttk.LabelFrame(
             self.prompt_frame,
-            text="📚 Recent Prompts",
+            text="📚 Recent Prompts (from last 25 generations)",
             padding="4"
         )
         # Don't grid initially - will be shown when expanded
@@ -647,13 +647,13 @@ class PromptSectionManager:
             saved_prompts = self._get_saved_prompts()
             
             if saved_prompts:
-                # Show most recent prompts first (limit to 10)
-                recent_prompts = saved_prompts[-10:]
-                for prompt in reversed(recent_prompts):
-                    if isinstance(prompt, dict):
-                        prompt_text = prompt.get('prompt', '')
+                # Show recent prompts from saved results (already sorted by time)
+                # Display first 15 (most recent)
+                for prompt_text in saved_prompts[:15]:
+                    if isinstance(prompt_text, dict):
+                        prompt_text = prompt_text.get('prompt', '')
                     else:
-                        prompt_text = str(prompt)
+                        prompt_text = str(prompt_text)
                     
                     if prompt_text:
                         # Truncate long prompts for display
@@ -668,30 +668,56 @@ class PromptSectionManager:
             logger.error(f"Error updating prompt history: {e}")
     
     def _get_saved_prompts(self) -> List[str]:
-        """Get saved prompts from various sources"""
+        """Get saved prompts from recent results (last 25 saved generations)"""
         saved_prompts = []
         
         try:
-            # Try to get from tab instance first
-            if self.tab_instance and hasattr(self.tab_instance, 'saved_seedream_v4_prompts'):
-                prompts = self.tab_instance.saved_seedream_v4_prompts
-                if prompts:
-                    for prompt in prompts:
-                        if isinstance(prompt, dict):
-                            saved_prompts.append(prompt.get('prompt', ''))
-                        else:
-                            saved_prompts.append(str(prompt))
+            # Get prompts from saved results metadata files
+            from app.config import Config
+            import glob
             
-            # Fallback to file
-            if not saved_prompts:
-                prompts_file = "data/seedream_v4_prompts.json"
-                if os.path.exists(prompts_file):
+            results_folder = os.path.join(Config.AUTO_SAVE_FOLDER, 'Seedream_V4')
+            
+            if os.path.exists(results_folder):
+                # Find all JSON metadata files
+                json_files = glob.glob(os.path.join(results_folder, '*.json'))
+                
+                # Sort by modification time (most recent first)
+                json_files.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+                
+                # Get prompts from the last 25 results
+                for json_file in json_files[:25]:
                     try:
-                        with open(prompts_file, 'r', encoding='utf-8') as f:
-                            file_prompts = json.load(f)
-                            saved_prompts.extend(file_prompts)
-                    except:
-                        pass
+                        with open(json_file, 'r', encoding='utf-8') as f:
+                            metadata = json.load(f)
+                            prompt = metadata.get('prompt', '')
+                            if prompt and prompt not in saved_prompts:  # Avoid duplicates
+                                saved_prompts.append(prompt)
+                    except Exception as e:
+                        logger.debug(f"Could not read prompt from {json_file}: {e}")
+            
+            # If no saved results found, try legacy sources as fallback
+            if not saved_prompts:
+                # Try tab instance
+                if self.tab_instance and hasattr(self.tab_instance, 'saved_seedream_v4_prompts'):
+                    prompts = self.tab_instance.saved_seedream_v4_prompts
+                    if prompts:
+                        for prompt in prompts:
+                            if isinstance(prompt, dict):
+                                saved_prompts.append(prompt.get('prompt', ''))
+                            else:
+                                saved_prompts.append(str(prompt))
+                
+                # Fallback to file
+                if not saved_prompts:
+                    prompts_file = "data/seedream_v4_prompts.json"
+                    if os.path.exists(prompts_file):
+                        try:
+                            with open(prompts_file, 'r', encoding='utf-8') as f:
+                                file_prompts = json.load(f)
+                                saved_prompts.extend(file_prompts)
+                        except:
+                            pass
                         
         except Exception as e:
             logger.error(f"Error getting saved prompts: {e}")

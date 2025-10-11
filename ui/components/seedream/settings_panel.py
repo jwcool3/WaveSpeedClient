@@ -82,6 +82,7 @@ class SettingsPanelManager:
         # Settings persistence
         self.settings_file = "data/seedream_settings.json"
         self._save_timer = None  # Debounce timer for auto-save
+        self._loading_settings = False  # Flag to prevent auto-save during load
         
         # Entry change debouncing
         self._entry_update_id = None  # Debounce timer for entry changes
@@ -507,6 +508,11 @@ class SettingsPanelManager:
                 except Exception as e:
                     logger.error(f"Error in validation callback: {e}")
             
+            # Don't auto-save if we're loading settings (prevents overwriting ui_preferences)
+            if self._loading_settings:
+                logger.debug("Skipping auto-save during settings load")
+                return
+            
             # Cancel previous save timer
             if self._save_timer is not None:
                 try:
@@ -851,8 +857,16 @@ class SettingsPanelManager:
                 
                 # Validate loaded settings
                 if self._validate_loaded_settings(settings):
-                    self.apply_settings(settings)
-                    logger.debug(f"Settings loaded from {self.settings_file}")
+                    # Set flag to prevent auto-save while loading
+                    self._loading_settings = True
+                    logger.info("🔒 Auto-save disabled during settings load")
+                    try:
+                        self.apply_settings(settings)
+                        logger.debug(f"Settings loaded from {self.settings_file}")
+                    finally:
+                        # Always clear flag even if apply_settings fails
+                        self._loading_settings = False
+                        logger.info("🔓 Auto-save re-enabled after settings load")
                     
                     # Return full settings including UI preferences
                     return settings

@@ -45,18 +45,26 @@ class RecentResultsPanel:
         
         self.max_results = 50
         
+        # Prevent recursion flags
+        self._resizing = False
+        self._rendering = False
+        self._last_width = 0
+        
         # No popup window needed - using main display
         
         self.setup_ui()
-        self.load_recent_results()
         
         # Bind resize events
         self.parent.bind('<Configure>', self.on_panel_resize)
+        
+        # Schedule loading after main loop starts (avoid "main thread not in main loop" error)
+        self.parent.after(100, self.load_recent_results)
     
     def setup_ui(self):
         """Setup the enhanced recent results panel UI"""
         # Main panel frame
         self.panel_frame = ttk.Frame(self.parent)
+        self.panel_frame.pack(fill=tk.BOTH, expand=True)  # PACK THE FRAME!
         
         # Header section
         self.setup_header()
@@ -186,18 +194,42 @@ class RecentResultsPanel:
     
     def on_panel_resize(self, event=None):
         """Handle panel resize to adjust grid layout"""
-        if event and event.widget == self.parent:
-            self.calculate_optimal_layout()
-            self.render_results_grid()
+        # Prevent recursive calls
+        if self._resizing:
+            return
+        
+        try:
+            self._resizing = True
+            
+            if event and event.widget == self.parent:
+                # Only recalculate if width changed significantly
+                current_width = self.parent.winfo_width()
+                if abs(current_width - self._last_width) > 50:  # Only if changed by 50+ pixels
+                    self._last_width = current_width
+                    self.calculate_optimal_layout()
+                    self.render_results_grid()
+        finally:
+            self._resizing = False
     
     def on_canvas_configure(self, event):
         """Handle canvas resize"""
-        # Update scrollable frame width to match canvas
-        canvas_width = event.width
-        self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+        # Prevent recursive calls
+        if self._resizing:
+            return
         
-        # Recalculate layout if canvas width changed significantly
-        self.calculate_optimal_layout()
+        try:
+            self._resizing = True
+            
+            # Update scrollable frame width to match canvas
+            canvas_width = event.width
+            self.canvas.itemconfig(self.canvas_window, width=canvas_width)
+            
+            # Only recalculate if width changed significantly
+            if abs(canvas_width - self._last_width) > 50:  # Only if changed by 50+ pixels
+                self._last_width = canvas_width
+                self.calculate_optimal_layout()
+        finally:
+            self._resizing = False
     
     def calculate_optimal_layout(self):
         """Calculate optimal grid layout based on current panel width"""
@@ -259,7 +291,11 @@ class RecentResultsPanel:
                 base_folder = Config.AUTO_SAVE_FOLDER
                 
                 if not os.path.exists(base_folder):
-                    self.parent.after(0, lambda: self.update_results_display([]))
+                    try:
+                        self.parent.after(0, lambda: self.update_results_display([]))
+                    except tk.TclError:
+                        # Widget destroyed or main loop not running
+                        pass
                     return
                 
                 # Map folders to tab names
@@ -312,11 +348,19 @@ class RecentResultsPanel:
                 results = results[:self.max_results]
                 
                 # Update UI in main thread
-                self.parent.after(0, lambda: self.update_results_display(results))
+                try:
+                    self.parent.after(0, lambda: self.update_results_display(results))
+                except tk.TclError:
+                    # Widget destroyed or main loop not running
+                    pass
                 
             except Exception as e:
                 logger.error(f"Error loading recent results: {e}")
-                self.parent.after(0, lambda: self.update_results_display([]))
+                try:
+                    self.parent.after(0, lambda: self.update_results_display([]))
+                except tk.TclError:
+                    # Widget destroyed or main loop not running
+                    pass
         
         # Load in background thread
         threading.Thread(target=_load_in_background, daemon=True).start()
@@ -345,38 +389,47 @@ class RecentResultsPanel:
     
     def render_results_grid(self):
         """Render the enhanced results grid with dynamic sizing"""
-        # Clear existing grid
-        for widget in self.results_grid.winfo_children():
-            widget.destroy()
-        
-        if not self.filtered_results:
-            # Show empty state
-            empty_label = ttk.Label(
-                self.results_grid,
-                text="No recent results found.\nGenerate some images to see them here!",
-                font=('Arial', 9),
-                foreground='#666666',
-                justify=tk.CENTER
-            )
-            empty_label.pack(pady=20)
+        # Prevent recursive/concurrent renders
+        if self._rendering:
             return
         
-        # Dynamic grid layout
-        for i, result in enumerate(self.filtered_results):
-            row = i // self.current_cols
-            col = i % self.current_cols
+        try:
+            self._rendering = True
             
-            # Create result item frame
-            item_frame = tk.Frame(self.results_grid, relief=tk.RAISED, bd=1, bg='white')
-            item_frame.grid(row=row, column=col, padx=2, pady=2, sticky="nsew")
+            # Clear existing grid
+            for widget in self.results_grid.winfo_children():
+                widget.destroy()
             
-            # Configure grid weights for responsive layout
-            self.results_grid.columnconfigure(col, weight=1)
+            if not self.filtered_results:
+                # Show empty state
+                empty_label = ttk.Label(
+                    self.results_grid,
+                    text="No recent results found.\nGenerate some images to see them here!",
+                    font=('Arial', 9),
+                    foreground='#666666',
+                    justify=tk.CENTER
+                )
+                empty_label.pack(pady=20)
+                return
             
-            self.create_enhanced_result_item(item_frame, result)
-        
-        # Update scroll region after rendering
-        self.parent.after(10, self.update_scroll_region)
+            # Dynamic grid layout
+            for i, result in enumerate(self.filtered_results):
+                row = i // self.current_cols
+                col = i % self.current_cols
+                
+                # Create result item frame
+                item_frame = tk.Frame(self.results_grid, relief=tk.RAISED, bd=1, bg='white')
+                item_frame.grid(row=row, column=col, padx=2, pady=2, sticky="nsew")
+                
+                # Configure grid weights for responsive layout
+                self.results_grid.columnconfigure(col, weight=1)
+                
+                self.create_enhanced_result_item(item_frame, result)
+            
+            # Update scroll region after rendering
+            self.parent.after(10, self.update_scroll_region)
+        finally:
+            self._rendering = False
     
     def create_enhanced_result_item(self, parent, result):
         """Create an enhanced result item widget with better interaction"""
@@ -494,46 +547,105 @@ class RecentResultsPanel:
             return ImageTk.PhotoImage(placeholder)
     
     def show_image_preview(self, result):
-        """Show image preview in the current tab's image display"""
+        """Show image preview - switches to Seedream V4 tab and loads image"""
         try:
             if not self.main_app:
                 show_error("Error", "Cannot access main application")
                 return
             
-            # Get the current active tab
+            # Determine which tab this image belongs to
+            tab_name = result.get('tab_name', 'Seedream V4')
+            
+            # If it's a Seedream V4 result (or unknown), switch to Seedream V4 tab
+            if tab_name == 'Seedream V4' or tab_name not in ['Nano Banana', 'SeedEdit', 'Upscaler', 'Wan 2.2', 'SeedDance Pro']:
+                # Switch to Seedream V4 tab
+                if hasattr(self.main_app, 'notebook') and hasattr(self.main_app, 'seedream_v4_tab'):
+                    try:
+                        # Get the tab index for Seedream V4
+                        tabs = [
+                            self.main_app.editor_tab,
+                            self.main_app.seededit_tab,
+                            self.main_app.seedream_v4_tab,
+                            self.main_app.upscaler_tab,
+                            self.main_app.video_tab,
+                            self.main_app.seeddance_tab
+                        ]
+                        seedream_index = tabs.index(self.main_app.seedream_v4_tab)
+                        self.main_app.notebook.select(seedream_index)
+                        logger.info(f"✓ Switched to Seedream V4 tab")
+                        
+                        # Give UI a moment to render the tab, then load image
+                        self.parent.after(50, lambda: self._load_into_seedream(result))
+                        return
+                    except Exception as e:
+                        logger.error(f"Could not switch to Seedream V4 tab: {e}")
+            
+            # For other tabs, get currently active tab
             current_tab = self.get_current_active_tab()
             if not current_tab:
                 show_error("Error", "No active tab found")
                 return
             
-            # Try to load the image in the current tab's image display
-            if hasattr(current_tab, 'optimized_layout') and hasattr(current_tab.optimized_layout, 'update_input_image'):
-                # Use the optimized layout's image display
-                success = current_tab.optimized_layout.update_input_image(result['image_path'])
-                if success:
-                    # Also call the tab's image selection method if available
-                    if hasattr(current_tab, 'on_image_selected'):
-                        try:
-                            # Try with replacing_image parameter first
-                            current_tab.on_image_selected(result['image_path'], replacing_image=True)
-                        except TypeError:
-                            # Fallback to without the parameter
-                            current_tab.on_image_selected(result['image_path'])
-                    
-                    # Image loaded successfully (no popup needed)
-                else:
-                    show_error("Preview Error", "Failed to load image in current tab")
-            elif hasattr(current_tab, 'image_selector') and hasattr(current_tab.image_selector, 'update_image'):
-                # Use the image selector's display
-                current_tab.image_selector.update_image(result['image_path'])
-                # Image loaded successfully (no popup needed)
-            else:
-                # Fallback: try to send to the current tab
-                self.send_result_to_current_tab(result)
+            # Try to load the image
+            self._try_load_into_tab(current_tab, result)
                 
         except Exception as e:
             logger.error(f"Error showing image preview: {e}")
             show_error("Preview Error", f"Failed to show preview: {str(e)}")
+    
+    def _load_into_seedream(self, result):
+        """Load image into Seedream V4 tab (called after tab switch)"""
+        try:
+            if hasattr(self.main_app, 'seedream_v4_tab'):
+                self._try_load_into_tab(self.main_app.seedream_v4_tab, result)
+        except Exception as e:
+            logger.error(f"Error loading into Seedream: {e}")
+    
+    def _try_load_into_tab(self, current_tab, result):
+        """Try various methods to load image into a tab"""
+        try:
+            # 1. Try improved_layout first (new refactored system for Seedream V4)
+            if hasattr(current_tab, 'improved_layout') and hasattr(current_tab.improved_layout, 'load_image'):
+                try:
+                    current_tab.improved_layout.load_image(result['image_path'])
+                    logger.info(f"✓ Loaded image into improved layout: {result['filename']}")
+                    return
+                except Exception as e:
+                    logger.debug(f"Could not use improved_layout: {e}")
+            
+            # 2. Try on_image_selected method (most tabs have this)
+            if hasattr(current_tab, 'on_image_selected'):
+                try:
+                    # Try with replacing_image parameter first
+                    current_tab.on_image_selected(result['image_path'], replacing_image=True)
+                    logger.info(f"✓ Loaded image via on_image_selected: {result['filename']}")
+                    return
+                except TypeError:
+                    # Fallback to without the parameter
+                    current_tab.on_image_selected(result['image_path'])
+                    logger.info(f"✓ Loaded image via on_image_selected: {result['filename']}")
+                    return
+                except Exception as e:
+                    logger.debug(f"Could not use on_image_selected: {e}")
+            
+            # 3. Try optimized_layout (older system)
+            if hasattr(current_tab, 'optimized_layout') and hasattr(current_tab.optimized_layout, 'update_input_image'):
+                success = current_tab.optimized_layout.update_input_image(result['image_path'])
+                if success:
+                    logger.info(f"✓ Loaded image via optimized_layout: {result['filename']}")
+                    return
+            
+            # 4. Try image_selector
+            if hasattr(current_tab, 'image_selector') and hasattr(current_tab.image_selector, 'update_image'):
+                current_tab.image_selector.update_image(result['image_path'])
+                logger.info(f"✓ Loaded image via image_selector: {result['filename']}")
+                return
+            
+            # No method worked
+            show_error("Preview Error", "This tab doesn't support loading images")
+                
+        except Exception as e:
+            logger.error(f"Error trying to load into tab: {e}")
     
     def get_current_active_tab(self):
         """Get the currently active tab"""
