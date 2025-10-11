@@ -333,6 +333,24 @@ class ActionsHandlerManager:
             # Sequential seeds
             return base_seed + request_index
     
+    def _get_upload_method_preference(self) -> bool:
+        """Get upload method preference from main app"""
+        try:
+            # Access main app through tab instance
+            if (hasattr(self.parent_layout, 'tab_instance') and 
+                hasattr(self.parent_layout.tab_instance, 'main_app') and
+                hasattr(self.parent_layout.tab_instance.main_app, 'use_image_hosting')):
+                use_hosting = self.parent_layout.tab_instance.main_app.use_image_hosting.get()
+                logger.debug(f"Upload method preference: {'Image Hosting' if use_hosting else 'Direct Upload'}")
+                return use_hosting
+            else:
+                # Fallback to default (image hosting) if preference not accessible
+                logger.debug("Upload preference not accessible, using default (Image Hosting)")
+                return True
+        except Exception as e:
+            logger.error(f"Error getting upload preference: {e}")
+            return True  # Fallback to safe default
+    
     def _get_current_settings(self) -> Dict[str, Any]:
         """Get current settings for processing"""
         try:
@@ -374,21 +392,30 @@ class ActionsHandlerManager:
     def _single_request_thread(self, settings: Dict[str, Any]) -> None:
         """Background thread for single request processing"""
         try:
-            # Upload image to get URL (API requires URLs, not file paths)
-            from core.secure_upload import SecureImageUploader
-            uploader = SecureImageUploader()
-            success, image_url, error = uploader.upload_image_securely(settings['image_path'])
+            # Check upload method preference (from Tools menu)
+            use_image_hosting = self._get_upload_method_preference()
             
-            if not success:
-                error_msg = f"Failed to upload image: {error}"
-                logger.error(error_msg)
-                self.parent_layout.parent_frame.after(
-                    0,
-                    lambda: self.handle_processing_error(error_msg)
-                )
-                return
-            
-            logger.info(f"Image uploaded successfully: {image_url}")
+            if use_image_hosting:
+                # Upload image to hosting site (current default method)
+                from core.secure_upload import SecureImageUploader
+                uploader = SecureImageUploader()
+                success, image_url, error = uploader.upload_image_securely(settings['image_path'])
+                
+                if not success:
+                    error_msg = f"Failed to upload image: {error}"
+                    logger.error(error_msg)
+                    self.parent_layout.parent_frame.after(
+                        0,
+                        lambda: self.handle_processing_error(error_msg)
+                    )
+                    return
+                
+                logger.info(f"Image uploaded to hosting site: {image_url}")
+            else:
+                # Direct upload method (old way - for speed comparison)
+                logger.info("Using direct upload method (old way)")
+                image_url = settings['image_path']  # API will handle direct file upload
+                logger.info(f"Using direct file path: {image_url}")
             
             # Submit task with uploaded image URL
             result = self.api_client.submit_seedream_v4_task(
@@ -429,10 +456,6 @@ class ActionsHandlerManager:
             submitted_tasks = []
             num_requests = len(request_settings_list)
             
-            # Upload image once for all requests (same image)
-            from core.secure_upload import SecureImageUploader
-            uploader = SecureImageUploader()
-            
             # Get image path from first request (they all use the same image)
             image_path = request_settings_list[0]['image_path'] if request_settings_list else None
             if not image_path:
@@ -442,17 +465,30 @@ class ActionsHandlerManager:
                 )
                 return
             
-            success, image_url, error = uploader.upload_image_securely(image_path)
-            if not success:
-                error_msg = f"Failed to upload image: {error}"
-                logger.error(error_msg)
-                self.parent_layout.parent_frame.after(
-                    0,
-                    lambda: self.handle_processing_error(error_msg)
-                )
-                return
+            # Check upload method preference (from Tools menu)
+            use_image_hosting = self._get_upload_method_preference()
             
-            logger.info(f"Image uploaded successfully for multiple requests: {image_url}")
+            if use_image_hosting:
+                # Upload image once for all requests (same image) - hosting site method
+                from core.secure_upload import SecureImageUploader
+                uploader = SecureImageUploader()
+                
+                success, image_url, error = uploader.upload_image_securely(image_path)
+                if not success:
+                    error_msg = f"Failed to upload image: {error}"
+                    logger.error(error_msg)
+                    self.parent_layout.parent_frame.after(
+                        0,
+                        lambda: self.handle_processing_error(error_msg)
+                    )
+                    return
+                
+                logger.info(f"Image uploaded to hosting site for multiple requests: {image_url}")
+            else:
+                # Direct upload method (old way - for speed comparison)
+                logger.info("Using direct upload method for multiple requests (old way)")
+                image_url = image_path  # API will handle direct file upload
+                logger.info(f"Using direct file path for {num_requests} requests: {image_url}")
             
             # Submit all requests
             for settings in request_settings_list:

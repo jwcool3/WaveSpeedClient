@@ -214,7 +214,7 @@ class EnhancedSyncManager:
         
         # Zoom debouncing
         self.zoom_timer = None
-        self.zoom_delay = 150  # ms delay to debounce scroll events
+        self.zoom_delay = 500  # ms delay to debounce scroll events
         self.pending_zoom_delta = 0
         
         logger.info("EnhancedSyncManager initialized")
@@ -464,7 +464,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
         
         # Zoom debouncing
         self.zoom_timer = None
-        self.zoom_delay = 150  # ms delay for zoom debouncing
+        self.zoom_delay = 500  # ms delay for zoom debouncing
         self.pending_zoom_direction = 0
         
         # Splitter position persistence
@@ -3200,7 +3200,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                         self.log_message(f"📥 Downloading result {request_num}...")
                         
                         # Download the image
-                        response = requests.get(result_url, timeout=60)
+                        response = requests.get(result_url, timeout=120)
                         response.raise_for_status()
                         
                         # Save to temporary file
@@ -3533,7 +3533,7 @@ class ImprovedSeedreamLayout(AIChatMixin):
                 
                 # Download the image
                 import requests
-                response = requests.get(result_url, timeout=60)
+                response = requests.get(result_url, timeout=120)
                 response.raise_for_status()
                 
                 # Save to temporary file

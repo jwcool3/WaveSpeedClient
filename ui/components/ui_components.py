@@ -23,14 +23,14 @@ class BaseTab(ABC):
     """Base class for all tabs in the application"""
     
     def __init__(self, parent_frame, api_client):
-        # Create main container frame
-        self.container = ttk.Frame(parent_frame)
-        self.container.pack(fill=tk.BOTH, expand=True)
+        # Create main container frame (no padding to eliminate top gap)
+        self.container = ttk.Frame(parent_frame, padding="0")
+        self.container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Create scrollable canvas
-        self.canvas = tk.Canvas(self.container, highlightthickness=0)
+        self.canvas = tk.Canvas(self.container, highlightthickness=0, borderwidth=0)
         self.scrollbar = ttk.Scrollbar(self.container, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.scrollable_frame = ttk.Frame(self.canvas, padding="0")
         
         # Configure scrolling
         self.scrollable_frame.bind(
@@ -44,9 +44,9 @@ class BaseTab(ABC):
         # Configure canvas scrolling
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
         
-        # Pack canvas and scrollbar
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
+        # Pack canvas and scrollbar (no padding)
+        self.canvas.pack(side="left", fill="both", expand=True, padx=0, pady=0)
+        self.scrollbar.pack(side="right", fill="y", padx=0, pady=0)
         
         # Bind canvas resize
         self.canvas.bind('<Configure>', self._on_canvas_configure)
@@ -54,17 +54,17 @@ class BaseTab(ABC):
         # Bind mouse wheel scrolling
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
         
-        # The actual content frame (with padding)
-        self.frame = ttk.Frame(self.scrollable_frame, padding="10")
-        self.frame.pack(fill=tk.BOTH, expand=True)
+        # The actual content frame (zero top/bottom padding, minimal side padding)
+        self.frame = ttk.Frame(self.scrollable_frame, padding="5 0 5 0")  # left, top, right, bottom
+        self.frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Configure main frame column weights for responsiveness
         self.frame.columnconfigure(0, weight=1)
         self.frame.columnconfigure(1, weight=1)
         
         # Create sticky button frame at the bottom of the main container
-        self.button_frame = ttk.Frame(self.container, padding="10")
-        self.button_frame.pack(side="bottom", fill="x")
+        self.button_frame = ttk.Frame(self.container, padding="5")  # Reduced padding
+        self.button_frame.pack(side="bottom", fill="x", padx=0, pady=0)
         self.button_frame.columnconfigure(0, weight=1)
         
         self.api_client = api_client
@@ -187,13 +187,13 @@ class BaseTab(ABC):
     
     def setup_progress_section(self, row):
         """Setup common progress section"""
-        self.progress_frame = ttk.LabelFrame(self.frame, text="Progress", padding="10")
+        self.progress_frame = ttk.LabelFrame(self.frame, text="Progress", padding="5")  # Reduced padding
         self.progress_frame.grid(row=row, column=0, columnspan=2, 
-                                sticky=(tk.W, tk.E), pady=(0, 10))
+                                sticky=(tk.W, tk.E), pady=(0, 5))  # Reduced vertical padding
         self.progress_frame.columnconfigure(0, weight=1)
         
         self.progress_bar = ttk.Progressbar(self.progress_frame, mode='indeterminate')
-        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
+        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 3))  # Reduced padding
         
         self.status_label = ttk.Label(self.progress_frame, text="Ready")
         self.status_label.grid(row=1, column=0, sticky=tk.W)
