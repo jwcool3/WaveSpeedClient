@@ -411,16 +411,9 @@ class EnhancedSyncManager:
                 except:
                     current_percent = 100
             
-            # Calculate new zoom with smaller steps for smoother zooming
-            # Use progressive step sizes: smaller steps for small zooms, larger for big zooms
-            if current_percent <= 50:
-                step = 5  # 5% steps for 0-50%
-            elif current_percent <= 100:
-                step = 10  # 10% steps for 50-100%
-            elif current_percent <= 200:
-                step = 15  # 15% steps for 100-200%
-            else:
-                step = 25  # 25% steps for 200%+
+            # Use consistent small steps for gradual, smooth zooming throughout entire range
+            # Smaller fixed steps provide better control, especially when starting from Fit
+            step = 8  # 8% steps throughout for smooth, gradual zoom without jumps
             
             # Apply zoom step
             if zoom_in:
@@ -629,7 +622,7 @@ class ImageSectionManager:
         logger.info("ImageSectionManager initialized")
     
     def set_ui_references(self, thumbnail_label=None, image_name_label=None, 
-                         image_size_label=None, reorder_btn=None):
+                         image_size_label=None, reorder_btn=None, crop_btn=None, resize_btn=None):
         """
         Set references to UI widgets for updates.
         
@@ -638,17 +631,23 @@ class ImageSectionManager:
             image_name_label: Label widget for image name/count
             image_size_label: Label widget for image dimensions
             reorder_btn: Button widget for reordering (enabled/disabled based on count)
+            crop_btn: Button widget for cropping (enabled when image is loaded)
+            resize_btn: Button widget for resizing (enabled when image is loaded)
         """
         self.thumbnail_label = thumbnail_label
         self.image_name_label = image_name_label
         self.image_size_label = image_size_label
         self.reorder_btn = reorder_btn
+        self.crop_btn = crop_btn
+        self.resize_btn = resize_btn
         
         # Debug logging
         logger.debug(f"UI references set - thumbnail: {thumbnail_label is not None}, "
                     f"name_label: {image_name_label is not None}, "
                     f"size_label: {image_size_label is not None}, "
-                    f"reorder_btn: {reorder_btn is not None}")
+                    f"reorder_btn: {reorder_btn is not None}, "
+                    f"crop_btn: {crop_btn is not None}, "
+                    f"resize_btn: {resize_btn is not None}")
         
         # Setup drag and drop if thumbnail is available
         if self.thumbnail_label and DND_AVAILABLE:
@@ -836,12 +835,16 @@ class ImageSectionManager:
             if count == 0:
                 self._safe_config_widget(self.image_name_label, text="No images selected", foreground="gray")
                 self._safe_config_widget(self.reorder_btn, state="disabled")
+                self._safe_config_widget(self.crop_btn, state="disabled")
+                self._safe_config_widget(self.resize_btn, state="disabled")
             elif count == 1:
                 filename = os.path.basename(self.selected_image_paths[0])
                 if len(filename) > 25:
                     filename = filename[:22] + "..."
                 self._safe_config_widget(self.image_name_label, text=filename, foreground="black")
                 self._safe_config_widget(self.reorder_btn, state="disabled")
+                self._safe_config_widget(self.crop_btn, state="normal")
+                self._safe_config_widget(self.resize_btn, state="normal")
             else:
                 # Show count and first image name
                 first_filename = os.path.basename(self.selected_image_paths[0])
@@ -853,6 +856,8 @@ class ImageSectionManager:
                     foreground="blue"
                 )
                 self._safe_config_widget(self.reorder_btn, state="normal")
+                self._safe_config_widget(self.crop_btn, state="normal")
+                self._safe_config_widget(self.resize_btn, state="normal")
             
             logger.debug(f"Updated image count display: {count} images")
             
@@ -1597,6 +1602,356 @@ class ImageSectionManager:
             self.display_image_in_panel(self.result_image_path, "result", result_canvas, zoom_var)
             
             logger.info("Images swapped successfully")
+    
+    def display_difference_view(self, canvas, original_path, result_path, zoom_var):
+        """
+        Display difference highlighting mode - shows pixel differences in red
+        
+        Args:
+            canvas: Canvas to display difference in
+            original_path: Path to original image
+            result_path: Path to result image
+            zoom_var: Zoom level StringVar
+        """
+        if not original_path or not result_path:
+            return
+        
+        try:
+            # Load both images
+            original_img = self.get_cached_image(original_path)
+            result_img = self.get_cached_image(result_path)
+            
+            # Get canvas dimensions
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            
+            if canvas_width <= 1:
+                canvas_width = 400
+                canvas_height = 400
+            
+            # Calculate scale factor
+            zoom_value = zoom_var.get()
+            if zoom_value == "Fit":
+                max_width = max(original_img.width, result_img.width)
+                max_height = max(original_img.height, result_img.height)
+                scale_factor = min(
+                    (canvas_width - 4) / max_width,
+                    (canvas_height - 4) / max_height
+                )
+            else:
+                scale_factor = float(zoom_value.rstrip('%')) / 100
+            
+            # Resize to same size
+            target_width = max(original_img.width, result_img.width)
+            target_height = max(original_img.height, result_img.height)
+            
+            if original_img.size != (target_width, target_height):
+                original_img = original_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            if result_img.size != (target_width, target_height):
+                result_img = result_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            
+            # Apply zoom
+            display_width = int(target_width * scale_factor)
+            display_height = int(target_height * scale_factor)
+            
+            original_img = original_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            result_img = result_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            
+            # Calculate absolute difference
+            import numpy as np
+            orig_array = np.array(original_img.convert('RGB'))
+            result_array = np.array(result_img.convert('RGB'))
+            
+            # Calculate difference and amplify it
+            diff_array = np.abs(orig_array.astype(float) - result_array.astype(float))
+            
+            # Amplify differences (multiply by 3 to make them more visible)
+            diff_array = np.clip(diff_array * 3, 0, 255).astype(np.uint8)
+            
+            # Create RGB image with red highlighting for differences
+            # Red channel = difference, Green/Blue = original (dimmed)
+            highlighted = orig_array.copy()
+            highlighted[:, :, 0] = np.clip(highlighted[:, :, 0] * 0.5 + diff_array[:, :, 0], 0, 255)  # Red
+            highlighted[:, :, 1] = np.clip(highlighted[:, :, 1] * 0.7 - diff_array[:, :, 1] * 0.3, 0, 255)  # Green
+            highlighted[:, :, 2] = np.clip(highlighted[:, :, 2] * 0.7 - diff_array[:, :, 2] * 0.3, 0, 255)  # Blue
+            
+            difference_img = Image.fromarray(highlighted.astype(np.uint8))
+            
+            # Display difference image
+            photo = ImageTk.PhotoImage(difference_img)
+            canvas.delete("all")
+            
+            # Position image
+            if display_width <= canvas_width and display_height <= canvas_height:
+                x = max(0, (canvas_width - display_width) // 2)
+                y = max(0, (canvas_height - display_height) // 2)
+            else:
+                x = 0
+                y = 0
+            
+            canvas.create_image(x, y, anchor=tk.NW, image=photo)
+            canvas.image = photo
+            
+            # Set scroll region
+            if display_width > canvas_width or display_height > canvas_height:
+                canvas.configure(scrollregion=(0, 0, display_width, display_height))
+            else:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            logger.info("Difference view displayed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error displaying difference view: {e}")
+            canvas.delete("all")
+            canvas.create_text(
+                canvas_width // 2, canvas_height // 2,
+                text=f"Error creating difference view:\n{str(e)}",
+                fill="red",
+                font=('Arial', 10),
+                justify=tk.CENTER
+            )
+    
+    def display_split_view(self, canvas, original_path, result_path, zoom_var, split_position=0.5, orientation='vertical'):
+        """
+        Display split slider view with draggable divider
+        
+        Args:
+            canvas: Canvas to display split view in
+            original_path: Path to original image
+            result_path: Path to result image
+            zoom_var: Zoom level StringVar
+            split_position: Position of split (0-1)
+            orientation: 'vertical' or 'horizontal'
+        """
+        if not original_path or not result_path:
+            return
+        
+        try:
+            # Load both images
+            original_img = self.get_cached_image(original_path)
+            result_img = self.get_cached_image(result_path)
+            
+            # Get canvas dimensions
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            
+            if canvas_width <= 1:
+                canvas_width = 400
+                canvas_height = 400
+            
+            # Calculate scale factor
+            zoom_value = zoom_var.get()
+            if zoom_value == "Fit":
+                max_width = max(original_img.width, result_img.width)
+                max_height = max(original_img.height, result_img.height)
+                scale_factor = min(
+                    (canvas_width - 4) / max_width,
+                    (canvas_height - 4) / max_height
+                )
+            else:
+                scale_factor = float(zoom_value.rstrip('%')) / 100
+            
+            # Resize to same size
+            target_width = max(original_img.width, result_img.width)
+            target_height = max(original_img.height, result_img.height)
+            
+            if original_img.size != (target_width, target_height):
+                original_img = original_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            if result_img.size != (target_width, target_height):
+                result_img = result_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            
+            # Apply zoom
+            display_width = int(target_width * scale_factor)
+            display_height = int(target_height * scale_factor)
+            
+            original_img = original_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            result_img = result_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            
+            # Create split composite
+            composite = Image.new('RGB', (display_width, display_height))
+            
+            if orientation == 'vertical':
+                split_x = int(display_width * split_position)
+                # Left side: original
+                composite.paste(original_img.crop((0, 0, split_x, display_height)), (0, 0))
+                # Right side: result
+                composite.paste(result_img.crop((split_x, 0, display_width, display_height)), (split_x, 0))
+            else:  # horizontal
+                split_y = int(display_height * split_position)
+                # Top: original
+                composite.paste(original_img.crop((0, 0, display_width, split_y)), (0, 0))
+                # Bottom: result
+                composite.paste(result_img.crop((0, split_y, display_width, display_height)), (0, split_y))
+            
+            # Display composite
+            photo = ImageTk.PhotoImage(composite)
+            canvas.delete("all")
+            
+            # Position image
+            if display_width <= canvas_width and display_height <= canvas_height:
+                x = max(0, (canvas_width - display_width) // 2)
+                y = max(0, (canvas_height - display_height) // 2)
+            else:
+                x = 0
+                y = 0
+            
+            canvas.create_image(x, y, anchor=tk.NW, image=photo)
+            canvas.image = photo
+            
+            # Draw split line
+            if orientation == 'vertical':
+                line_x = x + int(display_width * split_position)
+                canvas.create_line(line_x, y, line_x, y + display_height, fill='white', width=3)
+                canvas.create_line(line_x, y, line_x, y + display_height, fill='black', width=1)
+            else:
+                line_y = y + int(display_height * split_position)
+                canvas.create_line(x, line_y, x + display_width, line_y, fill='white', width=3)
+                canvas.create_line(x, line_y, x + display_width, line_y, fill='black', width=1)
+            
+            # Set scroll region
+            if display_width > canvas_width or display_height > canvas_height:
+                canvas.configure(scrollregion=(0, 0, display_width, display_height))
+            else:
+                canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            logger.info(f"Split view displayed ({orientation}, {split_position:.0%})")
+            
+        except Exception as e:
+            logger.error(f"Error displaying split view: {e}")
+            canvas.delete("all")
+            canvas.create_text(
+                canvas_width // 2, canvas_height // 2,
+                text=f"Error creating split view:\n{str(e)}",
+                fill="red",
+                font=('Arial', 10),
+                justify=tk.CENTER
+            )
+    
+    def display_grid_view(self, canvas, original_path, result_path, zoom_var):
+        """
+        Display 2x2 grid view (Original, Result, Overlay, Difference)
+        
+        Args:
+            canvas: Canvas to display grid in
+            original_path: Path to original image
+            result_path: Path to result image
+            zoom_var: Zoom level StringVar
+        """
+        if not original_path or not result_path:
+            return
+        
+        try:
+            # Load both images
+            original_img = self.get_cached_image(original_path)
+            result_img = self.get_cached_image(result_path)
+            
+            # Get canvas dimensions
+            canvas_width = canvas.winfo_width()
+            canvas_height = canvas.winfo_height()
+            
+            if canvas_width <= 1:
+                canvas_width = 800
+                canvas_height = 600
+            
+            # Calculate cell size (2x2 grid)
+            cell_width = canvas_width // 2
+            cell_height = canvas_height // 2
+            
+            # Resize images to fit cells
+            target_width = max(original_img.width, result_img.width)
+            target_height = max(original_img.height, result_img.height)
+            
+            if original_img.size != (target_width, target_height):
+                original_img = original_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            if result_img.size != (target_width, target_height):
+                result_img = result_img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            
+            # Scale to fit cells
+            scale_factor = min(
+                (cell_width - 4) / target_width,
+                (cell_height - 4) / target_height
+            )
+            
+            display_width = int(target_width * scale_factor)
+            display_height = int(target_height * scale_factor)
+            
+            # Resize all versions
+            orig_resized = original_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            result_resized = result_img.resize((display_width, display_height), Image.Resampling.LANCZOS)
+            
+            # Create overlay (50/50 blend)
+            overlay = Image.blend(orig_resized.convert('RGBA'), result_resized.convert('RGBA'), alpha=0.5)
+            
+            # Create difference view
+            import numpy as np
+            orig_array = np.array(orig_resized.convert('RGB'))
+            result_array = np.array(result_resized.convert('RGB'))
+            
+            diff_array = np.abs(orig_array.astype(float) - result_array.astype(float))
+            diff_array = np.clip(diff_array * 3, 0, 255).astype(np.uint8)
+            
+            highlighted = orig_array.copy()
+            highlighted[:, :, 0] = np.clip(highlighted[:, :, 0] * 0.5 + diff_array[:, :, 0], 0, 255)
+            highlighted[:, :, 1] = np.clip(highlighted[:, :, 1] * 0.7 - diff_array[:, :, 1] * 0.3, 0, 255)
+            highlighted[:, :, 2] = np.clip(highlighted[:, :, 2] * 0.7 - diff_array[:, :, 2] * 0.3, 0, 255)
+            
+            difference = Image.fromarray(highlighted.astype(np.uint8))
+            
+            # Create grid composite
+            grid = Image.new('RGB', (canvas_width, canvas_height), (240, 240, 240))
+            
+            # Calculate centering offsets
+            offset_x = (cell_width - display_width) // 2
+            offset_y = (cell_height - display_height) // 2
+            
+            # Paste images into grid
+            # Top-left: Original
+            grid.paste(orig_resized, (offset_x, offset_y))
+            # Top-right: Result
+            grid.paste(result_resized, (cell_width + offset_x, offset_y))
+            # Bottom-left: Overlay
+            grid.paste(overlay, (offset_x, cell_height + offset_y))
+            # Bottom-right: Difference
+            grid.paste(difference, (cell_width + offset_x, cell_height + offset_y))
+            
+            # Display grid
+            photo = ImageTk.PhotoImage(grid)
+            canvas.delete("all")
+            canvas.create_image(0, 0, anchor=tk.NW, image=photo)
+            canvas.image = photo
+            
+            # Draw grid lines
+            canvas.create_line(cell_width, 0, cell_width, canvas_height, fill='gray', width=2)
+            canvas.create_line(0, cell_height, canvas_width, cell_height, fill='gray', width=2)
+            
+            # Add labels
+            font = ('Arial', 9, 'bold')
+            canvas.create_text(5, 5, text="Original", anchor=tk.NW, fill='white', font=font)
+            canvas.create_text(5, 6, text="Original", anchor=tk.NW, fill='black', font=font)
+            
+            canvas.create_text(cell_width + 5, 5, text="Result", anchor=tk.NW, fill='white', font=font)
+            canvas.create_text(cell_width + 5, 6, text="Result", anchor=tk.NW, fill='black', font=font)
+            
+            canvas.create_text(5, cell_height + 5, text="Overlay", anchor=tk.NW, fill='white', font=font)
+            canvas.create_text(5, cell_height + 6, text="Overlay", anchor=tk.NW, fill='black', font=font)
+            
+            canvas.create_text(cell_width + 5, cell_height + 5, text="Difference", anchor=tk.NW, fill='white', font=font)
+            canvas.create_text(cell_width + 5, cell_height + 6, text="Difference", anchor=tk.NW, fill='black', font=font)
+            
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            
+            logger.info("Grid view displayed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error displaying grid view: {e}")
+            canvas.delete("all")
+            canvas.create_text(
+                canvas_width // 2, canvas_height // 2,
+                text=f"Error creating grid view:\n{str(e)}",
+                fill="red",
+                font=('Arial', 10),
+                justify=tk.CENTER
+            )
 
 
 # Export public classes

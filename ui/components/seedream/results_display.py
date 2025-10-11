@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Callable
 from PIL import Image, ImageTk
 from core.logger import get_logger
+from utils.color_matcher import ColorMatcher
 
 logger = get_logger()
 
@@ -645,6 +646,15 @@ class ResultsDisplayManager:
             )
             use_btn.pack(side=tk.LEFT, padx=(0, 2))
             
+            # Color match button
+            match_btn = ttk.Button(
+                btn_frame,
+                text="🎨 Match",
+                command=lambda r=result_info: self.apply_color_matching(r),
+                width=8
+            )
+            match_btn.pack(side=tk.LEFT, padx=(2, 2))
+            
             save_btn = ttk.Button(
                 btn_frame,
                 text="Save",
@@ -748,6 +758,73 @@ class ResultsDisplayManager:
         except Exception as e:
             logger.error(f"Error saving individual result: {e}")
             messagebox.showerror("Error", f"Failed to save result: {str(e)}")
+    
+    def apply_color_matching(self, result_info: Dict[str, Any]) -> None:
+        """Apply color matching to result image to match source image colors"""
+        try:
+            # Get source image path
+            source_path = None
+            if hasattr(self.parent_layout, 'image_manager'):
+                source_paths = self.parent_layout.image_manager.get_selected_image_paths()
+                if source_paths:
+                    source_path = source_paths[0]
+            
+            if not source_path or not os.path.exists(source_path):
+                messagebox.showwarning(
+                    "No Source Image",
+                    "Please load an input image first to use as color reference."
+                )
+                return
+            
+            # Get result image path
+            result_path = result_info['path']
+            if not os.path.exists(result_path):
+                messagebox.showerror("Error", "Result image not found.")
+                return
+            
+            # Show progress
+            self._show_message("🎨 Applying subtle color correction...")
+            logger.info(f"Applying color matching: source={source_path}, target={result_path}")
+            
+            # Apply color matching with LAB method (60% strength for subtle correction)
+            corrected_image = ColorMatcher.subtle_color_correction(
+                source_path=source_path,
+                target_path=result_path,
+                method='lab'
+            )
+            
+            if corrected_image:
+                # Save to a new temporary file
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_color_matched.png')
+                corrected_image.save(temp_file.name, quality=95)
+                temp_file.close()
+                
+                # Update result info
+                result_info['path'] = temp_file.name
+                result_info['color_matched'] = True
+                
+                # Refresh display
+                if hasattr(self.parent_layout, 'display_image_in_panel'):
+                    self.parent_layout.display_image_in_panel(temp_file.name, "result")
+                
+                self._show_message("✅ Color correction applied! Colors now match source image.")
+                logger.info("Color matching completed successfully")
+                
+                # Ask if user wants to save the corrected version
+                save_now = messagebox.askyesno(
+                    "Save Corrected Image?",
+                    "Color correction applied successfully!\n\n"
+                    "Would you like to save the color-matched result now?"
+                )
+                
+                if save_now:
+                    self.save_individual_result(result_info)
+            else:
+                messagebox.showerror("Error", "Failed to apply color matching.")
+                
+        except Exception as e:
+            logger.error(f"Error applying color matching: {e}")
+            messagebox.showerror("Error", f"Color matching failed: {str(e)}")
     
     def save_all_results(self) -> None:
         """Save all results to a selected folder"""

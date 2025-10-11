@@ -66,6 +66,10 @@ class SeedreamV4Tab(BaseTab):
     
     def setup_ui(self):
         """Setup the improved Seedream V4 UI with new compact layout"""
+        # CRITICAL FIX: Destroy the unused self.frame created by BaseTab that causes top gap
+        if hasattr(self, 'frame') and self.frame.winfo_exists():
+            self.frame.destroy()
+        
         # Use the new improved layout (refactored modular system)
         from ui.components.seedream import ImprovedSeedreamLayout
         self.improved_layout = ImprovedSeedreamLayout(self.scrollable_frame, self.api_client, self)
