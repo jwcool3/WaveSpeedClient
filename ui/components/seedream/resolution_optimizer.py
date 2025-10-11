@@ -27,24 +27,27 @@ class SeedreamResolutionOptimizer:
         # 2M Pixel Tier (Highest Quality)
         "2M": [
             {"ratio": "1:1", "width": 1448, "height": 1448, "pixels": 2096704, "rounded_w": 1408, "rounded_h": 1408},
-            {"ratio": "3:2", "width": 1773, "height": 1182, "pixels": 2095686, "rounded_w": 1728, "rounded_h": 1152},
+            {"ratio": "5:4", "width": 1616, "height": 1293, "pixels": 2089488, "rounded_w": 1600, "rounded_h": 1280},
             {"ratio": "4:3", "width": 1672, "height": 1254, "pixels": 2096688, "rounded_w": 1664, "rounded_h": 1216},
+            {"ratio": "3:2", "width": 1773, "height": 1182, "pixels": 2095686, "rounded_w": 1728, "rounded_h": 1152},
             {"ratio": "16:9", "width": 1936, "height": 1089, "pixels": 2108304, "rounded_w": 1920, "rounded_h": 1088},
             {"ratio": "21:9", "width": 2212, "height": 948, "pixels": 2096976, "rounded_w": 2176, "rounded_h": 960},
         ],
         # 1M Pixel Tier (Good Quality)
         "1M": [
             {"ratio": "1:1", "width": 1024, "height": 1024, "pixels": 1048576, "rounded_w": 1024, "rounded_h": 1024},
-            {"ratio": "3:2", "width": 1254, "height": 836, "pixels": 1048344, "rounded_w": 1216, "rounded_h": 832},
+            {"ratio": "5:4", "width": 1143, "height": 914, "pixels": 1044702, "rounded_w": 1152, "rounded_h": 896},
             {"ratio": "4:3", "width": 1182, "height": 887, "pixels": 1048434, "rounded_w": 1152, "rounded_h": 896},
+            {"ratio": "3:2", "width": 1254, "height": 836, "pixels": 1048344, "rounded_w": 1216, "rounded_h": 832},
             {"ratio": "16:9", "width": 1365, "height": 768, "pixels": 1048320, "rounded_w": 1344, "rounded_h": 768},
             {"ratio": "21:9", "width": 1564, "height": 670, "pixels": 1047880, "rounded_w": 1536, "rounded_h": 640},
         ],
         # 100K Pixel Tier (Fast/Draft)
         "100K": [
             {"ratio": "1:1", "width": 323, "height": 323, "pixels": 104329, "rounded_w": 320, "rounded_h": 320},
-            {"ratio": "3:2", "width": 397, "height": 264, "pixels": 104808, "rounded_w": 384, "rounded_h": 256},
+            {"ratio": "5:4", "width": 361, "height": 289, "pixels": 104329, "rounded_w": 384, "rounded_h": 320},
             {"ratio": "4:3", "width": 374, "height": 280, "pixels": 104720, "rounded_w": 448, "rounded_h": 320},
+            {"ratio": "3:2", "width": 397, "height": 264, "pixels": 104808, "rounded_w": 384, "rounded_h": 256},
             {"ratio": "16:9", "width": 432, "height": 243, "pixels": 104976, "rounded_w": 448, "rounded_h": 256},
             {"ratio": "21:9", "width": 495, "height": 212, "pixels": 104940, "rounded_w": 576, "rounded_h": 256},
         ]
@@ -165,16 +168,29 @@ class SeedreamResolutionOptimizer:
             search_pool = [r for r in self.all_resolutions if r['tier'] == prefer_tier]
         
         # Find best match based on:
-        # 1. Aspect ratio match (HIGHEST PRIORITY)
-        # 2. Size similarity (keep close to original size within 1024-4096 range)
-        # 3. Prefer same tier to avoid drastic resolution changes
+        # 1. STRONGLY prefer same tier (keep similar size/quality)
+        # 2. Aspect ratio match (fix the ratio within the same tier)
+        # 3. Minimal dimensional changes
         best_match = None
         best_score = float('inf')
         
         # Calculate which tier the current resolution falls into
         current_tier = "2M" if target_pixels >= 2000000 else "1M" if target_pixels >= 1000000 else "100K"
         
-        for recommended in search_pool:
+        logger.debug(f"Finding recommendation for {width}×{height} ({target_pixels:,} pixels, tier: {current_tier})")
+        
+        # First, try to find best match within SAME tier (unless user specifically chose tiny resolution)
+        preferred_pool = [r for r in search_pool if r['tier'] == current_tier]
+        if not preferred_pool and current_tier != "100K":
+            # If no matches in current tier, expand search
+            logger.debug(f"No matches in {current_tier} tier, expanding search to all tiers")
+            preferred_pool = search_pool
+        elif not preferred_pool:
+            preferred_pool = search_pool
+        else:
+            logger.debug(f"Searching within {current_tier} tier ({len(preferred_pool)} resolutions)")
+        
+        for recommended in preferred_pool:
             # Check if we need to compare with portrait orientation
             rec_width = recommended['rounded_w']
             rec_height = recommended['rounded_h']
@@ -200,28 +216,20 @@ class SeedreamResolutionOptimizer:
                 rec_ratio = rec_width / rec_height
                 ratio_diff = abs(ratio_target - rec_ratio)
             
-            # Size similarity score - prefer keeping size close to original
-            # But don't penalize too much if it's in valid range (1024-4096)
-            pixel_diff_pct = abs(target_pixels - recommended['pixels']) / target_pixels
-            
-            # If both are in valid range, don't penalize pixel difference as much
-            if 1024*1024 <= target_pixels <= 4096*4096 and 1024*1024 <= recommended['pixels'] <= 4096*4096:
-                pixel_penalty = pixel_diff_pct * 10  # Light penalty for size difference
-            else:
-                pixel_penalty = pixel_diff_pct * 50  # Heavier penalty if out of range
-            
-            # Tier matching bonus - prefer same tier to avoid drastic changes
-            tier_penalty = 0 if recommended['tier'] == current_tier else 20
+            # Tier matching - HEAVILY prefer same tier (user's chosen size is king!)
+            # If different tier, add massive penalty to prevent tier changes
+            tier_penalty = 0 if recommended['tier'] == current_tier else 500  # Massive penalty for tier change!
             
             # Dimensional distance (how much width/height changes)
+            # Keep this small to avoid drastic size changes
             dim_change_pct = (abs(width - rec_width) / width + abs(height - rec_height) / height) / 2
             
             # Combined score:
-            # - Aspect ratio difference is HIGHEST priority (1000x weight)
-            # - Size difference is secondary (10-50x weight depending on range)
-            # - Dimensional change is tertiary (100x weight)
-            # - Tier matching gives small bonus (20 points)
-            score = (ratio_diff * 1000) + pixel_penalty + (dim_change_pct * 100) + tier_penalty
+            # - Tier matching is HIGHEST priority (500 point penalty for tier change)
+            # - Aspect ratio difference is secondary (100x weight - still important)
+            # - Dimensional change is tertiary (50x weight)
+            # Goal: Fix aspect ratio WITHOUT changing size tier
+            score = tier_penalty + (ratio_diff * 100) + (dim_change_pct * 50)
             
             if score < best_score:
                 best_score = score
@@ -257,6 +265,9 @@ class SeedreamResolutionOptimizer:
         adjusted_recommendation['rounded_h'] = rec_height
         if is_portrait:
             adjusted_recommendation['ratio'] = f"{best_match['ratio']} Portrait"
+        
+        logger.info(f"✨ Recommended: {rec_width}×{rec_height} ({adjusted_recommendation['ratio']} {best_match['tier']}) "
+                    f"for input {width}×{height} | Change: {pixel_change_pct:+.1f}% pixels")
         
         return {
             'recommended': adjusted_recommendation,

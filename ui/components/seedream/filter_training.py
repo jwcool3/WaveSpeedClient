@@ -346,8 +346,16 @@ class FilterTrainingManager:
     def _display_mild_examples(self, examples: List[str]) -> None:
         """Display generated mild examples in side panel with 'Generate More' functionality"""
         try:
+            logger.info(f"📝 Displaying {len(examples)} mild examples in side panel")
+            
+            if not examples:
+                logger.warning("❌ No examples to display - list is empty!")
+                self._show_tooltip("No examples generated")
+                return
+            
             # Create content frame for side panel (use parent_frame, will be reparented to side_panel)
             content_frame = ttk.Frame(self.parent_layout.parent_frame)
+            logger.debug(f"Created content_frame: {content_frame}")
             
             # Main frame
             main_frame = ttk.Frame(content_frame)
@@ -491,10 +499,12 @@ class FilterTrainingManager:
             export_btn.pack(side="left")
             
             # Show the side panel with the content
+            logger.info(f"🚀 Calling show_side_panel with content_frame containing {len(examples)} examples")
             self.parent_layout.show_side_panel("🔥 Mild Filter Training Examples", content_frame)
+            logger.info("✓ show_side_panel call completed")
             
         except Exception as e:
-            logger.error(f"Error displaying mild examples: {e}")
+            logger.error(f"❌ Error displaying mild examples: {e}", exc_info=True)
             self._show_tooltip(f"❌ Error: {str(e)}")
     
     def _generate_more_mild_examples(self, popup_state, add_examples_callback, button) -> None:
@@ -627,17 +637,22 @@ class FilterTrainingManager:
             )
     
     def _display_moderate_examples(self, examples: List[str]) -> None:
-        """Display generated moderate examples in a popup window"""
+        """Display generated moderate examples in side panel"""
         try:
-            # Create popup window
-            popup = tk.Toplevel(self.parent_layout.parent_frame)
-            popup.title("⚡ Sophisticated Moderate Examples")
-            popup.geometry("800x600")
-            popup.resizable(True, True)
+            logger.info(f"⚡ Displaying {len(examples)} moderate examples in side panel")
+            
+            if not examples:
+                logger.warning("❌ No moderate examples to display - list is empty!")
+                self._show_tooltip("No examples generated")
+                return
+            
+            # Create content frame for side panel
+            content_frame = ttk.Frame(self.parent_layout.parent_frame)
+            logger.debug(f"Created content_frame for moderate examples: {content_frame}")
             
             # Main frame
-            main_frame = ttk.Frame(popup)
-            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            main_frame = ttk.Frame(content_frame)
+            main_frame.pack(fill="both", expand=True)
             
             # Title
             title_label = ttk.Label(
@@ -685,12 +700,12 @@ class FilterTrainingManager:
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
-            # Store popup state for Generate More functionality
+            # Store state for Generate More functionality (side panel version)
             popup_state = {
                 'examples_list': list(examples),
                 'scrollable_frame': scrollable_frame,
                 'title_label': title_label,
-                'popup': popup,
+                'content_frame': content_frame,
                 'canvas': canvas
             }
             
@@ -731,11 +746,11 @@ class FilterTrainingManager:
                     )
                     copy_btn.pack(side="left", padx=(0, 5))
                     
-                    # Use This button
+                    # Use This button (for side panel)
                     use_btn = ttk.Button(
                         buttons_frame,
                         text="✅ Use This",
-                        command=lambda text=example.strip(): self._use_prompt(text, popup)
+                        command=lambda text=example.strip(): self._use_prompt_sidepanel(text)
                     )
                     use_btn.pack(side="left", padx=(0, 5))
                     
@@ -766,7 +781,7 @@ class FilterTrainingManager:
                     self._show_tooltip(f"❌ Error: {str(e)}")
             
             # Bottom buttons
-            buttons_bottom = ttk.Frame(popup)
+            buttons_bottom = ttk.Frame(main_frame)
             buttons_bottom.pack(fill="x", padx=10, pady=(0, 10))
             
             # Generate More button
@@ -785,12 +800,8 @@ class FilterTrainingManager:
             )
             export_btn.pack(side="left")
             
-            # Close button
-            close_btn = ttk.Button(buttons_bottom, text="Close", command=popup.destroy)
-            close_btn.pack(side="right")
-            
-            # Focus on popup (but don't grab to allow copy/paste)
-            popup.focus_set()
+            # Show in side panel
+            self.parent_layout.show_side_panel("⚡ Moderate Filter Training Examples", content_frame)
             
         except Exception as e:
             logger.error(f"Error displaying moderate examples: {e}")
@@ -981,6 +992,135 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error hiding generation progress: {e}")
     
+    def _generate_more_undress_transformations_sidepanel(self, popup_state, add_callback, button) -> None:
+        """Generate 6 more undress transformations for side panel"""
+        try:
+            # Disable button and show loading
+            button.config(state="disabled", text="⏳ Generating...")
+            
+            # Run generation in background thread
+            def generate_thread():
+                try:
+                    from core.ai_prompt_advisor import get_ai_advisor
+                    
+                    ai_advisor = get_ai_advisor()
+                    if not ai_advisor.is_available():
+                        self.parent_layout.parent_frame.after(0, lambda: (
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip("❌ AI service not available")
+                        ))
+                        return
+                    
+                    # Analyze image
+                    description = asyncio.run(
+                        ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True)
+                    )
+                    
+                    if not description:
+                        self.parent_layout.parent_frame.after(0, lambda: (
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip("❌ Image analysis failed")
+                        ))
+                        return
+                    
+                    # Generate new transformations
+                    new_transformations = asyncio.run(
+                        ai_advisor.generate_undress_transformations(description)
+                    )
+                    
+                    if new_transformations and len(new_transformations) > 0:
+                        # Add new transformations to display
+                        self.parent_layout.parent_frame.after(0, lambda: (
+                            add_callback(new_transformations),
+                            popup_state['info_label'].config(
+                                text=f"👙 {len(popup_state['transformations']) + len(new_transformations)} transformations generated | Click 'Generate More' for 6 more"
+                            ),
+                            popup_state['transformations'].extend(new_transformations),
+                            popup_state['canvas'].yview_moveto(1.0),  # Scroll to bottom
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip(f"✅ Generated {len(new_transformations)} more transformations")
+                        ))
+                    else:
+                        self.parent_layout.parent_frame.after(0, lambda: (
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip("❌ No transformations generated")
+                        ))
+                        
+                except Exception as e:
+                    logger.error(f"Error generating more transformations: {e}")
+                    self.parent_layout.parent_frame.after(0, lambda: (
+                        button.config(state="normal", text="🔥 Generate More (6)"),
+                        self._show_tooltip(f"❌ Error: {str(e)}")
+                    ))
+            
+            # Start generation thread
+            threading.Thread(target=generate_thread, daemon=True).start()
+            
+        except Exception as e:
+            logger.error(f"Error starting transformation generation: {e}")
+            button.config(state="normal", text="🔥 Generate More (6)")
+    
+    def _add_undress_transformations_to_sidepanel(self, new_transformations, popup_state) -> None:
+        """Add new transformations to the side panel display"""
+        try:
+            scrollable_frame = popup_state['scrollable_frame']
+            transformation_types = popup_state['transformation_types']
+            transformation_icons = popup_state['transformation_icons']
+            current_count = len(popup_state['transformations'])
+            
+            # Add new transformations
+            for i, transformation in enumerate(new_transformations[:6], current_count + 1):
+                type_idx = (i - 1) % len(transformation_types)
+                type_name = transformation_types[type_idx]
+                icon = transformation_icons[type_idx]
+                
+                # Transformation frame with icon
+                transform_frame = ttk.LabelFrame(
+                    scrollable_frame,
+                    text=f"{icon} {type_name}",
+                    padding="10"
+                )
+                transform_frame.pack(fill="x", pady=(0, 8), padx=5)
+                
+                # Transformation text
+                transform_text = tk.Text(
+                    transform_frame,
+                    height=3,
+                    wrap=tk.WORD,
+                    font=('Arial', 10),
+                    relief='solid',
+                    borderwidth=1,
+                    bg='#f0f8ff'
+                )
+                transform_text.pack(fill="x", pady=(0, 5))
+                transform_text.insert("1.0", transformation.strip())
+                transform_text.config(state="normal")
+                
+                # Action buttons
+                buttons_frame = ttk.Frame(transform_frame)
+                buttons_frame.pack(fill="x")
+                
+                # Copy button
+                copy_btn = ttk.Button(
+                    buttons_frame,
+                    text="📋 Copy",
+                    command=lambda text=transformation.strip(): self._copy_to_clipboard(text)
+                )
+                copy_btn.pack(side="left", padx=(0, 5))
+                
+                # Use button
+                use_btn = ttk.Button(
+                    buttons_frame,
+                    text="✅ Use This",
+                    command=lambda text=transformation.strip(): self._use_prompt_sidepanel(text)
+                )
+                use_btn.pack(side="left")
+            
+            logger.debug(f"Added {len(new_transformations)} new transformations to side panel")
+            
+        except Exception as e:
+            logger.error(f"Error adding transformations to side panel: {e}")
+    
     def get_filter_training_status(self) -> Dict[str, Any]:
         """Get current filter training status"""
         return {
@@ -1099,34 +1239,31 @@ class FilterTrainingManager:
             self.generation_in_progress = False
     
     def _display_undress_transformations(self, transformations: List[str]) -> None:
-        """Display generated undress transformations in a popup window"""
+        """Display generated undress transformations in side panel"""
         try:
-            # Create popup window
-            popup = tk.Toplevel(self.parent_layout.parent_frame)
-            popup.title("👙 Undress Transformations")
-            popup.geometry("750x650")
-            popup.resizable(True, True)
+            logger.info(f"👙 Displaying {len(transformations)} undress transformations in side panel")
+            
+            if not transformations:
+                logger.warning("❌ No transformations to display - list is empty!")
+                self._show_tooltip("No transformations generated")
+                return
+            
+            # Create content frame for side panel
+            content_frame = ttk.Frame(self.parent_layout.parent_frame)
+            logger.debug(f"Created content_frame for undress transformations: {content_frame}")
             
             # Main frame
-            main_frame = ttk.Frame(popup)
-            main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+            main_frame = ttk.Frame(content_frame)
+            main_frame.pack(fill="both", expand=True)
             
-            # Title
-            title_label = ttk.Label(
+            # Info label showing count and hint
+            info_label = ttk.Label(
                 main_frame,
-                text=f"👙 {len(transformations)} Outfit Transformations",
-                font=("Arial", 12, "bold")
-            )
-            title_label.pack(pady=(0, 5))
-            
-            # Subtitle
-            subtitle_label = ttk.Label(
-                main_frame,
-                text="Outfit transformations with body details (breast size, build) - 3 current + 3 full body",
+                text=f"👙 {len(transformations)} transformations generated | Click 'Generate More' for 6 more",
                 font=("Arial", 9),
                 foreground="gray"
             )
-            subtitle_label.pack(pady=(0, 10))
+            info_label.pack(pady=(0, 10))
             
             # Scrollable frame for transformations
             canvas = tk.Canvas(main_frame, highlightthickness=0)
@@ -1187,37 +1324,47 @@ class FilterTrainingManager:
                 )
                 copy_btn.pack(side="left", padx=(0, 5))
                 
-                # Use button
+                # Use button (for side panel)
                 use_btn = ttk.Button(
                     buttons_frame,
                     text="✅ Use This",
-                    command=lambda text=transformation.strip(): self._use_prompt(text, popup)
+                    command=lambda text=transformation.strip(): self._use_prompt_sidepanel(text)
                 )
                 use_btn.pack(side="left")
             
-            # Bind mousewheel
+            # Bind mousewheel for scrolling
             def on_mousewheel(event):
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
+            # State for managing popup content
+            popup_state = {
+                'transformations': transformations,
+                'content_frame': content_frame,
+                'info_label': info_label,
+                'scrollable_frame': scrollable_frame,
+                'canvas': canvas,
+                'transformation_icons': transformation_icons,
+                'transformation_types': transformation_types
+            }
+            
             # Bottom buttons frame
-            bottom_frame = ttk.Frame(popup)
-            bottom_frame.pack(pady=10, fill="x", padx=10)
+            bottom_frame = ttk.Frame(main_frame)
+            bottom_frame.pack(pady=(10, 0), fill="x")
             
             # Generate More button
+            def generate_more_transformations():
+                self._generate_more_undress_transformations_sidepanel(popup_state, lambda new_transforms: self._add_undress_transformations_to_sidepanel(new_transforms, popup_state), generate_more_btn)
+            
             generate_more_btn = ttk.Button(
                 bottom_frame,
                 text="🔥 Generate More (6)",
-                command=lambda: self._generate_more_undress_transformations(popup, scrollable_frame, canvas, generate_more_btn, title_label)
+                command=generate_more_transformations
             )
             generate_more_btn.pack(side="left", padx=(0, 10))
             
-            # Close button
-            close_btn = ttk.Button(bottom_frame, text="Close", command=popup.destroy)
-            close_btn.pack(side="right")
-            
-            # Focus on popup
-            popup.focus_set()
+            # Show in side panel
+            self.parent_layout.show_side_panel("👙 Undress Transformation Prompts", content_frame)
             
         except Exception as e:
             logger.error(f"Error displaying undress transformations: {e}")

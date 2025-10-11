@@ -796,8 +796,8 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4",
-            "max_tokens": 1000,
+            "model": "gpt-4o-mini",
+            "max_tokens": 1500,
             "messages": [{
                 "role": "user",
                 "content": user_message
@@ -926,8 +926,8 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4",
-            "max_tokens": 1000,
+            "model": "gpt-4o-mini",
+            "max_tokens": 1500,
             "messages": [{
                 "role": "user",
                 "content": [
