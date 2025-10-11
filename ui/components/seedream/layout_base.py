@@ -414,6 +414,25 @@ class SeedreamLayoutV2:
         )
         browse_btn.pack(side=tk.RIGHT, padx=(2, 0))
         
+        # Image editing tools
+        resize_btn = ttk.Button(
+            info_frame,
+            text="📐 Resize",
+            command=self.open_resize_tool,
+            width=9,
+            state="disabled"
+        )
+        resize_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        
+        crop_btn = ttk.Button(
+            info_frame,
+            text="✂️ Crop",
+            command=self.open_crop_tool,
+            width=8,
+            state="disabled"
+        )
+        crop_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        
         reorder_btn = ttk.Button(
             info_frame,
             text="⚡ Order",
@@ -428,7 +447,9 @@ class SeedreamLayoutV2:
             thumbnail_label=thumbnail_label,
             image_name_label=image_name_label,
             image_size_label=image_size_label,
-            reorder_btn=reorder_btn
+            reorder_btn=reorder_btn,
+            crop_btn=crop_btn,
+            resize_btn=resize_btn
         )
     
     def _create_image_display_ui(self, parent, row=1):
@@ -628,9 +649,9 @@ class SeedreamLayoutV2:
             else:
                 # Fallback to legacy file if settings manager not available
                 os.makedirs(os.path.dirname(self.splitter_position_file), exist_ok=True)
-                with open(self.splitter_position_file, 'w') as f:
-                    f.write(str(position))
-                    logger.debug(f"Splitter position saved to legacy file: {position}")
+            with open(self.splitter_position_file, 'w') as f:
+                f.write(str(position))
+                logger.debug(f"Splitter position saved to legacy file: {position}")
         except Exception as e:
             logger.debug(f"Could not save splitter position: {e}")
     
@@ -659,8 +680,8 @@ class SeedreamLayoutV2:
                     app_splitter_position = main_paned.sashpos(0)
                     app_splitter_total_width = main_paned.winfo_width()
                     app_splitter_percentage = (app_splitter_position / app_splitter_total_width * 100) if app_splitter_total_width > 0 else 0
-            except Exception as e:
-                logger.debug(f"Could not get main app splitter: {e}")
+            except Exception as app_e:
+                logger.debug(f"Could not get main app splitter: {app_e}")
             
             # Get outer splitter position (if side panel visible)
             outer_position = None
@@ -1162,6 +1183,52 @@ class SeedreamLayoutV2:
         # Update filter manager with first selected image
         self._update_filter_manager_image()
     
+    def open_crop_tool(self) -> None:
+        """Open crop tool for current image"""
+        from utils.image_editor import open_crop_tool
+        
+        # Get current image path
+        if not hasattr(self.image_manager, 'selected_image_paths') or not self.image_manager.selected_image_paths:
+            from tkinter import messagebox
+            messagebox.showwarning("No Image", "Please load an image first.")
+            return
+        
+        current_image = self.image_manager.selected_image_paths[0]
+        
+        # Define callback to load cropped image
+        def on_crop_complete(cropped_path):
+            self.image_manager.load_images([cropped_path])
+            self._update_filter_manager_image()
+            from core.logger import get_logger
+            logger = get_logger()
+            logger.info(f"Cropped image loaded: {cropped_path}")
+        
+        # Open crop tool
+        open_crop_tool(self.parent_frame, current_image, on_crop_complete)
+    
+    def open_resize_tool(self) -> None:
+        """Open resize tool for current image"""
+        from utils.image_editor import open_resize_tool
+        
+        # Get current image path
+        if not hasattr(self.image_manager, 'selected_image_paths') or not self.image_manager.selected_image_paths:
+            from tkinter import messagebox
+            messagebox.showwarning("No Image", "Please load an image first.")
+            return
+        
+        current_image = self.image_manager.selected_image_paths[0]
+        
+        # Define callback to load resized image
+        def on_resize_complete(resized_path):
+            self.image_manager.load_images([resized_path])
+            self._update_filter_manager_image()
+            from core.logger import get_logger
+            logger = get_logger()
+            logger.info(f"Resized image loaded: {resized_path}")
+        
+        # Open resize tool
+        open_resize_tool(self.parent_frame, current_image, on_resize_complete)
+    
     def load_image(self, image_path: str) -> None:
         """Load and display single input image"""
         self.image_manager.load_image(image_path)
@@ -1440,49 +1507,49 @@ class SeedreamLayoutV2:
         """Access to width variable"""
         if hasattr(self.settings_manager, 'width_var'):
             return self.settings_manager.width_var
-        return tk.IntVar(value=1024)
+            return tk.IntVar(value=1024)
     
     @property
     def height_var(self):
         """Access to height variable"""
         if hasattr(self.settings_manager, 'height_var'):
             return self.settings_manager.height_var
-        return tk.IntVar(value=1024)
+            return tk.IntVar(value=1024)
     
     @property
     def seed_var(self):
         """Access to seed variable"""
         if hasattr(self.settings_manager, 'seed_var'):
             return self.settings_manager.seed_var
-        return tk.StringVar(value="-1")
+            return tk.StringVar(value="-1")
     
     @property
     def sync_mode_var(self):
         """Access to sync mode variable"""
         if hasattr(self.settings_manager, 'sync_mode_var'):
             return self.settings_manager.sync_mode_var
-        return tk.BooleanVar(value=False)
+            return tk.BooleanVar(value=False)
     
     @property
     def base64_var(self):
         """Access to base64 variable"""
         if hasattr(self.settings_manager, 'base64_var'):
             return self.settings_manager.base64_var
-        return tk.BooleanVar(value=False)
+            return tk.BooleanVar(value=False)
     
     @property
     def aspect_lock_var(self):
         """Access to aspect lock variable"""
         if hasattr(self.settings_manager, 'aspect_lock_var'):
             return self.settings_manager.aspect_lock_var
-        return tk.BooleanVar(value=False)
+            return tk.BooleanVar(value=False)
     
     @property
     def num_requests_var(self):
         """Access to number of requests variable"""
         if hasattr(self.actions_manager, 'num_requests_var'):
             return self.actions_manager.num_requests_var
-        return tk.IntVar(value=1)
+            return tk.IntVar(value=1)
     
     # Status and state methods
     

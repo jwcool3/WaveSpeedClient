@@ -9,6 +9,7 @@ import os
 import sys
 import tkinter as tk
 from tkinter import ttk
+from datetime import datetime
 
 # Try to import drag and drop support
 try:
@@ -31,6 +32,7 @@ from ui.components.recent_results_panel import RecentResultsPanel
 from utils.utils import show_error, show_warning, show_success
 import utils.utils as utils
 from core.auto_save import auto_save_manager
+from core.session_manager import SessionManager
 
 # Import the new AI integration system
 from ui.components.universal_ai_integration import universal_ai_integrator, refresh_ai_button_states
@@ -39,6 +41,7 @@ from ui.components.prompt_analytics import show_prompt_analytics
 
 logger = get_logger()
 resource_manager = get_resource_manager()
+session_manager = SessionManager()
 
 
 class WaveSpeedAIApp:
@@ -291,7 +294,13 @@ class WaveSpeedAIApp:
         )
         view_menu.add_separator()
         
-        # Layout save/load (moved from Tools)
+        # Session management (complete workspace)
+        view_menu.add_command(label="💾 Save Session...", command=self.save_session)
+        view_menu.add_command(label="📂 Load Session...", command=self.load_session)
+        view_menu.add_command(label="📋 Manage Sessions...", command=self.manage_sessions)
+        view_menu.add_separator()
+        
+        # Layout save/load (splitters only)
         view_menu.add_command(label="💾 Save Seedream Layout", command=self.save_seedream_layout)
         view_menu.add_command(label="📂 Load Seedream Layout", command=self.load_seedream_layout)
         
@@ -551,6 +560,269 @@ class WaveSpeedAIApp:
         except Exception as e:
             logger.error(f"Error loading Seedream layout: {e}")
             show_error("Load Failed", f"Failed to load layout:\n{str(e)}")
+    
+    def save_session(self):
+        """Save complete workspace session"""
+        try:
+            from tkinter import simpledialog
+            
+            # Prompt for session name
+            session_name = simpledialog.askstring(
+                "Save Session",
+                "Enter a name for this session:",
+                initialvalue=f"Session {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            )
+            
+            if not session_name:
+                return  # User cancelled
+            
+            # Extract session data
+            session_data = session_manager.export_session_data(self)
+            
+            # Save session
+            if session_manager.save_session(session_name, session_data):
+                show_success("Session Saved", f"Session '{session_name}' has been saved successfully!")
+            else:
+                show_error("Save Failed", "Failed to save session. Check logs for details.")
+        
+        except Exception as e:
+            logger.error(f"Error saving session: {e}")
+            show_error("Save Failed", f"Failed to save session:\n{str(e)}")
+    
+    def load_session(self):
+        """Load a saved workspace session"""
+        try:
+            from tkinter import simpledialog
+            
+            # Get list of available sessions
+            sessions = session_manager.list_sessions()
+            
+            if not sessions:
+                show_warning("No Sessions", "No saved sessions found.")
+                return
+            
+            # Create session selection dialog
+            self._show_session_selector("Load Session", sessions, mode="load")
+        
+        except Exception as e:
+            logger.error(f"Error loading session: {e}")
+            show_error("Load Failed", f"Failed to load session:\n{str(e)}")
+    
+    def manage_sessions(self):
+        """Open session management dialog"""
+        try:
+            # Get list of available sessions
+            sessions = session_manager.list_sessions()
+            
+            if not sessions:
+                show_warning("No Sessions", "No saved sessions found.")
+                return
+            
+            # Create session management dialog
+            self._show_session_manager(sessions)
+        
+        except Exception as e:
+            logger.error(f"Error managing sessions: {e}")
+            show_error("Error", f"Failed to open session manager:\n{str(e)}")
+    
+    def _show_session_selector(self, title, sessions, mode="load"):
+        """Show dialog to select a session"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(title)
+        dialog.geometry("500x400")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Header
+        header_frame = ttk.Frame(dialog, padding="10")
+        header_frame.pack(fill=tk.X)
+        
+        ttk.Label(
+            header_frame,
+            text=f"📂 Select a session to {mode}:",
+            font=('Arial', 11, 'bold')
+        ).pack(anchor=tk.W)
+        
+        # Session list
+        list_frame = ttk.Frame(dialog, padding="10")
+        list_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Listbox
+        listbox = tk.Listbox(
+            list_frame,
+            yscrollcommand=scrollbar.set,
+            font=('Arial', 10),
+            selectmode=tk.SINGLE
+        )
+        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=listbox.yview)
+        
+        # Populate sessions
+        for session in sessions:
+            display_text = f"{session['name']} - {session['saved_at']}"
+            listbox.insert(tk.END, display_text)
+        
+        # Store session data for selection
+        dialog.sessions = sessions
+        dialog.selected_session = None
+        
+        def on_select():
+            selection = listbox.curselection()
+            if selection:
+                idx = selection[0]
+                session = dialog.sessions[idx]
+                dialog.selected_session = session
+                dialog.destroy()
+        
+        def on_double_click(event):
+            on_select()
+        
+        listbox.bind('<Double-Button-1>', on_double_click)
+        
+        # Buttons
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.pack(fill=tk.X)
+        
+        ttk.Button(
+            button_frame,
+            text=f"{'Load' if mode == 'load' else 'Save'}",
+            command=on_select
+        ).pack(side=tk.RIGHT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text="Cancel",
+            command=dialog.destroy
+        ).pack(side=tk.RIGHT)
+        
+        # Wait for dialog
+        self.root.wait_window(dialog)
+        
+        # Process selection
+        if hasattr(dialog, 'selected_session') and dialog.selected_session:
+            if mode == "load":
+                self._load_selected_session(dialog.selected_session)
+    
+    def _load_selected_session(self, session_info):
+        """Load the selected session"""
+        try:
+            # Load session data
+            session_data = session_manager.load_session(session_info['filename'])
+            
+            if session_data:
+                # Restore session
+                session_manager.restore_session(self, session_data)
+                show_success("Session Loaded", f"Session '{session_info['name']}' loaded successfully!")
+            else:
+                show_error("Load Failed", "Failed to load session data.")
+        
+        except Exception as e:
+            logger.error(f"Error loading selected session: {e}")
+            show_error("Load Failed", f"Failed to load session:\n{str(e)}")
+    
+    def _show_session_manager(self, sessions):
+        """Show session management dialog"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Session Manager")
+        dialog.geometry("600x500")
+        dialog.transient(self.root)
+        
+        # Header
+        header_frame = ttk.Frame(dialog, padding="10")
+        header_frame.pack(fill=tk.X)
+        
+        ttk.Label(
+            header_frame,
+            text="📋 Saved Sessions",
+            font=('Arial', 12, 'bold')
+        ).pack(anchor=tk.W)
+        
+        # Session list with details
+        list_frame = ttk.Frame(dialog, padding="10")
+        list_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Create Treeview
+        tree = ttk.Treeview(
+            list_frame,
+            columns=('name', 'saved_at', 'version'),
+            show='tree headings',
+            selectmode='browse'
+        )
+        tree.heading('#0', text='#')
+        tree.heading('name', text='Session Name')
+        tree.heading('saved_at', text='Saved At')
+        tree.heading('version', text='Version')
+        
+        tree.column('#0', width=50)
+        tree.column('name', width=250)
+        tree.column('saved_at', width=180)
+        tree.column('version', width=80)
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Populate sessions
+        for i, session in enumerate(sessions, 1):
+            tree.insert('', tk.END, text=str(i), values=(
+                session['name'],
+                session['saved_at'],
+                session['version']
+            ))
+        
+        # Store sessions
+        dialog.sessions = sessions
+        dialog.tree = tree
+        
+        # Button frame
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.pack(fill=tk.X)
+        
+        def on_load():
+            selection = tree.selection()
+            if selection:
+                idx = tree.index(selection[0])
+                session = dialog.sessions[idx]
+                dialog.destroy()
+                self._load_selected_session(session)
+        
+        def on_delete():
+            selection = tree.selection()
+            if selection:
+                idx = tree.index(selection[0])
+                session = dialog.sessions[idx]
+                
+                from tkinter import messagebox
+                if messagebox.askyesno("Delete Session", f"Are you sure you want to delete '{session['name']}'?"):
+                    if session_manager.delete_session(session['filename']):
+                        tree.delete(selection[0])
+                        dialog.sessions.pop(idx)
+                        show_success("Deleted", f"Session '{session['name']}' deleted.")
+        
+        ttk.Button(
+            button_frame,
+            text="🔄 Load",
+            command=on_load
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text="🗑️ Delete",
+            command=on_delete
+        ).pack(side=tk.LEFT, padx=5)
+        
+        ttk.Button(
+            button_frame,
+            text="Close",
+            command=dialog.destroy
+        ).pack(side=tk.RIGHT)
     
     def toggle_recent_results_panel(self):
         """Toggle visibility of the Recent Results panel"""

@@ -10,10 +10,13 @@ Features:
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 from typing import Optional, Callable
+import tempfile
+import os
 from core.logger import get_logger
+from utils.color_matcher import ColorMatcher
 
 logger = get_logger()
 
@@ -34,8 +37,8 @@ class ComparisonController:
         """
         self.layout = layout_instance
         
-        # Current mode
-        self.current_mode = "side_by_side"  # side_by_side, overlay, original_only, result_only
+        # Current mode (extended with new modes)
+        self.current_mode = "side_by_side"  # side_by_side, overlay, original_only, result_only, difference, split, grid
         
         # Overlay state
         self.overlay_opacity = 0.5
@@ -50,6 +53,21 @@ class ComparisonController:
         self.zoom_update_timer = None
         self.zoom_update_delay = 300  # ms delay for zoom changes
         
+        # Split slider state
+        self.split_position = 0.5  # 0-1, percentage from left/top
+        self.split_orientation = 'vertical'  # vertical or horizontal
+        
+        # Animation state
+        self.animation_active = False
+        self.animation_timer = None
+        self.animation_direction = 1  # 1 for forward, -1 for reverse
+        self.animation_speed = 50  # ms between frames
+        
+        # Independent zoom (for side-by-side mode)
+        self.independent_zoom_enabled = False
+        self.left_zoom = "Fit"
+        self.right_zoom = "Fit"
+        
         # UI references
         self.mode_var = tk.StringVar(value="side_by_side")
         self.opacity_var = tk.DoubleVar(value=0.5)
@@ -57,7 +75,7 @@ class ComparisonController:
         # Setup zoom change listener after initialization
         self.layout.parent_frame.after(100, self._setup_zoom_listener)
         
-        logger.info("ComparisonController initialized")
+        logger.info("ComparisonController initialized with enhanced modes")
     
     def setup_comparison_controls(self, parent_frame) -> tk.Widget:
         """
@@ -76,12 +94,15 @@ class ComparisonController:
         ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
         
         # View mode dropdown (more compact than radio buttons)
-        # Create dropdown with view mode options
+        # Create dropdown with view mode options (including new enhanced modes)
         self.mode_dropdown = ttk.Combobox(
             controls_frame,
             values=[
                 "↔️ Side by Side",
-                "📊 Overlay", 
+                "📊 Overlay",
+                "🎯 Difference",
+                "✂️ Split View",
+                "🏁 Grid (2x2)",
                 "📷 Original Only",
                 "✨ Result Only"
             ],
@@ -95,6 +116,9 @@ class ComparisonController:
         self.mode_display_to_value = {
             "↔️ Side by Side": "side_by_side",
             "📊 Overlay": "overlay",
+            "🎯 Difference": "difference",
+            "✂️ Split View": "split",
+            "🏁 Grid (2x2)": "grid",
             "📷 Original Only": "original_only",
             "✨ Result Only": "result_only"
         }
@@ -218,6 +242,15 @@ class ComparisonController:
         # Initially hide opacity controls
         self.opacity_frame.pack_forget()
         
+        # Animation toggle button
+        self.animation_button = ttk.Button(
+            controls_frame,
+            text="▶️ Animate",
+            command=self.toggle_animation,
+            width=12
+        )
+        self.animation_button.pack(side=tk.RIGHT, padx=2)
+        
         # Swap button
         ttk.Button(
             controls_frame,
@@ -226,7 +259,15 @@ class ComparisonController:
             width=10
         ).pack(side=tk.RIGHT, padx=2)
         
-        logger.info("Comparison controls UI created")
+        # Color Match button
+        ttk.Button(
+            controls_frame,
+            text="🎨 Match Colors",
+            command=self.apply_color_matching,
+            width=14
+        ).pack(side=tk.RIGHT, padx=2)
+        
+        logger.info("Comparison controls UI created with enhanced features")
         return controls_frame
     
     def set_mode(self, mode: str):
@@ -267,6 +308,12 @@ class ComparisonController:
             self._show_side_by_side()
         elif mode == "overlay":
             self._show_overlay()
+        elif mode == "difference":
+            self._show_difference()
+        elif mode == "split":
+            self._show_split_view()
+        elif mode == "grid":
+            self._show_grid_view()
         elif mode == "original_only":
             self._show_single_panel("original")
         elif mode == "result_only":
@@ -346,7 +393,7 @@ class ComparisonController:
                 # Fall back to side-by-side if images not available
                 logger.warning("Cannot show overlay: missing images")
                 self._show_side_by_side()
-                
+        
         except Exception as e:
             logger.error(f"Error showing overlay view: {e}")
             self._show_side_by_side()
@@ -374,6 +421,219 @@ class ComparisonController:
             self.layout.display_paned_window.add(self.layout.result_container, weight=1)
         
         logger.debug(f"Showing {panel_type} only")
+    
+    def _show_difference(self):
+        """Show difference highlighting mode - highlights pixel differences"""
+        try:
+            # Use only original panel for difference view (full width)
+            if hasattr(self.layout, 'display_paned_window') and hasattr(self.layout, 'original_container'):
+                for pane in self.layout.display_paned_window.panes():
+                    self.layout.display_paned_window.forget(pane)
+                
+                self.layout.display_paned_window.add(self.layout.original_container, weight=1)
+                logger.debug("Showing difference view in full-width panel")
+            
+            # Get image paths
+            original_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    original_path = paths[0]
+            
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Display difference view
+            if original_path and result_path and hasattr(self.layout, 'image_manager'):
+                self.layout.image_manager.display_difference_view(
+                    self.layout.original_canvas,
+                    original_path,
+                    result_path,
+                    self.layout.zoom_var
+                )
+                logger.debug("Difference view displayed")
+            else:
+                logger.warning("Cannot show difference: missing images")
+                self._show_side_by_side()
+                
+        except Exception as e:
+            logger.error(f"Error showing difference view: {e}")
+            self._show_side_by_side()
+    
+    def _show_split_view(self):
+        """Show split slider view with draggable divider"""
+        try:
+            # Use only original panel for split view (full width)
+            if hasattr(self.layout, 'display_paned_window') and hasattr(self.layout, 'original_container'):
+                for pane in self.layout.display_paned_window.panes():
+                    self.layout.display_paned_window.forget(pane)
+                
+                self.layout.display_paned_window.add(self.layout.original_container, weight=1)
+                logger.debug("Showing split view in full-width panel")
+            
+            # Get image paths
+            original_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    original_path = paths[0]
+            
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Display split view
+            if original_path and result_path and hasattr(self.layout, 'image_manager'):
+                self.layout.image_manager.display_split_view(
+                    self.layout.original_canvas,
+                    original_path,
+                    result_path,
+                    self.layout.zoom_var,
+                    split_position=self.split_position,
+                    orientation=self.split_orientation
+                )
+                logger.debug(f"Split view displayed at {self.split_position:.0%}")
+            else:
+                logger.warning("Cannot show split: missing images")
+                self._show_side_by_side()
+                
+        except Exception as e:
+            logger.error(f"Error showing split view: {e}")
+            self._show_side_by_side()
+    
+    def _show_grid_view(self):
+        """Show 2x2 grid view (Original, Result, Overlay, Difference)"""
+        try:
+            # Use only original panel for grid view (full width)
+            if hasattr(self.layout, 'display_paned_window') and hasattr(self.layout, 'original_container'):
+                for pane in self.layout.display_paned_window.panes():
+                    self.layout.display_paned_window.forget(pane)
+                
+                self.layout.display_paned_window.add(self.layout.original_container, weight=1)
+                logger.debug("Showing grid view in full-width panel")
+            
+            # Get image paths
+            original_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    original_path = paths[0]
+            
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Display grid view
+            if original_path and result_path and hasattr(self.layout, 'image_manager'):
+                self.layout.image_manager.display_grid_view(
+                    self.layout.original_canvas,
+                    original_path,
+                    result_path,
+                    self.layout.zoom_var
+                )
+                logger.debug("Grid view displayed")
+            else:
+                logger.warning("Cannot show grid: missing images")
+                self._show_side_by_side()
+                
+        except Exception as e:
+            logger.error(f"Error showing grid view: {e}")
+            self._show_side_by_side()
+    
+    def toggle_animation(self):
+        """Toggle animation between original and result"""
+        if self.animation_active:
+            # Stop animation
+            self.stop_animation()
+        else:
+            # Start animation
+            self.start_animation()
+    
+    def start_animation(self):
+        """Start auto-fade animation between images"""
+        try:
+            self.animation_active = True
+            self.animation_button.config(text="⏸️ Stop")
+            self.overlay_opacity = 0.0
+            self.opacity_var.set(0.0)
+            
+            # Switch to overlay mode for animation
+            if self.current_mode != "overlay":
+                self.set_mode("overlay")
+            
+            # Start animation loop
+            self._animate_frame()
+            logger.info("Animation started")
+            
+        except Exception as e:
+            logger.error(f"Error starting animation: {e}")
+            self.stop_animation()
+    
+    def stop_animation(self):
+        """Stop animation"""
+        try:
+            self.animation_active = False
+            self.animation_button.config(text="▶️ Animate")
+            
+            # Cancel timer if exists
+            if self.animation_timer:
+                try:
+                    self.layout.parent_frame.after_cancel(self.animation_timer)
+                except:
+                    pass
+                self.animation_timer = None
+            
+            logger.info("Animation stopped")
+            
+        except Exception as e:
+            logger.error(f"Error stopping animation: {e}")
+    
+    def _animate_frame(self):
+        """Animate one frame"""
+        try:
+            if not self.animation_active:
+                return
+            
+            # Update opacity
+            current = self.overlay_opacity
+            step = 0.02 * self.animation_direction  # 2% per frame
+            
+            new_opacity = current + step
+            
+            # Reverse direction at endpoints
+            if new_opacity >= 1.0:
+                new_opacity = 1.0
+                self.animation_direction = -1
+            elif new_opacity <= 0.0:
+                new_opacity = 0.0
+                self.animation_direction = 1
+            
+            self.overlay_opacity = new_opacity
+            self.opacity_var.set(new_opacity)
+            self.opacity_label.config(text=f"{int(new_opacity * 100)}%")
+            
+            # Apply opacity change
+            self._apply_overlay_with_opacity()
+            
+            # Schedule next frame
+            self.animation_timer = self.layout.parent_frame.after(
+                self.animation_speed,
+                self._animate_frame
+            )
+            
+        except Exception as e:
+            logger.error(f"Error in animation frame: {e}")
+            self.stop_animation()
     
     def _on_opacity_changed(self, value):
         """Handle opacity slider change with debouncing to reduce lag"""
@@ -452,6 +712,77 @@ class ComparisonController:
                 )
         
         logger.info("Images swapped")
+    
+    def apply_color_matching(self):
+        """Apply subtle color correction to result image to match source"""
+        try:
+            # Get source and result paths
+            source_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'selected_image_path'):
+                source_path = self.layout.selected_image_path
+            
+            if hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Validate paths
+            if not source_path or not os.path.exists(source_path):
+                messagebox.showwarning(
+                    "No Source Image",
+                    "Please load an input image first to use as color reference."
+                )
+                return
+            
+            if not result_path or not os.path.exists(result_path):
+                messagebox.showwarning(
+                    "No Result Image",
+                    "Please generate a result image first."
+                )
+                return
+            
+            # Show progress
+            logger.info(f"Applying color matching: source={source_path}, target={result_path}")
+            
+            # Apply subtle color correction (60% strength)
+            corrected_image = ColorMatcher.subtle_color_correction(
+                source_path=source_path,
+                target_path=result_path,
+                method='lab'
+            )
+            
+            if corrected_image:
+                # Save to temporary file
+                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_color_matched.png')
+                corrected_image.save(temp_file.name, quality=95)
+                temp_file.close()
+                
+                # Update result path
+                self.layout.result_image_path = temp_file.name
+                
+                # Refresh display
+                if hasattr(self.layout.image_manager, 'display_image_in_panel'):
+                    self.layout.image_manager.display_image_in_panel(
+                        temp_file.name, 'result'
+                    )
+                
+                # If in overlay mode, refresh overlay
+                if self.current_mode == "overlay":
+                    self._refresh_overlay_from_zoom()
+                
+                logger.info("✅ Color correction applied successfully")
+                messagebox.showinfo(
+                    "Success",
+                    "Subtle color correction applied!\n\n"
+                    "Result colors now match the source image better.\n"
+                    "The correction is subtle to preserve the AI's edits."
+                )
+            else:
+                messagebox.showerror("Error", "Failed to apply color matching.")
+                
+        except Exception as e:
+            logger.error(f"Error applying color matching: {e}")
+            messagebox.showerror("Error", f"Color matching failed: {str(e)}")
     
     def _setup_zoom_listener(self):
         """Setup zoom change listener to refresh overlay when zoom changes"""
