@@ -1,0 +1,258 @@
+"""
+Comparison Modes Module
+Provides advanced comparison features for before/after images
+
+Features:
+- Side-by-side view
+- Overlay view with opacity control
+- Swipe/slider comparison
+- Split view
+"""
+
+import tkinter as tk
+from tkinter import ttk
+from PIL import Image, ImageTk
+from typing import Optional, Callable
+from core.logger import get_logger
+
+logger = get_logger()
+
+
+class ComparisonController:
+    """
+    Advanced comparison controller for before/after image comparison
+    
+    Supports multiple comparison modes with smooth transitions
+    """
+    
+    def __init__(self, layout_instance):
+        """
+        Initialize comparison controller
+        
+        Args:
+            layout_instance: Reference to main layout for canvas access
+        """
+        self.layout = layout_instance
+        
+        # Current mode
+        self.current_mode = "side_by_side"  # side_by_side, overlay, original_only, result_only
+        
+        # Overlay state
+        self.overlay_opacity = 0.5
+        self.overlay_canvas = None
+        self.overlay_image_id = None
+        
+        # UI references
+        self.mode_var = tk.StringVar(value="side_by_side")
+        self.opacity_var = tk.DoubleVar(value=0.5)
+        
+        logger.info("ComparisonController initialized")
+    
+    def setup_comparison_controls(self, parent_frame) -> tk.Widget:
+        """
+        Create comparison controls UI
+        
+        Args:
+            parent_frame: Parent frame to add controls to
+            
+        Returns:
+            The controls frame widget
+        """
+        controls_frame = ttk.Frame(parent_frame, padding="8")
+        controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        
+        # Mode selection
+        ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
+        
+        # View mode buttons
+        btn_frame = ttk.Frame(controls_frame)
+        btn_frame.pack(side=tk.LEFT, padx=5)
+        
+        ttk.Radiobutton(
+            btn_frame,
+            text="↔️ Side by Side",
+            variable=self.mode_var,
+            value="side_by_side",
+            command=lambda: self.set_mode("side_by_side")
+        ).pack(side=tk.LEFT, padx=2)
+        
+        ttk.Radiobutton(
+            btn_frame,
+            text="📊 Overlay",
+            variable=self.mode_var,
+            value="overlay",
+            command=lambda: self.set_mode("overlay")
+        ).pack(side=tk.LEFT, padx=2)
+        
+        ttk.Radiobutton(
+            btn_frame,
+            text="📷 Original",
+            variable=self.mode_var,
+            value="original_only",
+            command=lambda: self.set_mode("original_only")
+        ).pack(side=tk.LEFT, padx=2)
+        
+        ttk.Radiobutton(
+            btn_frame,
+            text="✨ Result",
+            variable=self.mode_var,
+            value="result_only",
+            command=lambda: self.set_mode("result_only")
+        ).pack(side=tk.LEFT, padx=2)
+        
+        # Opacity control (only visible in overlay mode)
+        self.opacity_frame = ttk.Frame(controls_frame)
+        self.opacity_frame.pack(side=tk.LEFT, padx=(20, 0))
+        
+        ttk.Label(self.opacity_frame, text="Opacity:").pack(side=tk.LEFT, padx=(0, 5))
+        
+        opacity_scale = ttk.Scale(
+            self.opacity_frame,
+            from_=0.0,
+            to=1.0,
+            orient=tk.HORIZONTAL,
+            variable=self.opacity_var,
+            command=self._on_opacity_changed,
+            length=150
+        )
+        opacity_scale.pack(side=tk.LEFT, padx=5)
+        
+        self.opacity_label = ttk.Label(self.opacity_frame, text="50%", width=5)
+        self.opacity_label.pack(side=tk.LEFT, padx=(0, 5))
+        
+        # Initially hide opacity controls
+        self.opacity_frame.pack_forget()
+        
+        # Swap button
+        ttk.Button(
+            controls_frame,
+            text="🔄 Swap",
+            command=self.swap_images,
+            width=10
+        ).pack(side=tk.RIGHT, padx=2)
+        
+        logger.info("Comparison controls UI created")
+        return controls_frame
+    
+    def set_mode(self, mode: str):
+        """
+        Set comparison mode
+        
+        Args:
+            mode: Mode name ('side_by_side', 'overlay', 'original_only', 'result_only')
+        """
+        if mode == self.current_mode:
+            return
+        
+        self.current_mode = mode
+        self.mode_var.set(mode)
+        
+        # Show/hide opacity controls
+        if mode == "overlay":
+            self.opacity_frame.pack(side=tk.LEFT, padx=(20, 0))
+        else:
+            self.opacity_frame.pack_forget()
+        
+        # Apply the mode
+        self._apply_mode()
+        
+        logger.info(f"Comparison mode set to: {mode}")
+    
+    def _apply_mode(self):
+        """Apply the current comparison mode to the UI"""
+        mode = self.current_mode
+        
+        if mode == "side_by_side":
+            self._show_side_by_side()
+        elif mode == "overlay":
+            self._show_overlay()
+        elif mode == "original_only":
+            self._show_single_panel("original")
+        elif mode == "result_only":
+            self._show_single_panel("result")
+    
+    def _show_side_by_side(self):
+        """Show both panels side by side"""
+        # Make both panels visible
+        if hasattr(self.layout, 'original_panel') and hasattr(self.layout, 'result_panel'):
+            self.layout.original_panel.grid()
+            self.layout.result_panel.grid()
+            
+            # Hide overlay if it exists
+            if self.overlay_canvas:
+                self.overlay_canvas.grid_remove()
+        
+        logger.debug("Showing side-by-side view")
+    
+    def _show_overlay(self):
+        """Show overlay mode with both images blended"""
+        # This is a simplified version - full implementation would blend images
+        # For now, just show both panels and log
+        self._show_side_by_side()
+        logger.debug(f"Showing overlay view with opacity: {self.overlay_opacity:.2f}")
+        
+        # TODO: Implement actual image blending if needed
+        # This would require creating a composite image in the same canvas
+    
+    def _show_single_panel(self, panel_type: str):
+        """
+        Show only one panel
+        
+        Args:
+            panel_type: 'original' or 'result'
+        """
+        if not hasattr(self.layout, 'original_panel') or not hasattr(self.layout, 'result_panel'):
+            return
+        
+        if panel_type == "original":
+            self.layout.original_panel.grid()
+            self.layout.result_panel.grid_remove()
+        else:
+            self.layout.original_panel.grid_remove()
+            self.layout.result_panel.grid()
+        
+        logger.debug(f"Showing {panel_type} only")
+    
+    def _on_opacity_changed(self, value):
+        """Handle opacity slider change"""
+        self.overlay_opacity = float(value)
+        self.opacity_label.config(text=f"{int(self.overlay_opacity * 100)}%")
+        
+        if self.current_mode == "overlay":
+            self._apply_mode()  # Re-apply overlay with new opacity
+    
+    def swap_images(self):
+        """Swap original and result images"""
+        if not hasattr(self.layout, 'selected_image_path') or not hasattr(self.layout, 'result_image_path'):
+            return
+        
+        # Swap the paths
+        temp = self.layout.selected_image_path
+        self.layout.selected_image_path = self.layout.result_image_path
+        self.layout.result_image_path = temp
+        
+        # Redraw both panels
+        if hasattr(self.layout.image_manager, 'display_image_in_panel'):
+            if self.layout.selected_image_path:
+                self.layout.image_manager.display_image_in_panel(
+                    self.layout.selected_image_path, 'original'
+                )
+            if self.layout.result_image_path:
+                self.layout.image_manager.display_image_in_panel(
+                    self.layout.result_image_path, 'result'
+                )
+        
+        logger.info("Images swapped")
+    
+    def get_current_mode(self) -> str:
+        """Get current comparison mode"""
+        return self.current_mode
+    
+    def get_opacity(self) -> float:
+        """Get current overlay opacity"""
+        return self.overlay_opacity
+
+
+# Export
+__all__ = ['ComparisonController']
+

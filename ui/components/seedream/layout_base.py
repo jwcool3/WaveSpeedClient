@@ -24,6 +24,11 @@ from .filter_training import FilterTrainingManager
 from .actions_handler import ActionsHandlerManager
 from .results_display import ResultsDisplayManager
 
+# Import new feature modules
+from .canvas_sync import ImprovedImageSync
+from .progress_overlay import ProgressOverlay
+from .comparison_modes import ComparisonController
+
 logger = get_logger()
 
 
@@ -91,7 +96,12 @@ class SeedreamLayoutV2:
             self.actions_manager = ActionsHandlerManager(self)
             self.results_manager = ResultsDisplayManager(self)
             
-            logger.info("All module managers initialized successfully")
+            # Initialize new feature modules
+            self.sync_manager = ImprovedImageSync(self)
+            self.progress_overlay = ProgressOverlay(self.parent_frame)
+            self.comparison_controller = ComparisonController(self)
+            
+            logger.info("All module managers initialized successfully (including new features)")
             
         except Exception as e:
             logger.error(f"Error initializing managers: {e}")
@@ -184,8 +194,8 @@ class SeedreamLayoutV2:
             # Store reference
             self.right_frame = right_frame
             
-            # Create comparison controls (row 0)
-            self._create_comparison_controls_ui(right_frame, row=0)
+            # Create comparison controls using the new controller (row 0)
+            self.comparison_controller.setup_comparison_controls(right_frame)
             
             # Create image display panels (row 1)
             self._create_image_display_ui(right_frame, row=1)
@@ -260,18 +270,6 @@ class SeedreamLayoutV2:
             image_size_label=image_size_label,
             reorder_btn=reorder_btn
         )
-    
-    def _create_comparison_controls_ui(self, parent, row=0):
-        """Create image comparison controls"""
-        controls_frame = ttk.Frame(parent, padding="4")
-        controls_frame.grid(row=row, column=0, sticky="ew", pady=(0, 4))
-        
-        ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
-        
-        # Simple view toggle for now
-        ttk.Button(controls_frame, text="↔️ Side by Side", width=14).pack(side=tk.LEFT, padx=2)
-        ttk.Button(controls_frame, text="📊 Overlay", width=12).pack(side=tk.LEFT, padx=2)
-        ttk.Button(controls_frame, text="🔄 Swap", command=self.swap_images, width=10).pack(side=tk.RIGHT, padx=2)
     
     def _create_image_display_ui(self, parent, row=1):
         """Create the side-by-side image display panels"""
@@ -488,7 +486,31 @@ class SeedreamLayoutV2:
     
     def swap_images(self) -> None:
         """Swap original and result images"""
-        self.image_manager.swap_images()
+        self.comparison_controller.swap_images()
+    
+    def show_progress(self, message: str = "Processing...", cancelable: bool = False, cancel_callback=None) -> None:
+        """Show progress overlay"""
+        self.progress_overlay.show(message, cancelable, cancel_callback)
+    
+    def hide_progress(self) -> None:
+        """Hide progress overlay"""
+        self.progress_overlay.hide()
+    
+    def update_progress_message(self, message: str) -> None:
+        """Update progress overlay message"""
+        self.progress_overlay.update_message(message)
+    
+    def set_comparison_mode(self, mode: str) -> None:
+        """Set comparison mode (side_by_side, overlay, original_only, result_only)"""
+        self.comparison_controller.set_mode(mode)
+    
+    def enable_sync_zoom(self, enabled: bool = True) -> None:
+        """Enable/disable synchronized zooming"""
+        self.sync_manager.enable_sync_zoom(enabled)
+    
+    def enable_sync_pan(self, enabled: bool = True) -> None:
+        """Enable/disable synchronized panning"""
+        self.sync_manager.enable_sync_pan(enabled)
     
     def show_image_reorder_dialog(self) -> None:
         """Show dialog to reorder multiple images"""
