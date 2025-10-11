@@ -19,6 +19,7 @@ import threading
 from typing import Optional, Dict, Any, Tuple, Callable
 from PIL import Image  # Import at module level for efficiency
 from core.logger import get_logger
+from ui.components.seedream.resolution_optimizer import SeedreamResolutionOptimizer
 
 logger = get_logger()
 
@@ -62,6 +63,14 @@ class SettingsPanelManager:
         self.original_image_width = None
         self.original_image_height = None
         
+        # Resolution optimizer
+        self.resolution_optimizer = SeedreamResolutionOptimizer()
+        self.resolution_info_frame = None
+        self.input_resolution_label = None
+        self.output_resolution_label = None
+        self.resolution_warning_label = None
+        self.optimize_button = None
+        
         # UI references
         self.settings_frame = None
         self.width_scale = None
@@ -89,17 +98,18 @@ class SettingsPanelManager:
         try:
             logger.info("Setting up settings panel")
             
-            # Main settings frame
+            # Main settings frame - compact padding for fullscreen
             self.settings_frame = ttk.LabelFrame(
                 parent_frame,
                 text="⚙️ Generation Settings",
-                padding="8"
+                padding="4"
             )
-            self.settings_frame.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+            self.settings_frame.grid(row=1, column=0, sticky="ew", pady=(0, 6))
             self.settings_frame.columnconfigure(3, weight=1)
             
             # Setup components
             self._setup_resolution_controls()
+            self._setup_resolution_analyzer()  # NEW: Resolution analysis display
             self._setup_size_presets()
             self._setup_options_row()
             self._setup_advanced_options()
@@ -172,11 +182,89 @@ class SettingsPanelManager:
         )
         self.height_entry.grid(row=1, column=2, sticky="w", padx=(4, 0), pady=(0, 4))
     
+    def _setup_resolution_analyzer(self) -> None:
+        """Setup resolution analysis and optimization UI"""
+        try:
+            # Resolution info frame - compact padding (placed at row 2, before size presets)
+            self.resolution_info_frame = ttk.LabelFrame(
+                self.settings_frame,
+                text="📊 Resolution Analysis",
+                padding="4"
+            )
+            self.resolution_info_frame.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+            self.resolution_info_frame.columnconfigure(1, weight=1)
+            
+            # Input image resolution (Row 0)
+            ttk.Label(
+                self.resolution_info_frame,
+                text="Input:",
+                font=('Arial', 8, 'bold')
+            ).grid(row=0, column=0, sticky="w", padx=(0, 5))
+            
+            self.input_resolution_label = ttk.Label(
+                self.resolution_info_frame,
+                text="No image loaded",
+                font=('Arial', 8),
+                foreground="gray"
+            )
+            self.input_resolution_label.grid(row=0, column=1, sticky="w")
+            
+            # Output settings resolution (Row 1)
+            ttk.Label(
+                self.resolution_info_frame,
+                text="Output:",
+                font=('Arial', 8, 'bold')
+            ).grid(row=1, column=0, sticky="w", padx=(0, 5), pady=(2, 0))
+            
+            self.output_resolution_label = ttk.Label(
+                self.resolution_info_frame,
+                text="1024×1024 (1:1, 1.0M pixels)",
+                font=('Arial', 8),
+                foreground="gray"
+            )
+            self.output_resolution_label.grid(row=1, column=1, sticky="w", pady=(2, 0))
+            
+            # Warning/recommendation label (Row 2)
+            self.resolution_warning_label = ttk.Label(
+                self.resolution_info_frame,
+                text="",
+                font=('Arial', 8),
+                foreground="#ff8c00",  # Orange for warnings
+                wraplength=320,  # Wider to prevent excessive wrapping
+                justify="left"
+            )
+            self.resolution_warning_label.grid(row=2, column=0, columnspan=2, sticky="w", pady=(4, 0))
+            
+            # Optimize button (Row 3)
+            button_frame = ttk.Frame(self.resolution_info_frame)
+            button_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(4, 0))
+            
+            self.optimize_button = ttk.Button(
+                button_frame,
+                text="✨ Optimize Resolution",
+                command=self.optimize_resolution,
+                state="disabled"  # Enabled when optimization is beneficial
+            )
+            self.optimize_button.pack(side="left", padx=(0, 5))
+            
+            # Info button to show all recommended resolutions
+            ttk.Button(
+                button_frame,
+                text="ℹ️ View All",
+                command=self.show_resolution_guide,
+                width=10
+            ).pack(side="left")
+            
+            logger.debug("Resolution analyzer UI created")
+            
+        except Exception as e:
+            logger.error(f"Error setting up resolution analyzer: {e}")
+    
     def _setup_size_presets(self) -> None:
         """Setup size preset buttons"""
-        # Row 2: Size presets
+        # Row 3: Size presets (moved down to make room for resolution analyzer)
         preset_frame = ttk.Frame(self.settings_frame)
-        preset_frame.grid(row=2, column=0, columnspan=4, sticky="ew", pady=(4, 2))
+        preset_frame.grid(row=3, column=0, columnspan=4, sticky="ew", pady=(4, 2))
         
         # Preset buttons in a row
         for i, (name, multiplier) in enumerate(self.size_presets):
@@ -203,9 +291,9 @@ class SettingsPanelManager:
     
     def _setup_options_row(self) -> None:
         """Setup seed and option controls"""
-        # Row 3: Seed + Options
+        # Row 4: Seed + Options (moved down to make room for resolution analyzer)
         ttk.Label(self.settings_frame, text="Seed:", font=('Arial', 8)).grid(
-            row=3, column=0, sticky="w", pady=(4, 0)
+            row=4, column=0, sticky="w", pady=(4, 0)
         )
         
         seed_entry = ttk.Entry(
@@ -214,7 +302,7 @@ class SettingsPanelManager:
             width=8,
             font=('Arial', 8)
         )
-        seed_entry.grid(row=3, column=1, sticky="w", pady=(4, 0))
+        seed_entry.grid(row=4, column=1, sticky="w", pady=(4, 0))
         
         # Lock aspect ratio button
         self.lock_aspect_btn = ttk.Button(
@@ -223,7 +311,7 @@ class SettingsPanelManager:
             width=3,
             command=self.toggle_aspect_lock
         )
-        self.lock_aspect_btn.grid(row=3, column=2, sticky="w", padx=(8, 0), pady=(4, 0))
+        self.lock_aspect_btn.grid(row=4, column=2, sticky="w", padx=(8, 0), pady=(4, 0))
         
         # Auto-resolution button
         auto_btn = ttk.Button(
@@ -232,13 +320,13 @@ class SettingsPanelManager:
             width=6,
             command=self.auto_set_resolution
         )
-        auto_btn.grid(row=3, column=3, sticky="e", pady=(4, 0))
+        auto_btn.grid(row=4, column=3, sticky="e", pady=(4, 0))
     
     def _setup_advanced_options(self) -> None:
         """Setup advanced options (sync mode, base64 output)"""
-        # Row 4: Advanced options
+        # Row 5: Advanced options (moved down to make room for resolution analyzer)
         options_frame = ttk.Frame(self.settings_frame)
-        options_frame.grid(row=4, column=0, columnspan=4, sticky="ew", pady=(8, 0))
+        options_frame.grid(row=5, column=0, columnspan=4, sticky="ew", pady=(8, 0))
         
         # Sync mode checkbox
         sync_check = ttk.Checkbutton(
@@ -418,6 +506,9 @@ class SettingsPanelManager:
             
             # Schedule save after 500ms of no changes (debounce)
             self._save_timer = self.parent_frame.after(500, self._do_auto_save)
+            
+            # Update resolution analysis (immediate feedback)
+            self.update_resolution_analysis()
             
         except Exception as e:
             logger.error(f"Error handling setting change: {e}")
@@ -765,6 +856,285 @@ class SettingsPanelManager:
         """Add a validation callback that's called when settings change"""
         if callback not in self.validation_callbacks:
             self.validation_callbacks.append(callback)
+    
+    def update_resolution_analysis(self) -> None:
+        """Update the resolution analysis display based on current settings"""
+        try:
+            # Get current output settings
+            width = self.width_var.get()
+            height = self.height_var.get()
+            
+            # Analyze output resolution
+            output_analysis = self.resolution_optimizer.analyze_resolution(width, height)
+            
+            # Update output label
+            ratio_display = output_analysis['aspect_ratio']['ratio_display']
+            pixels_m = output_analysis['pixels'] / 1_000_000
+            tier_name = output_analysis['tier']['name']
+            
+            output_text = f"{width}×{height} ({ratio_display}, {pixels_m:.2f}M pixels)"
+            
+            # Color code based on optimization status
+            if output_analysis['is_optimal']:
+                output_color = "#28a745"  # Green - optimal
+                output_text += " ✓"
+            elif output_analysis['aspect_ratio']['is_standard']:
+                output_color = "#ffc107"  # Yellow - standard aspect but not optimal resolution
+            else:
+                output_color = "#dc3545"  # Red - non-standard
+            
+            if self.output_resolution_label:
+                self.output_resolution_label.config(text=output_text, foreground=output_color)
+            
+            # Update input label if image is loaded
+            if self.original_image_width and self.original_image_height:
+                input_analysis = self.resolution_optimizer.analyze_resolution(
+                    self.original_image_width,
+                    self.original_image_height
+                )
+                input_ratio = input_analysis['aspect_ratio']['ratio_display']
+                input_pixels_m = input_analysis['pixels'] / 1_000_000
+                input_text = f"{self.original_image_width}×{self.original_image_height} ({input_ratio}, {input_pixels_m:.2f}M pixels)"
+                
+                if self.input_resolution_label:
+                    self.input_resolution_label.config(
+                        text=input_text,
+                        foreground="#28a745" if input_analysis['is_optimal'] else "#666"
+                    )
+            
+            # Update warnings and recommendations
+            warnings = output_analysis.get('warnings', [])
+            recommendations = output_analysis.get('recommendations', [])
+            
+            if warnings or recommendations:
+                warning_text = ""
+                if warnings:
+                    warning_text = " • ".join(warnings[:2])  # Show first 2 warnings
+                elif recommendations:
+                    high_priority = [r for r in recommendations if r.get('priority') == 'high']
+                    if high_priority:
+                        warning_text = f"💡 {high_priority[0]['reason']}"
+                
+                if self.resolution_warning_label:
+                    self.resolution_warning_label.config(text=warning_text)
+            else:
+                if self.resolution_warning_label:
+                    self.resolution_warning_label.config(text="✓ Optimal resolution")
+            
+            # Enable/disable optimize button
+            if self.optimize_button:
+                if not output_analysis['is_optimal'] and output_analysis['nearest_recommended']:
+                    self.optimize_button.config(state="normal")
+                else:
+                    self.optimize_button.config(state="disabled")
+            
+            logger.debug(f"Resolution analysis updated: {output_text}")
+            
+        except Exception as e:
+            logger.error(f"Error updating resolution analysis: {e}")
+    
+    def optimize_resolution(self) -> None:
+        """Snap to the nearest recommended resolution"""
+        try:
+            width = self.width_var.get()
+            height = self.height_var.get()
+            
+            # Find nearest recommended
+            nearest = self.resolution_optimizer.find_nearest_recommended(width, height)
+            
+            if not nearest:
+                messagebox.showinfo(
+                    "Already Optimal",
+                    "Current resolution is already optimal or no better recommendation available."
+                )
+                return
+            
+            recommended = nearest['recommended']
+            adjustment = nearest['adjustment']
+            
+            # Show confirmation dialog with details
+            pixel_change_pct = abs(adjustment['pixel_change_pct'])
+            message = (
+                f"Optimize resolution to:\n\n"
+                f"📊 {recommended['rounded_w']}×{recommended['rounded_h']} ({recommended['ratio']} {recommended['tier']})\n\n"
+                f"Changes:\n"
+                f"• Width: {width} → {recommended['rounded_w']} ({adjustment['width_diff']:+d})\n"
+                f"• Height: {height} → {recommended['rounded_h']} ({adjustment['height_diff']:+d})\n"
+                f"• Pixels: {pixel_change_pct:.1f}% {'increase' if adjustment['pixel_diff'] > 0 else 'decrease'}\n\n"
+                f"This will improve quality and align with Seedream V4's recommended resolutions."
+            )
+            
+            if messagebox.askyesno("Optimize Resolution", message):
+                # Apply the optimized resolution
+                self.width_var.set(recommended['rounded_w'])
+                self.height_var.set(recommended['rounded_h'])
+                
+                # Update aspect ratio lock if enabled
+                if self.aspect_lock_var.get():
+                    self.locked_aspect_ratio = recommended['rounded_w'] / recommended['rounded_h']
+                
+                # Update analysis
+                self.update_resolution_analysis()
+                
+                # Trigger validation
+                for callback in self.validation_callbacks:
+                    callback()
+                
+                logger.info(f"Resolution optimized to {recommended['rounded_w']}×{recommended['rounded_h']}")
+            
+        except Exception as e:
+            logger.error(f"Error optimizing resolution: {e}")
+            messagebox.showerror("Error", f"Failed to optimize resolution: {str(e)}")
+    
+    def show_resolution_guide(self) -> None:
+        """Show a guide with all recommended resolutions"""
+        try:
+            # Create popup window
+            guide_window = tk.Toplevel(self.parent_frame)
+            guide_window.title("Seedream V4 - Recommended Resolutions")
+            guide_window.geometry("650x500")
+            guide_window.transient(self.parent_frame)
+            
+            # Main frame with scrollbar
+            main_frame = ttk.Frame(guide_window, padding="10")
+            main_frame.pack(fill="both", expand=True)
+            
+            # Title
+            title_label = ttk.Label(
+                main_frame,
+                text="📊 Seedream V4 Recommended Resolutions",
+                font=('Arial', 12, 'bold')
+            )
+            title_label.pack(pady=(0, 10))
+            
+            # Info text
+            info_text = ttk.Label(
+                main_frame,
+                text="Choose resolutions that match these recommendations for best quality.",
+                font=('Arial', 9),
+                foreground="gray"
+            )
+            info_text.pack(pady=(0, 10))
+            
+            # Create notebook for different tiers
+            notebook = ttk.Notebook(main_frame)
+            notebook.pack(fill="both", expand=True)
+            
+            # Create tabs for each tier
+            for tier_name, tier_label in [("2M", "High Quality (2M)"), ("1M", "Good Quality (1M)"), ("100K", "Draft (100K)")]:
+                tier_frame = ttk.Frame(notebook, padding="10")
+                notebook.add(tier_frame, text=tier_label)
+                
+                # Create table for this tier
+                self._create_resolution_table(tier_frame, tier_name)
+            
+            # Close button
+            close_btn = ttk.Button(
+                main_frame,
+                text="Close",
+                command=guide_window.destroy
+            )
+            close_btn.pack(pady=(10, 0))
+            
+            # Center window
+            guide_window.update_idletasks()
+            x = (guide_window.winfo_screenwidth() // 2) - (guide_window.winfo_width() // 2)
+            y = (guide_window.winfo_screenheight() // 2) - (guide_window.winfo_height() // 2)
+            guide_window.geometry(f"+{x}+{y}")
+            
+        except Exception as e:
+            logger.error(f"Error showing resolution guide: {e}")
+            messagebox.showerror("Error", f"Failed to show resolution guide: {str(e)}")
+    
+    def _create_resolution_table(self, parent, tier_name):
+        """Create a table of resolutions for a specific tier"""
+        try:
+            # Get resolutions for this tier
+            resolutions = self.resolution_optimizer.RECOMMENDED_RESOLUTIONS[tier_name]
+            
+            # Create headers
+            headers = ["Aspect Ratio", "Resolution", "Pixels", "Use"]
+            for col, header in enumerate(headers):
+                label = ttk.Label(
+                    parent,
+                    text=header,
+                    font=('Arial', 9, 'bold'),
+                    relief="solid",
+                    borderwidth=1,
+                    padding=5
+                )
+                label.grid(row=0, column=col, sticky="ew", padx=1, pady=1)
+            
+            # Add resolution rows
+            for row, res in enumerate(resolutions, start=1):
+                # Aspect ratio
+                ttk.Label(
+                    parent,
+                    text=f"{res['ratio']}",
+                    relief="solid",
+                    borderwidth=1,
+                    padding=5
+                ).grid(row=row, column=0, sticky="ew", padx=1, pady=1)
+                
+                # Resolution
+                ttk.Label(
+                    parent,
+                    text=f"{res['rounded_w']}×{res['rounded_h']}",
+                    relief="solid",
+                    borderwidth=1,
+                    padding=5
+                ).grid(row=row, column=1, sticky="ew", padx=1, pady=1)
+                
+                # Pixels
+                pixels_m = res['pixels'] / 1_000_000
+                ttk.Label(
+                    parent,
+                    text=f"{pixels_m:.2f}M",
+                    relief="solid",
+                    borderwidth=1,
+                    padding=5
+                ).grid(row=row, column=2, sticky="ew", padx=1, pady=1)
+                
+                # Use button
+                use_btn = ttk.Button(
+                    parent,
+                    text="Apply",
+                    width=8,
+                    command=lambda w=res['rounded_w'], h=res['rounded_h']: self._apply_resolution_from_guide(w, h)
+                )
+                use_btn.grid(row=row, column=3, sticky="ew", padx=3, pady=1)
+            
+            # Configure column weights
+            for col in range(4):
+                parent.columnconfigure(col, weight=1)
+                
+        except Exception as e:
+            logger.error(f"Error creating resolution table: {e}")
+    
+    def _apply_resolution_from_guide(self, width, height):
+        """Apply resolution from the guide"""
+        try:
+            self.width_var.set(width)
+            self.height_var.set(height)
+            
+            # Update aspect ratio lock if enabled
+            if self.aspect_lock_var.get():
+                self.locked_aspect_ratio = width / height
+            
+            # Update analysis
+            self.update_resolution_analysis()
+            
+            logger.info(f"Applied resolution from guide: {width}×{height}")
+            
+        except Exception as e:
+            logger.error(f"Error applying resolution from guide: {e}")
+    
+    def update_original_image_dimensions(self, width: int, height: int) -> None:
+        """Update stored original image dimensions and refresh analysis"""
+        self.original_image_width = width
+        self.original_image_height = height
+        self.update_resolution_analysis()
+        logger.debug(f"Updated original image dimensions: {width}×{height}")
     
     def cleanup(self) -> None:
         """Cleanup resources and callbacks"""
