@@ -167,8 +167,17 @@ class PromptSectionManager:
             command=self._generate_moderate_examples_placeholder,
             width=8
         )
-        moderate_btn.pack(side=tk.LEFT, padx=(0, 4))
+        moderate_btn.pack(side=tk.LEFT, padx=(0, 2))
         self._create_tooltip(moderate_btn, "Generate sophisticated moderate examples")
+        
+        undress_btn = ttk.Button(
+            advanced_frame,
+            text="👗 Undress",
+            command=self._generate_undress_transformations_placeholder,
+            width=8
+        )
+        undress_btn.pack(side=tk.LEFT, padx=(0, 4))
+        self._create_tooltip(undress_btn, "Generate undress transformation prompts")
         
         # Prompt management
         mgmt_frame = ttk.Frame(tools_frame)
@@ -772,6 +781,13 @@ class PromptSectionManager:
         """Placeholder for moderate examples - will be moved to filter training module"""
         if hasattr(self.parent_layout, 'generate_moderate_examples'):
             self.parent_layout.generate_moderate_examples()
+        else:
+            messagebox.showinfo("Feature Coming Soon", "Filter training will be available in Phase 4 of the refactoring.")
+    
+    def _generate_undress_transformations_placeholder(self) -> None:
+        """Placeholder for undress transformations - will be moved to filter training module"""
+        if hasattr(self.parent_layout, 'generate_undress_transformations'):
+            self.parent_layout.generate_undress_transformations()
         else:
             messagebox.showinfo("Feature Coming Soon", "Filter training will be available in Phase 4 of the refactoring.")
     
