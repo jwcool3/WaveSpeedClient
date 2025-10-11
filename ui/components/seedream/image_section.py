@@ -427,8 +427,32 @@ class EnhancedSyncManager:
                 new_percent = current_percent + step
                 new_percent = min(300, new_percent)  # Cap at 300%
             else:
+                # Zooming out
+                if current_zoom == "Fit":
+                    # Already at minimum zoom, can't go lower
+                    logger.debug("Cannot zoom out from Fit - minimum reached")
+                    return
+                
                 new_percent = current_percent - step
-                new_percent = max(10, new_percent)  # Min at 10%
+                
+                # Check if we've reached or gone below a reasonable "fit" threshold
+                # If so, snap to "Fit" instead of a percentage
+                if new_percent <= 100:
+                    # Snap to Fit when zooming out past 100%
+                    new_zoom = "Fit"
+                    self.layout.zoom_var.set(new_zoom)
+                    
+                    if hasattr(self.layout, 'comparison_controller') and hasattr(self.layout.comparison_controller, 'zoom_slider_var'):
+                        self.layout.comparison_controller.zoom_slider_var.set(0)  # Fit is at position 0
+                        self.layout.comparison_controller.zoom_label.config(text="Fit")
+                    
+                    if hasattr(self.layout, 'comparison_controller'):
+                        self.layout.comparison_controller._apply_zoom_change("Fit")
+                    else:
+                        self._refresh_both_images_with_zoom("Fit")
+                    
+                    logger.debug(f"Snapped to Fit from {current_zoom}")
+                    return
             
             # Convert to zoom string
             new_zoom = f"{new_percent}%"
@@ -1357,13 +1381,27 @@ class ImageSectionManager:
             
             photo = self.photo_cache[cache_key]
             
-            x = max(5, (canvas_width - new_width) // 2)
-            y = max(5, (canvas_height - new_height) // 2)
+            # Position image: center if it fits, otherwise align to top-left for scrolling
+            if new_width <= canvas_width and new_height <= canvas_height:
+                # Image fits - center it
+                x = max(5, (canvas_width - new_width) // 2)
+                y = max(5, (canvas_height - new_height) // 2)
+            else:
+                # Image is larger than canvas - position at origin for proper scrolling
+                x = 0
+                y = 0
             
             canvas.create_image(x, y, anchor=tk.NW, image=photo)
             canvas.image = photo  # Keep reference
             
-            canvas.configure(scrollregion=canvas.bbox("all"))
+            # Set scroll region to encompass the entire image
+            # When zoomed in, this allows dragging to see all parts
+            if new_width > canvas_width or new_height > canvas_height:
+                # Image is larger - scrollregion should cover the full image extent
+                canvas.configure(scrollregion=(0, 0, new_width, new_height))
+            else:
+                # Image fits - use bbox for natural scrolling
+                canvas.configure(scrollregion=canvas.bbox("all"))
             
             # Update enhanced sync manager if available
             if hasattr(self.layout, 'enhanced_sync_manager'):
@@ -1510,11 +1548,24 @@ class ImageSectionManager:
             photo = ImageTk.PhotoImage(blended)
             original_canvas.delete("all")
             
-            x = (canvas_width - display_width) // 2
-            y = (canvas_height - display_height) // 2
+            # Position image: center if it fits, otherwise align to origin for scrolling
+            if display_width <= canvas_width and display_height <= canvas_height:
+                # Image fits - center it
+                x = max(0, (canvas_width - display_width) // 2)
+                y = max(0, (canvas_height - display_height) // 2)
+            else:
+                # Image is larger - position at origin for proper scrolling
+                x = 0
+                y = 0
             
             original_canvas.create_image(x, y, anchor=tk.NW, image=photo)
             original_canvas.image = photo  # Keep reference
+            
+            # Set scroll region for zoomed overlay view
+            if display_width > canvas_width or display_height > canvas_height:
+                original_canvas.configure(scrollregion=(0, 0, display_width, display_height))
+            else:
+                original_canvas.configure(scrollregion=original_canvas.bbox("all"))
             
             logger.info("Overlay view displayed successfully")
             

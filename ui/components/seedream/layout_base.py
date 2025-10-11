@@ -275,7 +275,8 @@ class SeedreamLayoutV2:
         """Setup left column with all control modules"""
         try:
             # Setup unified status console first
-            self.setup_status_console(self.left_pane)
+            # DISABLED: Testing if this causes the top gap
+            # self.setup_status_console(self.left_pane)
             
             # Create left frame with proper structure for FULL vertical expansion - zero padding
             left_frame = ttk.Frame(self.left_pane, padding="0")

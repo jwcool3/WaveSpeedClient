@@ -363,9 +363,13 @@ class RecentResultsPanel:
                                         except:
                                             pass
                                     
+                                    # Extract tab_id from metadata (for dual Seedream tabs)
+                                    tab_id = metadata.get('tab_id', '1') if metadata else '1'
+                                    
                                     result_info = {
                                         'image_path': image_path,
                                         'tab_name': tab_name,
+                                        'tab_id': tab_id,
                                         'timestamp': mod_time,
                                         'metadata': metadata,
                                         'filename': os.path.basename(image_path)
@@ -599,7 +603,7 @@ class RecentResultsPanel:
             return ImageTk.PhotoImage(placeholder)
     
     def show_image_preview(self, result):
-        """Show image preview - switches to Seedream V4 tab and loads image"""
+        """Show image preview - switches to Seedream V4 tab and loads INPUT image"""
         try:
             if not self.main_app:
                 show_error("Error", "Cannot access main application")
@@ -607,27 +611,40 @@ class RecentResultsPanel:
             
             # Determine which tab this image belongs to
             tab_name = result.get('tab_name', 'Seedream V4')
+            tab_id = result.get('tab_id', '1')  # Default to tab 1
             
-            # If it's a Seedream V4 result (or unknown), switch to Seedream V4 tab
+            # If it's a Seedream V4 result (or unknown), switch to appropriate Seedream V4 tab
             if tab_name == 'Seedream V4' or tab_name not in ['Nano Banana', 'SeedEdit', 'Upscaler', 'Wan 2.2', 'SeedDance Pro']:
-                # Switch to Seedream V4 tab
-                if hasattr(self.main_app, 'notebook') and hasattr(self.main_app, 'seedream_v4_tab'):
+                # Determine which Seedream tab to use
+                if tab_id == '2' and hasattr(self.main_app, 'seedream_tab_2'):
+                    target_tab = self.main_app.seedream_tab_2
+                    tab_name_for_log = "Seedream V4 #2"
+                else:
+                    # Default to tab 1
+                    target_tab = self.main_app.seedream_tab_1 if hasattr(self.main_app, 'seedream_tab_1') else self.main_app.seedream_v4_tab
+                    tab_name_for_log = "Seedream V4 #1"
+                
+                if hasattr(self.main_app, 'notebook') and target_tab:
                     try:
-                        # Get the tab index for Seedream V4
+                        # Get the tab index
                         tabs = [
                             self.main_app.editor_tab,
                             self.main_app.seededit_tab,
-                            self.main_app.seedream_v4_tab,
+                            self.main_app.seedream_tab_1 if hasattr(self.main_app, 'seedream_tab_1') else self.main_app.seedream_v4_tab,
+                            self.main_app.seedream_tab_2 if hasattr(self.main_app, 'seedream_tab_2') else None,
                             self.main_app.upscaler_tab,
                             self.main_app.video_tab,
                             self.main_app.seeddance_tab
                         ]
-                        seedream_index = tabs.index(self.main_app.seedream_v4_tab)
-                        self.main_app.notebook.select(seedream_index)
-                        logger.info(f"✓ Switched to Seedream V4 tab")
+                        # Remove None entries
+                        tabs = [t for t in tabs if t is not None]
                         
-                        # Give UI a moment to render the tab, then load image
-                        self.parent.after(50, lambda: self._load_into_seedream(result))
+                        seedream_index = tabs.index(target_tab)
+                        self.main_app.notebook.select(seedream_index)
+                        logger.info(f"✓ Switched to {tab_name_for_log}")
+                        
+                        # Give UI a moment to render the tab, then load INPUT image
+                        self.parent.after(50, lambda: self._load_into_seedream(result, target_tab))
                         return
                     except Exception as e:
                         logger.error(f"Could not switch to Seedream V4 tab: {e}")
@@ -638,18 +655,26 @@ class RecentResultsPanel:
                 show_error("Error", "No active tab found")
                 return
             
-            # Try to load the image
+            # Try to load the INPUT image
             self._try_load_into_tab(current_tab, result)
                 
         except Exception as e:
             logger.error(f"Error showing image preview: {e}")
             show_error("Preview Error", f"Failed to show preview: {str(e)}")
     
-    def _load_into_seedream(self, result):
-        """Load image into Seedream V4 tab (called after tab switch)"""
+    def _load_into_seedream(self, result, target_tab=None):
+        """Load INPUT image into Seedream V4 tab (called after tab switch)"""
         try:
-            if hasattr(self.main_app, 'seedream_v4_tab'):
-                self._try_load_into_tab(self.main_app.seedream_v4_tab, result)
+            # Use provided target_tab or fallback to seedream_v4_tab
+            if target_tab is None:
+                target_tab = (self.main_app.seedream_v4_tab if hasattr(self.main_app, 'seedream_v4_tab') 
+                             else self.main_app.seedream_tab_1 if hasattr(self.main_app, 'seedream_tab_1') 
+                             else None)
+            
+            if target_tab:
+                self._try_load_into_tab(target_tab, result)
+            else:
+                logger.error("No Seedream V4 tab available")
         except Exception as e:
             logger.error(f"Error loading into Seedream: {e}")
     
@@ -745,11 +770,15 @@ class RecentResultsPanel:
             tabs = [
                 self.main_app.editor_tab,
                 self.main_app.seededit_tab,
-                self.main_app.seedream_v4_tab,
+                self.main_app.seedream_tab_1 if hasattr(self.main_app, 'seedream_tab_1') else self.main_app.seedream_v4_tab,
+                self.main_app.seedream_tab_2 if hasattr(self.main_app, 'seedream_tab_2') else None,
                 self.main_app.upscaler_tab,
                 self.main_app.video_tab,
                 self.main_app.seeddance_tab
             ]
+            
+            # Remove None entries
+            tabs = [t for t in tabs if t is not None]
             
             if 0 <= current_index < len(tabs):
                 return tabs[current_index]
