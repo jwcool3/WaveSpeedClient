@@ -1558,11 +1558,11 @@ CATEGORY: [Different randomly selected category]
         # Get the undress transformation prompt with integrated analysis
         system_prompt = get_undress_transformation_prompt(description)
         
-        logger.info("🔄 Generating 6 undress transformation prompts (3 current framing + 3 full body)")
+        logger.info("🔄 Generating 3 undress transformation prompts (current framing only)")
         
         # Single request for all 6 transformations
         try:
-            user_message = "Generate all 6 ultra-minimal transformation prompts now (Group 1: bikini, lingerie, nude with current framing + Group 2: bikini, lingerie, nude with full body framing)."
+            user_message = "Generate all 3 ultra-minimal transformation prompts now (bikini, lingerie, nude with current framing only)."
             
             if self.api_provider == "openai" and self.openai_api:
                 response = await self.openai_api.generate_response(system_prompt + "\n\n" + user_message)
@@ -1643,13 +1643,13 @@ CATEGORY: [Different randomly selected category]
                 
                 logger.info(f"📊 Strategy 2 found {len(prompts)} prompts")
             
-            if len(prompts) >= 6:
-                logger.info(f"✅ Successfully generated {len(prompts)} undress transformation prompts")
-                return prompts[:6]  # Return exactly 6
+            if len(prompts) >= 3:
+                logger.info(f"✅ Successfully generated {len(prompts)} undress transformation prompts (current framing)")
+                return prompts[:3]  # Return exactly 3
             else:
-                logger.warning(f"⚠️ Only generated {len(prompts)} prompts, expected 6")
+                logger.warning(f"⚠️ Only generated {len(prompts)} prompts, expected 3")
                 # Return what we have plus fallbacks with detailed skin texture
-                while len(prompts) < 6:
+                while len(prompts) < 3:
                     if len(prompts) == 0:
                         # Group 1: breast size + detailed skin texture
                         prompts.append("Replace current outfit with black string bikini. Medium sized breasts (C cup). Detailed skin texture.")
