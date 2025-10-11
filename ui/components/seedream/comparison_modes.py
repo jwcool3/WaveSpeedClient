@@ -46,9 +46,16 @@ class ComparisonController:
         self.opacity_update_timer = None
         self.opacity_update_delay = 500  # ms delay for debouncing
         
+        # Zoom change debouncing
+        self.zoom_update_timer = None
+        self.zoom_update_delay = 300  # ms delay for zoom changes
+        
         # UI references
         self.mode_var = tk.StringVar(value="side_by_side")
         self.opacity_var = tk.DoubleVar(value=0.5)
+        
+        # Setup zoom change listener after initialization
+        self.layout.parent_frame.after(100, self._setup_zoom_listener)
         
         logger.info("ComparisonController initialized")
     
@@ -299,6 +306,18 @@ class ComparisonController:
                 self.layout.display_paned_window.add(self.layout.original_container, weight=1)
                 logger.debug("Showing overlay in full-width original panel")
             
+            # Automatically set zoom to "Fit" for optimal overlay viewing
+            if hasattr(self.layout, 'zoom_var'):
+                current_zoom = self.layout.zoom_var.get()
+                if current_zoom != "Fit":
+                    self.layout.zoom_var.set("Fit")
+                    # Update zoom slider to position 0 (Fit)
+                    if hasattr(self, 'zoom_slider_var'):
+                        self.zoom_slider_var.set(0)
+                    if hasattr(self, 'zoom_label'):
+                        self.zoom_label.config(text="Fit")
+                    logger.debug("Auto-set zoom to Fit for overlay mode")
+            
             # Get image paths
             original_path = None
             result_path = None
@@ -433,6 +452,71 @@ class ComparisonController:
                 )
         
         logger.info("Images swapped")
+    
+    def _setup_zoom_listener(self):
+        """Setup zoom change listener to refresh overlay when zoom changes"""
+        try:
+            if hasattr(self.layout, 'zoom_var'):
+                # Add trace to zoom_var to detect changes
+                self.layout.zoom_var.trace_add('write', self._on_zoom_changed)
+                logger.debug("Zoom change listener set up for overlay refresh")
+        except Exception as e:
+            logger.error(f"Error setting up zoom listener: {e}")
+    
+    def _on_zoom_changed(self, *args):
+        """Handle zoom changes - refresh overlay if in overlay mode"""
+        try:
+            # Only refresh if we're in overlay mode
+            if self.current_mode != "overlay":
+                return
+            
+            # Cancel previous timer if exists
+            if self.zoom_update_timer:
+                try:
+                    self.layout.parent_frame.after_cancel(self.zoom_update_timer)
+                except:
+                    pass
+            
+            # Schedule overlay refresh with debouncing
+            self.zoom_update_timer = self.layout.parent_frame.after(
+                self.zoom_update_delay,
+                self._refresh_overlay_from_zoom
+            )
+        except Exception as e:
+            logger.error(f"Error handling zoom change in overlay: {e}")
+    
+    def _refresh_overlay_from_zoom(self):
+        """Refresh overlay with new zoom level (debounced)"""
+        try:
+            if self.current_mode != "overlay":
+                return
+            
+            # Get image paths
+            original_path = None
+            result_path = None
+            
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    original_path = paths[0]
+            
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Refresh overlay with current opacity and new zoom
+            if original_path and result_path and hasattr(self.layout, 'image_manager'):
+                self.layout.image_manager.display_overlay_view(
+                    self.layout.original_canvas,
+                    original_path,
+                    result_path,
+                    self.layout.zoom_var,
+                    opacity=self.overlay_opacity
+                )
+                logger.debug(f"Refreshed overlay with new zoom: {self.layout.zoom_var.get()}")
+        except Exception as e:
+            logger.error(f"Error refreshing overlay from zoom change: {e}")
     
     def get_current_mode(self) -> str:
         """Get current comparison mode"""
