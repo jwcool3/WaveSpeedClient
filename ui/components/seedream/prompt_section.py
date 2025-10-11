@@ -20,7 +20,7 @@ import random
 from typing import Optional, Dict, Any, List, Callable
 from core.logger import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class PromptSectionManager:

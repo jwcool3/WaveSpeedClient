@@ -23,7 +23,7 @@ from .filter_training import FilterTrainingManager
 from .actions_handler import ActionsHandlerManager
 from .results_display import ResultsDisplayManager
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class SeedreamLayoutV2:
