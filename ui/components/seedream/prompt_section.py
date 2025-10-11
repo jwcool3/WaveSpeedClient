@@ -92,15 +92,14 @@ class PromptSectionManager:
         try:
             logger.info("Setting up prompt section")
             
-            # Main prompt frame - EXPAND vertically to use available space
+            # Main prompt frame - compact size to fit all elements on screen
             self.prompt_frame = ttk.LabelFrame(
                 parent_frame,
                 text="✏️ Transformation Prompt",
-                padding="8"
+                padding="6"
             )
-            self.prompt_frame.grid(row=2, column=0, sticky="nsew", pady=(0, 8))
+            self.prompt_frame.grid(row=2, column=0, sticky="ew", pady=(0, 6))
             self.prompt_frame.columnconfigure(0, weight=1)
-            self.prompt_frame.rowconfigure(1, weight=1)  # Let prompt text area expand
             
             # Setup components
             self._setup_tools_row()
@@ -192,16 +191,15 @@ class PromptSectionManager:
     
     def _setup_prompt_text_area(self) -> None:
         """Setup the main prompt text area with scrollbar"""
-        # Enhanced prompt text area - EXPAND vertically to fill available space
+        # Compact prompt text area - fixed height to fit all UI elements
         prompt_container = ttk.Frame(self.prompt_frame)
-        prompt_container.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
+        prompt_container.grid(row=1, column=0, sticky="ew", pady=(0, 4))
         prompt_container.columnconfigure(0, weight=1)
-        prompt_container.rowconfigure(0, weight=1)  # Let text widget expand
         
-        # Prompt text - flexible height that expands to fill space
+        # Prompt text - compact fixed height
         self.prompt_text = tk.Text(
             prompt_container,
-            height=6,  # Minimum height, will expand beyond this
+            height=4,  # Compact height (was 6, now 4 for better fit)
             wrap=tk.WORD,
             font=('Arial', 10),
             relief='solid',
@@ -211,7 +209,7 @@ class PromptSectionManager:
             bg='#ffffff',
             fg='#333333'
         )
-        self.prompt_text.grid(row=0, column=0, sticky="nsew")  # Expand both ways
+        self.prompt_text.grid(row=0, column=0, sticky="ew")
         
         # Scrollbar for prompt text
         prompt_scrollbar = ttk.Scrollbar(

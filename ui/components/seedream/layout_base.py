@@ -159,9 +159,9 @@ class SeedreamLayoutV2:
             self.left_pane = ttk.Frame(self.paned_window)
             self.right_pane = ttk.Frame(self.paned_window)
             
-            # Add panes with optimized ratio for fullscreen (20/80 for better image viewing)
-            self.paned_window.add(self.left_pane, weight=20)   # Controls pane
-            self.paned_window.add(self.right_pane, weight=80)  # Images pane
+            # Add panes with optimized ratio for fullscreen (15/85 for better image viewing)
+            self.paned_window.add(self.left_pane, weight=15)   # Controls pane (narrower)
+            self.paned_window.add(self.right_pane, weight=85)  # Images pane (much wider)
             
             # Add main content to outer paned window (will always be visible)
             self.outer_paned_window.add(main_content_frame, weight=100)
@@ -195,12 +195,12 @@ class SeedreamLayoutV2:
             left_frame.pack(fill=tk.BOTH, expand=True)
             left_frame.columnconfigure(0, weight=1)
             
-            # Configure rows - make prompt section expandable for vertical space
+            # Configure rows - don't let anything expand (keep compact for all elements visible)
             left_frame.rowconfigure(0, weight=0)  # Image input - fixed size
             left_frame.rowconfigure(1, weight=0)  # Settings - fixed size
-            left_frame.rowconfigure(2, weight=1)  # Prompt section - EXPAND to fill vertical space
+            left_frame.rowconfigure(2, weight=0)  # Prompt section - fixed size (don't expand)
             left_frame.rowconfigure(3, weight=0)  # Actions - fixed size
-            left_frame.rowconfigure(6, weight=0)  # Spacer (if needed)
+            left_frame.rowconfigure(6, weight=1)  # Spacer - takes up extra space at bottom
             
             # Store reference
             self.left_frame = left_frame
@@ -209,12 +209,16 @@ class SeedreamLayoutV2:
             # (Managers handle UI creation and setup their own variables/bindings)
             self._create_image_input_ui(left_frame, row=0)  # Image uses set_ui_references pattern
             self.settings_manager.setup_settings_panel(left_frame)  # Row 1
-            self.prompt_manager.setup_prompt_section(left_frame)    # Row 2 - will expand!
+            self.prompt_manager.setup_prompt_section(left_frame)    # Row 2
             self.actions_manager.setup_actions_section(left_frame)  # Row 3
             
             # Create attribute references for backward compatibility
             # (Some code may access these directly)
             self.prompt_text = self.prompt_manager.prompt_text
+            
+            # Add spacer at bottom to push content up and take remaining space
+            spacer = ttk.Frame(left_frame)
+            spacer.grid(row=6, column=0, sticky="nsew")
             
             logger.info("Left column UI created successfully")
             
@@ -340,12 +344,12 @@ class SeedreamLayoutV2:
         )
     
     def _create_image_display_ui(self, parent, row=1):
-        """Create the side-by-side image display panels"""
-        display_frame = ttk.Frame(parent)
-        display_frame.grid(row=row, column=0, sticky="nsew")
-        display_frame.columnconfigure(0, weight=1)
-        display_frame.columnconfigure(1, weight=1)
-        display_frame.rowconfigure(0, weight=1)
+        """Create the side-by-side image display panels - maximize space"""
+        display_frame = ttk.Frame(parent, padding="0")
+        display_frame.grid(row=row, column=0, sticky="nsew", padx=0, pady=0)
+        display_frame.columnconfigure(0, weight=1)  # Original panel - equal weight
+        display_frame.columnconfigure(1, weight=1)  # Result panel - equal weight
+        display_frame.rowconfigure(0, weight=1)     # Expand vertically
         
         # Left panel - Original Image
         self._create_single_panel(display_frame, "original", 0, "📥 Original Image")
@@ -358,7 +362,8 @@ class SeedreamLayoutV2:
     def _create_single_panel(self, parent, panel_type, column, title):
         """Create a single image panel - maximized for fullscreen"""
         panel_frame = ttk.LabelFrame(parent, text=title, padding="0")
-        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(0, 1 if column == 0 else 0))
+        # No horizontal padding to eliminate gaps - both panels fill their columns completely
+        panel_frame.grid(row=0, column=column, sticky="nsew", padx=0, pady=0)
         panel_frame.columnconfigure(0, weight=1)
         panel_frame.rowconfigure(0, weight=1)
         
@@ -410,9 +415,9 @@ class SeedreamLayoutV2:
             # Set initial splitter position after longer delay to ensure rendering
             self.parent_frame.after(300, self._set_initial_splitter_position)
             
-            # Also set a backup fallback position immediately
+            # Also set a backup fallback position immediately - NARROWER for better default
             try:
-                self.paned_window.sashpos(0, 320)  # Default 320px for controls (optimized for fullscreen)
+                self.paned_window.sashpos(0, 300)  # Default 300px for controls (narrower for more image space)
             except:
                 pass
             
@@ -435,8 +440,8 @@ class SeedreamLayoutV2:
             if saved_position and 200 <= saved_position <= total_width - 200:
                 position = saved_position
             else:
-                # Default to 20% of total width (optimized for fullscreen image viewing)
-                position = max(280, min(360, int(total_width * 0.20)))
+                # Default to 18% of total width (narrower for more image space)
+                position = max(280, min(350, int(total_width * 0.18)))
             
             self.paned_window.sashpos(0, position)
             
