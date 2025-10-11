@@ -1,5 +1,5 @@
 """
-Seedream V4 - Image Section Module
+Seedream V4 - Image Section Module (Enhanced)
 
 This module handles all image-related functionality for the Seedream V4 tab:
 - Image loading and caching
@@ -8,16 +8,30 @@ This module handles all image-related functionality for the Seedream V4 tab:
 - Synchronized dual-panel viewing
 - Comparison modes (side-by-side, overlay)
 - Image selection and browsing
+- Drag & drop support
+- Multiple image management
+- Thumbnail display
+- Image reordering
 
 Extracted from improved_seedream_layout.py as part of the modular refactoring.
 """
 
 import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import os
+from typing import List, Optional, Tuple
 from core.logger import get_logger
 
 logger = get_logger()
+
+# Try to import tkinterdnd2 for drag and drop
+try:
+    from tkinterdnd2 import DND_FILES
+    DND_AVAILABLE = True
+except ImportError:
+    DND_AVAILABLE = False
+    logger.warning("tkinterdnd2 not available - drag and drop will be disabled")
 
 
 class SynchronizedImagePanels:
@@ -441,6 +455,9 @@ class ImageSectionManager:
     - Zoom and pan controls
     - Comparison views (side-by-side, overlay)
     - Image reordering
+    - Drag & drop
+    - Thumbnail display
+    - Multiple image management (up to 10 images)
     """
     
     def __init__(self, layout_instance):
@@ -457,11 +474,527 @@ class ImageSectionManager:
         self.photo_cache = {}
         self.max_cache_size = 10
         
-        # Image paths
+        # Image paths (support for multiple images)
         self.selected_image_paths = []
         self.result_image_path = None
+        self.original_image_order = []  # For reset functionality
+        
+        # Original image dimensions for scaling
+        self.original_image_width = None
+        self.original_image_height = None
+        
+        # UI widget references (set by setup method)
+        self.thumbnail_label = None
+        self.image_name_label = None
+        self.image_size_label = None
+        self.reorder_btn = None
+        self.reorder_listbox = None
         
         logger.info("ImageSectionManager initialized")
+    
+    def set_ui_references(self, thumbnail_label=None, image_name_label=None, 
+                         image_size_label=None, reorder_btn=None):
+        """
+        Set references to UI widgets for updates.
+        
+        Args:
+            thumbnail_label: Label widget for thumbnail display
+            image_name_label: Label widget for image name/count
+            image_size_label: Label widget for image dimensions
+            reorder_btn: Button widget for reordering (enabled/disabled based on count)
+        """
+        self.thumbnail_label = thumbnail_label
+        self.image_name_label = image_name_label
+        self.image_size_label = image_size_label
+        self.reorder_btn = reorder_btn
+        
+        # Setup drag and drop if thumbnail is available
+        if self.thumbnail_label and DND_AVAILABLE:
+            self.setup_drag_drop()
+    
+    def browse_image(self) -> bool:
+        """
+        Browse for image files (supports multiple selection up to 10 images).
+        
+        Returns:
+            bool: True if images were selected, False otherwise
+        """
+        file_paths = filedialog.askopenfilenames(
+            title="Select Images for Seedream V4 (up to 10 images)",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                ("PNG files", "*.png"),
+                ("JPEG files", "*.jpg *.jpeg"),
+                ("All files", "*.*")
+            ]
+        )
+        
+        if not file_paths:
+            return False
+        
+        # Limit to 10 images as per API specification
+        if len(file_paths) > 10:
+            messagebox.showwarning(
+                "Too Many Images", 
+                f"Maximum 10 images allowed. Selected {len(file_paths)} images. Using first 10."
+            )
+            file_paths = file_paths[:10]
+        
+        # If we have a connected tab instance, use its image selection handler
+        if self.layout.tab_instance and hasattr(self.layout.tab_instance, 'on_images_selected'):
+            self.layout.tab_instance.on_images_selected(file_paths)
+        else:
+            # Fallback to direct loading
+            self.load_images(file_paths)
+        
+        return True
+    
+    def load_images(self, image_paths: List[str]) -> None:
+        """
+        Load and display multiple input images.
+        
+        Args:
+            image_paths: List of paths to image files
+        """
+        self.selected_image_paths = list(image_paths)
+        
+        if not self.selected_image_paths:
+            return
+        
+        # Use the first image for display and scale calculations
+        first_image_path = self.selected_image_paths[0]
+        self.load_image(first_image_path)
+        
+        # Update the image count display
+        self.update_image_count_display()
+        
+        logger.info(f"Loaded {len(self.selected_image_paths)} images")
+    
+    def load_image(self, image_path: str) -> bool:
+        """
+        Load and display input image (single image - for backward compatibility).
+        
+        Args:
+            image_path: Path to the image file
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # If this is called directly, treat as single image
+        if image_path not in self.selected_image_paths:
+            self.selected_image_paths = [image_path]
+        
+        try:
+            # PERFORMANCE: Use cached image for thumbnail
+            original = self.get_cached_image(image_path)
+            
+            # Update thumbnail if widget available
+            if self.thumbnail_label:
+                img = original.copy()
+                img.thumbnail((50, 50), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                
+                self.thumbnail_label.config(image=photo, text="")
+                self.thumbnail_label.image = photo
+            
+            # Update info labels if available
+            filename = os.path.basename(image_path)
+            if len(filename) > 25:
+                filename = filename[:22] + "..."
+            
+            if self.image_name_label:
+                self.image_name_label.config(text=filename, foreground="black")
+            
+            # Get image size and store original dimensions (already loaded)
+            self.original_image_width = original.width
+            self.original_image_height = original.height
+            
+            if self.image_size_label:
+                self.image_size_label.config(text=f"{original.width}×{original.height}")
+            
+            # Auto-set resolution if enabled
+            if hasattr(self.layout, 'auto_set_resolution'):
+                self.layout.auto_set_resolution()
+            
+            # Display in original panel if available
+            if hasattr(self.layout, 'original_canvas') and hasattr(self.layout, 'zoom_var'):
+                self.display_image_in_panel(
+                    image_path, 
+                    "original", 
+                    self.layout.original_canvas, 
+                    self.layout.zoom_var
+                )
+            
+            logger.info(f"Successfully loaded image: {filename}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error loading image {image_path}: {e}")
+            if hasattr(self.layout, 'status_label'):
+                self.layout.status_label.config(text=f"Error loading image: {str(e)}", foreground="red")
+            return False
+    
+    def update_image_count_display(self) -> None:
+        """Update the display to show number of selected images."""
+        if not self.image_name_label:
+            return
+        
+        count = len(self.selected_image_paths)
+        
+        if count == 0:
+            self.image_name_label.config(text="No images selected", foreground="gray")
+            if self.reorder_btn:
+                self.reorder_btn.config(state="disabled")
+        elif count == 1:
+            filename = os.path.basename(self.selected_image_paths[0])
+            if len(filename) > 25:
+                filename = filename[:22] + "..."
+            self.image_name_label.config(text=filename, foreground="black")
+            if self.reorder_btn:
+                self.reorder_btn.config(state="disabled")
+        else:
+            # Show count and first image name
+            first_filename = os.path.basename(self.selected_image_paths[0])
+            if len(first_filename) > 15:
+                first_filename = first_filename[:12] + "..."
+            self.image_name_label.config(
+                text=f"{count} images ({first_filename} +{count-1} more)", 
+                foreground="blue"
+            )
+            if self.reorder_btn:
+                self.reorder_btn.config(state="normal")
+        
+        logger.debug(f"Updated image count display: {count} images")
+    
+    def setup_drag_drop(self) -> None:
+        """Setup drag and drop functionality."""
+        if not DND_AVAILABLE:
+            logger.warning("Drag and drop not available - tkinterdnd2 not installed")
+            return
+        
+        try:
+            # Enable drag and drop on thumbnail
+            if self.thumbnail_label:
+                self.thumbnail_label.drop_target_register(DND_FILES)
+                self.thumbnail_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.thumbnail_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.thumbnail_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+            
+            # Enable drag and drop on image info area
+            if self.image_name_label:
+                self.image_name_label.drop_target_register(DND_FILES)
+                self.image_name_label.dnd_bind('<<Drop>>', self.on_drop)
+                self.image_name_label.dnd_bind('<<DragEnter>>', self.on_drag_enter)
+                self.image_name_label.dnd_bind('<<DragLeave>>', self.on_drag_leave)
+            
+            logger.info("Drag and drop enabled")
+                
+        except Exception as e:
+            logger.error(f"Drag and drop setup failed: {e}")
+    
+    def on_drop(self, event) -> None:
+        """Handle drag and drop event."""
+        # Try parent tab's on_drop first
+        if self.layout.tab_instance and hasattr(self.layout.tab_instance, 'on_drop'):
+            self.layout.tab_instance.on_drop(event)
+            return
+        
+        # Fallback to direct handling
+        try:
+            from utils.utils import parse_drag_drop_data, validate_image_file, show_error
+            
+            success, result = parse_drag_drop_data(event.data)
+            
+            if not success:
+                show_error("Drag & Drop Error", result)
+                return
+            
+            file_path = result
+            
+            # Validate the image file
+            is_valid, error = validate_image_file(file_path)
+            if not is_valid:
+                show_error("Invalid File", f"{error}\n\nDropped file: {file_path}")
+                return
+            
+            # Load the image
+            self.load_image(file_path)
+            
+        except ImportError:
+            logger.error("utils.utils module not available for drag and drop handling")
+        except Exception as e:
+            logger.error(f"Error handling drop event: {e}")
+    
+    def on_drag_enter(self, event) -> None:
+        """Handle drag enter event (visual feedback)."""
+        if self.thumbnail_label:
+            self.thumbnail_label.config(bg='#e0e0e0')
+    
+    def on_drag_leave(self, event) -> None:
+        """Handle drag leave event (restore visual state)."""
+        if self.thumbnail_label:
+            self.thumbnail_label.config(bg='#f5f5f5')
+    
+    def show_image_reorder_dialog(self) -> None:
+        """Show dialog to reorder selected images."""
+        if len(self.selected_image_paths) < 2:
+            logger.info("Cannot reorder: less than 2 images selected")
+            return
+        
+        # Create dialog window
+        dialog = tk.Toplevel(self.layout.parent_frame)
+        dialog.title("Reorder Images")
+        dialog.geometry("600x500")
+        dialog.transient(self.layout.parent_frame)
+        
+        # Center the dialog
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() - dialog.winfo_width()) // 2
+        y = (dialog.winfo_screenheight() - dialog.winfo_height()) // 2
+        dialog.geometry(f"+{x}+{y}")
+        
+        # Title
+        title_frame = ttk.Frame(dialog)
+        title_frame.pack(fill="x", padx=10, pady=5)
+        
+        ttk.Label(
+            title_frame, 
+            text="🔄 Reorder Your Images", 
+            font=("Arial", 14, "bold")
+        ).pack(anchor="w")
+        
+        ttk.Label(
+            title_frame, 
+            text="Drag items up/down or use arrow buttons to change processing order:",
+            font=("Arial", 9)
+        ).pack(anchor="w")
+        
+        # Main content frame
+        content_frame = ttk.Frame(dialog)
+        content_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Create scrollable listbox for images
+        list_frame = ttk.Frame(content_frame)
+        list_frame.pack(fill="both", expand=True)
+        
+        # Listbox with scrollbar
+        listbox_frame = ttk.Frame(list_frame)
+        listbox_frame.pack(side="left", fill="both", expand=True)
+        
+        self.reorder_listbox = tk.Listbox(
+            listbox_frame,
+            height=12,
+            font=("Arial", 10),
+            selectmode="single"
+        )
+        self.reorder_listbox.pack(side="left", fill="both", expand=True)
+        
+        scrollbar = ttk.Scrollbar(listbox_frame, orient="vertical")
+        scrollbar.pack(side="right", fill="y")
+        self.reorder_listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.config(command=self.reorder_listbox.yview)
+        
+        # Control buttons
+        button_frame = ttk.Frame(list_frame)
+        button_frame.pack(side="right", fill="y", padx=(10, 0))
+        
+        ttk.Button(
+            button_frame,
+            text="⬆️ Move Up",
+            command=lambda: self.move_image_up(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        ttk.Button(
+            button_frame,
+            text="⬇️ Move Down", 
+            command=lambda: self.move_image_down(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        ttk.Separator(button_frame, orient="horizontal").pack(fill="x", pady=10)
+        
+        ttk.Button(
+            button_frame,
+            text="🔝 Move to Top",
+            command=lambda: self.move_image_to_top(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        ttk.Button(
+            button_frame,
+            text="🔻 Move to Bottom",
+            command=lambda: self.move_image_to_bottom(dialog),
+            width=12
+        ).pack(pady=2)
+        
+        # Bottom buttons
+        bottom_frame = ttk.Frame(dialog)
+        bottom_frame.pack(fill="x", padx=10, pady=5)
+        
+        ttk.Button(
+            bottom_frame,
+            text="✅ Apply Order",
+            command=lambda: self.apply_image_order(dialog)
+        ).pack(side="right", padx=(5, 0))
+        
+        ttk.Button(
+            bottom_frame,
+            text="❌ Cancel",
+            command=dialog.destroy
+        ).pack(side="right")
+        
+        ttk.Button(
+            bottom_frame,
+            text="🔄 Reset to Original",
+            command=lambda: self.reset_image_order(dialog)
+        ).pack(side="left")
+        
+        # Store original order for reset
+        self.original_image_order = self.selected_image_paths.copy()
+        
+        # Populate listbox
+        self.populate_reorder_listbox()
+        
+        # Select first item
+        if self.reorder_listbox.size() > 0:
+            self.reorder_listbox.selection_set(0)
+        
+        logger.info("Image reorder dialog opened")
+    
+    def populate_reorder_listbox(self) -> None:
+        """Populate the reorder listbox with current image order."""
+        if not self.reorder_listbox:
+            return
+        
+        self.reorder_listbox.delete(0, tk.END)
+        
+        for i, image_path in enumerate(self.selected_image_paths):
+            filename = os.path.basename(image_path)
+            # Show position number and filename
+            display_text = f"{i+1}. {filename}"
+            self.reorder_listbox.insert(tk.END, display_text)
+    
+    def move_image_up(self, dialog) -> None:
+        """Move selected image up in the order."""
+        if not self.reorder_listbox:
+            return
+        
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == 0:
+            return
+        
+        index = selection[0]
+        # Swap with previous item
+        self.selected_image_paths[index], self.selected_image_paths[index-1] = \
+            self.selected_image_paths[index-1], self.selected_image_paths[index]
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(index-1)
+        logger.debug(f"Moved image up from position {index+1} to {index}")
+    
+    def move_image_down(self, dialog) -> None:
+        """Move selected image down in the order."""
+        if not self.reorder_listbox:
+            return
+        
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == len(self.selected_image_paths) - 1:
+            return
+        
+        index = selection[0]
+        # Swap with next item
+        self.selected_image_paths[index], self.selected_image_paths[index+1] = \
+            self.selected_image_paths[index+1], self.selected_image_paths[index]
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(index+1)
+        logger.debug(f"Moved image down from position {index+1} to {index+2}")
+    
+    def move_image_to_top(self, dialog) -> None:
+        """Move selected image to the top of the order."""
+        if not self.reorder_listbox:
+            return
+        
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == 0:
+            return
+        
+        index = selection[0]
+        # Move to top
+        image_path = self.selected_image_paths.pop(index)
+        self.selected_image_paths.insert(0, image_path)
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(0)
+        logger.debug(f"Moved image from position {index+1} to top")
+    
+    def move_image_to_bottom(self, dialog) -> None:
+        """Move selected image to the bottom of the order."""
+        if not self.reorder_listbox:
+            return
+        
+        selection = self.reorder_listbox.curselection()
+        if not selection or selection[0] == len(self.selected_image_paths) - 1:
+            return
+        
+        index = selection[0]
+        # Move to bottom
+        image_path = self.selected_image_paths.pop(index)
+        self.selected_image_paths.append(image_path)
+        
+        # Update listbox
+        self.populate_reorder_listbox()
+        self.reorder_listbox.selection_set(len(self.selected_image_paths) - 1)
+        logger.debug(f"Moved image from position {index+1} to bottom")
+    
+    def reset_image_order(self, dialog) -> None:
+        """Reset to original image order."""
+        self.selected_image_paths = self.original_image_order.copy()
+        self.populate_reorder_listbox()
+        if self.reorder_listbox and self.reorder_listbox.size() > 0:
+            self.reorder_listbox.selection_set(0)
+        logger.info("Image order reset to original")
+    
+    def apply_image_order(self, dialog) -> None:
+        """Apply the new image order and close dialog."""
+        # Update the display to reflect new order
+        self.update_image_count_display()
+        
+        # Update the original image display to show the first image in the new order
+        if self.selected_image_paths:
+            first_image = self.selected_image_paths[0]
+            # Update the thumbnail and info display
+            self.load_image(first_image)
+            # Also update the original canvas display directly
+            if hasattr(self.layout, 'original_canvas') and hasattr(self.layout, 'zoom_var'):
+                self.display_image_in_panel(
+                    first_image, 
+                    "original", 
+                    self.layout.original_canvas, 
+                    self.layout.zoom_var
+                )
+        
+        dialog.destroy()
+        logger.info("New image order applied")
+    
+    def get_image_status(self) -> dict:
+        """
+        Get current image status.
+        
+        Returns:
+            dict: Dictionary containing image status information
+        """
+        return {
+            "selected_count": len(self.selected_image_paths),
+            "selected_paths": self.selected_image_paths.copy(),
+            "result_path": self.result_image_path,
+            "original_dimensions": (self.original_image_width, self.original_image_height) if self.original_image_width else None,
+            "cache_size": len(self.image_cache)
+        }
     
     def get_cached_image(self, image_path):
         """Get or load image from cache for performance"""

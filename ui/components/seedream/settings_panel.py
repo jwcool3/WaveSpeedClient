@@ -257,6 +257,15 @@ class SettingsPanelManager:
         self.width_entry.bind('<Return>', self._validate_width_entry)
         self.height_entry.bind('<Return>', self._validate_height_entry)
         
+        # Register validate command for real-time validation (optional)
+        # This provides live validation as the user types
+        vcmd = (self.parent_frame.register(self.validate_integer), '%P')
+        try:
+            self.width_entry.config(validate='key', validatecommand=vcmd)
+            self.height_entry.config(validate='key', validatecommand=vcmd)
+        except Exception as e:
+            logger.warning(f"Could not set validation command: {e}")
+        
         # Bind variable traces
         self.seed_var.trace('w', self._on_seed_changed)
     
@@ -655,6 +664,53 @@ class SettingsPanelManager:
         if callback in self.validation_callbacks:
             self.validation_callbacks.remove(callback)
     
+    def set_size_preset(self, width: int, height: int) -> None:
+        """
+        Set size preset (legacy method for backward compatibility).
+        
+        Args:
+            width: Width in pixels
+            height: Height in pixels
+        """
+        try:
+            # Clamp to valid ranges
+            width = max(256, min(4096, width))
+            height = max(256, min(4096, height))
+            
+            self._updating_size = True
+            try:
+                self.width_var.set(width)
+                self.height_var.set(height)
+            finally:
+                self._updating_size = False
+            
+            if hasattr(self.parent_layout, 'log_message'):
+                self.parent_layout.log_message(f"Size preset set to {width}×{height}")
+            
+            self._on_setting_changed()
+            
+        except Exception as e:
+            logger.error(f"Error setting size preset: {e}")
+    
+    def validate_integer(self, value: str) -> bool:
+        """
+        Validate that the input is a positive integer within valid range.
+        
+        Args:
+            value: String value to validate
+            
+        Returns:
+            bool: True if valid, False otherwise
+        """
+        if value == "" or value == "-":
+            return True  # Allow empty field or negative sign during typing
+        
+        try:
+            int_value = int(value)
+            return 0 < int_value <= 4096
+        except ValueError:
+            return False
+    
     def reset_to_defaults(self) -> None:
         """Reset all settings to default values"""
         try:
@@ -681,3 +737,80 @@ class SettingsPanelManager:
             
         except Exception as e:
             logger.error(f"Error resetting settings to defaults: {e}")
+    
+    def get_resolution_string(self) -> str:
+        """
+        Get resolution as a formatted string.
+        
+        Returns:
+            str: Resolution in format "1024x1024"
+        """
+        return f"{self.width_var.get()}x{self.height_var.get()}"
+    
+    def get_aspect_ratio(self) -> float:
+        """
+        Get current aspect ratio.
+        
+        Returns:
+            float: Aspect ratio (width/height)
+        """
+        height = self.height_var.get()
+        if height > 0:
+            return self.width_var.get() / height
+        return 1.0
+    
+    def set_resolution_from_string(self, resolution_str: str) -> bool:
+        """
+        Set resolution from string format (e.g., "1024x1024").
+        
+        Args:
+            resolution_str: Resolution string in format "WIDTHxHEIGHT"
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            parts = resolution_str.lower().split('x')
+            if len(parts) == 2:
+                width = int(parts[0])
+                height = int(parts[1])
+                
+                if 256 <= width <= 4096 and 256 <= height <= 4096:
+                    self._updating_size = True
+                    try:
+                        self.width_var.set(width)
+                        self.height_var.set(height)
+                    finally:
+                        self._updating_size = False
+                    
+                    self._on_setting_changed()
+                    return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error setting resolution from string '{resolution_str}': {e}")
+            return False
+    
+    def get_settings_summary(self) -> str:
+        """
+        Get human-readable summary of current settings.
+        
+        Returns:
+            str: Formatted settings summary
+        """
+        settings = self.get_current_settings()
+        lines = [
+            f"Resolution: {settings['width']}×{settings['height']} (ratio: {self.get_aspect_ratio():.2f})",
+            f"Seed: {settings['seed']}",
+            f"Sync Mode: {'✓' if settings['sync_mode'] else '✗'}",
+            f"Base64 Output: {'✓' if settings['base64_output'] else '✗'}",
+            f"Aspect Lock: {'🔒 Locked' if settings['aspect_locked'] else '🔓 Unlocked'}"
+        ]
+        if settings['aspect_locked'] and settings['locked_aspect_ratio']:
+            lines.append(f"  └─ Locked Ratio: {settings['locked_aspect_ratio']:.3f}")
+        
+        if self.original_image_width and self.original_image_height:
+            lines.append(f"Reference Image: {self.original_image_width}×{self.original_image_height}")
+        
+        return "\n".join(lines)
