@@ -12,27 +12,19 @@ This module replaces the monolithic improved_seedream_layout.py file.
 import tkinter as tk
 from tkinter import ttk
 import os
+import random
 from typing import Optional, Dict, Any
 from core.logger import get_logger
 
-logger = get_logger()
+# Import all the refactored modules
+from .image_section import ImageSectionManager
+from .settings_panel import SettingsPanelManager
+from .prompt_section import PromptSectionManager
+from .filter_training import FilterTrainingManager
+from .actions_handler import ActionsHandlerManager
+from .results_display import ResultsDisplayManager
 
-# Temporary: Import original class for backward compatibility during migration
-# The refactored modules need UI creation methods added first
-try:
-    import sys
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "improved_seedream_layout_original",
-        "ui/components/improved_seedream_layout.py"
-    )
-    original_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(original_module)
-    OriginalImprovedSeedreamLayout = original_module.ImprovedSeedreamLayout
-    logger.info("Loaded original ImprovedSeedreamLayout for backward compatibility")
-except Exception as e:
-    logger.error(f"Could not load original layout: {e}")
-    OriginalImprovedSeedreamLayout = None
+logger = get_logger()
 
 
 class SeedreamLayoutV2:
@@ -56,10 +48,7 @@ class SeedreamLayoutV2:
         self.api_client = api_client
         self.tab_instance = tab_instance
         
-        # Core state
-        self.selected_image_path = None
-        self.selected_image_paths = []  # Support for multiple images
-        self.result_image_path = None
+        # Core state (managed by individual managers)
         self.result_url = None
         self.current_task_id = None
         
@@ -150,14 +139,34 @@ class SeedreamLayoutV2:
     def _setup_left_column(self) -> None:
         """Setup left column with all control modules"""
         try:
-            # Create left frame
+            # Create left frame with proper structure
             left_frame = ttk.Frame(self.left_pane, padding="2")
             left_frame.pack(fill=tk.BOTH, expand=True)
             left_frame.columnconfigure(0, weight=1)
             
-            # Note: UI creation will be added in setup_ui_structure()
-            # Managers handle logic, not UI creation
+            # Store reference
             self.left_frame = left_frame
+            
+            # Let managers create their own UI
+            # (Managers have setup methods that create their UI)
+            # Image input UI handled by image manager
+            self._create_simple_image_input(left_frame, row=0)
+            
+            # Settings panel creates its own UI
+            self.settings_manager.setup_settings_panel(left_frame)
+            
+            # Prompt section UI
+            self._create_simple_prompt_section(left_frame, row=2)
+            
+            # Actions section
+            self._create_simple_actions(left_frame, row=3)
+            
+            # Spacer
+            spacer = ttk.Frame(left_frame)
+            spacer.grid(row=6, column=0, sticky="nsew")
+            left_frame.rowconfigure(6, weight=1)
+            
+            logger.info("Left column UI created successfully")
             
         except Exception as e:
             logger.error(f"Error setting up left column: {e}")
@@ -170,14 +179,138 @@ class SeedreamLayoutV2:
             right_frame = ttk.Frame(self.right_pane, padding="4")
             right_frame.pack(fill=tk.BOTH, expand=True)
             right_frame.columnconfigure(0, weight=1)
-            right_frame.rowconfigure(0, weight=1)
+            right_frame.rowconfigure(1, weight=1)  # Display takes most space
             
-            # Note: UI creation will be added in setup_ui_structure()
+            # Store reference
             self.right_frame = right_frame
+            
+            # Create comparison controls (row 0)
+            self._create_comparison_controls_ui(right_frame, row=0)
+            
+            # Create image display panels (row 1)
+            self._create_image_display_ui(right_frame, row=1)
+            
+            logger.info("Right column UI created successfully")
             
         except Exception as e:
             logger.error(f"Error setting up right column: {e}")
             raise
+    
+    def _create_simple_image_input(self, parent, row=0):
+        """Create minimal image input section"""
+        input_frame = ttk.LabelFrame(parent, text="📥 Input Image", padding="6")
+        input_frame.grid(row=row, column=0, sticky="ew", pady=(0, 6))
+        
+        ttk.Button(
+            input_frame,
+            text="📁 Browse Image",
+            command=self.browse_image
+        ).pack(fill=tk.X, padx=5, pady=5)
+    
+    # Settings UI is created by settings_manager.setup_settings_panel()
+    
+    def _create_simple_prompt_section(self, parent, row=2):
+        """Create minimal prompt section"""
+        prompt_frame = ttk.LabelFrame(parent, text="✏️ Prompt", padding="6")
+        prompt_frame.grid(row=row, column=0, sticky="ew", pady=(0, 6))
+        
+        self.prompt_text = tk.Text(prompt_frame, height=4, wrap=tk.WORD)
+        self.prompt_text.pack(fill=tk.BOTH, expand=True)
+        
+        # Buttons
+        btn_frame = ttk.Frame(prompt_frame)
+        btn_frame.pack(fill=tk.X, pady=(5, 0))
+        ttk.Button(btn_frame, text="🌱 Mild", command=self.generate_mild_examples, width=8).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="🔥 Moderate", command=self.generate_moderate_examples, width=10).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="👗 Undress", command=self.generate_undress_transformations, width=9).pack(side=tk.LEFT, padx=2)
+    
+    def _create_simple_actions(self, parent, row=3):
+        """Create minimal actions section"""
+        action_frame = ttk.Frame(parent)
+        action_frame.grid(row=row, column=0, sticky="ew", pady=6)
+        
+        ttk.Button(
+            action_frame,
+            text="🌟 Generate with Seedream V4",
+            command=self.process_seedream
+        ).pack(fill=tk.X, padx=5, pady=5)
+    
+    def _create_comparison_controls_ui(self, parent, row=0):
+        """Create image comparison controls"""
+        controls_frame = ttk.Frame(parent, padding="4")
+        controls_frame.grid(row=row, column=0, sticky="ew", pady=(0, 4))
+        
+        ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Simple view toggle for now
+        ttk.Button(controls_frame, text="↔️ Side by Side", width=14).pack(side=tk.LEFT, padx=2)
+        ttk.Button(controls_frame, text="📊 Overlay", width=12).pack(side=tk.LEFT, padx=2)
+        ttk.Button(controls_frame, text="🔄 Swap", command=self.swap_images, width=10).pack(side=tk.RIGHT, padx=2)
+    
+    def _create_image_display_ui(self, parent, row=1):
+        """Create the side-by-side image display panels"""
+        display_frame = ttk.Frame(parent)
+        display_frame.grid(row=row, column=0, sticky="nsew")
+        display_frame.columnconfigure(0, weight=1)
+        display_frame.columnconfigure(1, weight=1)
+        display_frame.rowconfigure(0, weight=1)
+        
+        # Left panel - Original Image
+        self._create_single_panel(display_frame, "original", 0, "📥 Original Image")
+        
+        # Right panel - Result Image
+        self._create_single_panel(display_frame, "result", 1, "🌟 Generated Result")
+        
+        logger.debug("Image display panels created")
+    
+    def _create_single_panel(self, parent, panel_type, column, title):
+        """Create a single image panel"""
+        panel_frame = ttk.LabelFrame(parent, text=title, padding="2")
+        panel_frame.grid(row=0, column=column, sticky="nsew", padx=(1, 1))
+        panel_frame.columnconfigure(0, weight=1)
+        panel_frame.rowconfigure(0, weight=1)
+        
+        # Canvas for image display
+        canvas = tk.Canvas(
+            panel_frame,
+            bg='#f8f9fa' if panel_type == "original" else '#fff8f0',
+            highlightthickness=1,
+            highlightcolor='#ddd',
+            relief='flat',
+            width=600,
+            height=600
+        )
+        canvas.configure(takefocus=True)
+        canvas.grid(row=0, column=0, sticky="nsew")
+        
+        # Scrollbars
+        v_scrollbar = ttk.Scrollbar(panel_frame, orient=tk.VERTICAL, command=canvas.yview)
+        h_scrollbar = ttk.Scrollbar(panel_frame, orient=tk.HORIZONTAL, command=canvas.xview)
+        
+        canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+        
+        v_scrollbar.grid(row=0, column=1, sticky="ns")
+        h_scrollbar.grid(row=1, column=0, sticky="ew")
+        
+        # Store canvas references
+        if panel_type == "original":
+            self.original_canvas = canvas
+            self.original_panel = panel_frame
+        else:
+            self.result_canvas = canvas
+            self.result_panel = panel_frame
+        
+        # Basic event bindings
+        canvas.bind('<Button-1>', lambda e: canvas.focus_set())
+        
+        # Show default message
+        canvas.create_text(
+            300, 300,
+            text=f"{'Select an image to begin' if panel_type == 'original' else 'Results will appear here'}",
+            font=('Arial', 12),
+            fill='gray',
+            tags="placeholder"
+        )
     
     def _setup_splitter_positioning(self) -> None:
         """Setup splitter positioning with persistence"""
@@ -357,9 +490,75 @@ class SeedreamLayoutV2:
         """Generate moderate filter training examples"""
         self.filter_manager.generate_moderate_examples()
     
+    def generate_undress_transformations(self) -> None:
+        """Generate undress transformation prompts"""
+        self.filter_manager.generate_undress_transformations()
+    
+    def generate_random_seed(self) -> None:
+        """Generate a random seed"""
+        seed = random.randint(1, 2147483647)
+        self.settings_manager.seed_var.set(str(seed))
+    
+    def get_width(self) -> int:
+        """Get the current width setting"""
+        return self.settings_manager.width_var.get()
+    
+    def get_height(self) -> int:
+        """Get the current height setting"""
+        return self.settings_manager.height_var.get()
+    
+    def get_seed(self) -> str:
+        """Get the current seed"""
+        return self.settings_manager.seed_var.get()
+    
+    @property
+    def selected_image_path(self) -> Optional[str]:
+        """Get the currently selected image path"""
+        paths = self.image_manager.selected_image_paths
+        return paths[0] if paths else None
+    
+    @selected_image_path.setter
+    def selected_image_path(self, value: Optional[str]) -> None:
+        """Set the selected image path"""
+        if value:
+            self.image_manager.selected_image_paths = [value]
+        else:
+            self.image_manager.selected_image_paths = []
+    
+    @property
+    def result_image_path(self) -> Optional[str]:
+        """Get the result image path"""
+        return self.image_manager.result_image_path if hasattr(self.image_manager, 'result_image_path') else None
+    
+    @result_image_path.setter
+    def result_image_path(self, value: Optional[str]) -> None:
+        """Set the result image path"""
+        if hasattr(self.image_manager, 'result_image_path'):
+            self.image_manager.result_image_path = value
+    
+    def swap_images(self) -> None:
+        """Swap original and result images"""
+        self.image_manager.swap_images()
+    
+    def show_image_reorder_dialog(self) -> None:
+        """Show dialog to reorder multiple images"""
+        self.image_manager.show_image_reorder_dialog()
+    
     def show_prompt_browser(self) -> None:
         """Show prompt browser"""
         self.prompt_manager.show_prompt_browser()
+    
+    def get_prompt(self) -> str:
+        """Get the current prompt text"""
+        if hasattr(self, 'prompt_text'):
+            return self.prompt_text.get("1.0", tk.END).strip()
+        return ""
+    
+    def set_prompt(self, text: str) -> None:
+        """Set the prompt text"""
+        if hasattr(self, 'prompt_text'):
+            self.prompt_text.delete("1.0", tk.END)
+            self.prompt_text.insert("1.0", text)
     
     def save_preset(self) -> None:
         """Save current prompt as preset"""
@@ -383,11 +582,6 @@ class SeedreamLayoutV2:
         # Additional logging can be added here (e.g., to a status console)
     
     # Properties for backward compatibility
-    
-    @property
-    def prompt_text(self):
-        """Get prompt text widget"""
-        return getattr(self.prompt_manager, 'prompt_text', None)
     
     @property
     def width_var(self):
