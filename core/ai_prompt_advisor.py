@@ -765,7 +765,7 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4",
+            "model": "gpt-5-nano-2025-08-07",
             "max_tokens": 2500,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -796,8 +796,8 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4o-mini",
-            "max_tokens": 1500,
+            "model": "gpt-3.5-turbo-0125",
+            "max_completion_tokens": 2000,
             "messages": [{
                 "role": "user",
                 "content": user_message
@@ -926,7 +926,7 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-4",
             "max_tokens": 1500,
             "messages": [{
                 "role": "user",
@@ -1446,21 +1446,40 @@ CATEGORY: [Different randomly selected category]
                 # Parse the response
                 batch_prompts = []
                 
-                # Try to extract examples with category labels using CATEGORY: ... EXAMPLE N: pattern
-                category_example_pattern = r'CATEGORY:\s*([^\n]+)\s*\n?EXAMPLE\s+\d+:?\s*\n?(.*?)(?=CATEGORY:|$)'
-                category_matches = re.findall(category_example_pattern, response, re.DOTALL | re.IGNORECASE)
+                # Strategy 1: Try CATEGORY: [name]\n[prompt] pattern (most common format)
+                category_direct_pattern = r'CATEGORY:\s*([^\n]+)\s*\n\s*```?\s*\n?(.*?)(?=\n\s*```?\s*\n\s*CATEGORY:|\n\s*CATEGORY:|$)'
+                category_matches = re.findall(category_direct_pattern, response, re.DOTALL | re.IGNORECASE)
                 
-                logger.info(f"🔍 Attempt {attempt_count} Pattern 1 (CATEGORY: + EXAMPLE N:): Found {len(category_matches)} matches")
+                logger.info(f"🔍 Attempt {attempt_count} Pattern 1 (CATEGORY: direct): Found {len(category_matches)} matches")
                 
                 if category_matches:
                     for category, prompt_text in category_matches:
                         category_clean = category.strip()
                         prompt = prompt_text.strip()
-                        prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
-                        if prompt.strip():
-                            batch_prompts.append(f"[{category_clean}]\n{prompt.strip()}")
+                        # Remove markdown code blocks if present
+                        prompt = re.sub(r'^```\s*\n?', '', prompt)
+                        prompt = re.sub(r'\n?```$', '', prompt)
+                        if prompt.strip() and len(prompt.strip()) > 30:
+                            batch_prompts.append(prompt.strip())
                             used_categories.add(category_clean)
-                    logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts with categories")
+                    logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (CATEGORY: direct format)")
+                
+                # Strategy 2: Try to extract examples with category labels using CATEGORY: ... EXAMPLE N: pattern
+                if not batch_prompts:
+                    category_example_pattern = r'CATEGORY:\s*([^\n]+)\s*\n?EXAMPLE\s+\d+:?\s*\n?(.*?)(?=CATEGORY:|$)'
+                    category_matches = re.findall(category_example_pattern, response, re.DOTALL | re.IGNORECASE)
+                    
+                    logger.info(f"🔍 Attempt {attempt_count} Pattern 2 (CATEGORY: + EXAMPLE N:): Found {len(category_matches)} matches")
+                    
+                    if category_matches:
+                        for category, prompt_text in category_matches:
+                            category_clean = category.strip()
+                            prompt = prompt_text.strip()
+                            prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
+                            if prompt.strip():
+                                batch_prompts.append(f"[{category_clean}]\n{prompt.strip()}")
+                                used_categories.add(category_clean)
+                        logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (CATEGORY+EXAMPLE format)")
                 
                 # Fallback: Try EXAMPLE N: pattern without categories
                 if not batch_prompts:
@@ -1490,28 +1509,57 @@ CATEGORY: [Different randomly selected category]
                                 batch_prompts.append(prompt.strip())
                         logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (numbered list)")
                 
-                # Third fallback: Split by double newlines and take substantial paragraphs
+                # Third fallback: Split by CATEGORY: markers and extract prompts
+                if not batch_prompts:
+                    sections = re.split(r'\n\s*CATEGORY:', response, flags=re.IGNORECASE)
+                    logger.info(f"🔍 Attempt {attempt_count} Pattern 4 (CATEGORY split): Found {len(sections)} sections")
+                    for section in sections:
+                        if not section.strip():
+                            continue
+                        # Split by first newline to separate category name from prompt
+                        lines = section.split('\n', 1)
+                        if len(lines) >= 2:
+                            prompt = lines[1].strip()
+                            # Remove markdown code blocks
+                            prompt = re.sub(r'^```\s*\n?', '', prompt)
+                            prompt = re.sub(r'\n?```$', '', prompt)
+                            # Remove any trailing category markers
+                            prompt = re.split(r'\n\s*CATEGORY:', prompt, flags=re.IGNORECASE)[0].strip()
+                            # Only accept if it looks like a prompt
+                            if prompt and len(prompt) > 50 and ('remove' in prompt.lower() or 'replace' in prompt.lower() or 'change' in prompt.lower()):
+                                batch_prompts.append(prompt)
+                                if len(batch_prompts) >= prompts_in_this_batch:
+                                    break
+                    if batch_prompts:
+                        logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (CATEGORY split)")
+                
+                # Fourth fallback: Split by double newlines and take substantial paragraphs
                 if not batch_prompts:
                     paragraphs = [p.strip() for p in response.split('\n\n') if p.strip()]
+                    logger.info(f"🔍 Attempt {attempt_count} Pattern 5 (paragraph split): Found {len(paragraphs)} paragraphs")
                     for para in paragraphs:
                         # Remove any numbering or category labels
                         cleaned = re.sub(r'^\d+[\.\)]\s*', '', para)
                         cleaned = re.sub(r'^\[.*?\]\s*\n?', '', cleaned, flags=re.IGNORECASE)
                         cleaned = re.sub(r'^CATEGORY:\s*.*?\n', '', cleaned, flags=re.IGNORECASE)
                         cleaned = re.sub(r'^EXAMPLE\s+\d+:?\s*\n?', '', cleaned, flags=re.IGNORECASE)
+                        cleaned = re.sub(r'^```\s*\n?', '', cleaned)
+                        cleaned = re.sub(r'\n?```$', '', cleaned)
                         
                         # Only accept if it looks like a prompt (substantial text)
-                        if cleaned.strip() and len(cleaned.strip()) > 30 and ('remove' in cleaned.lower() or 'change' in cleaned.lower()):
+                        if cleaned.strip() and len(cleaned.strip()) > 30 and ('remove' in cleaned.lower() or 'replace' in cleaned.lower() or 'change' in cleaned.lower()):
                             batch_prompts.append(cleaned.strip())
                             if len(batch_prompts) >= prompts_in_this_batch:
                                 break
                     if batch_prompts:
                         logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (paragraph splitting)")
                 
-                # If still no prompts, log warning with debug info
+                # If still no prompts, log warning with FULL response for debugging
                 if not batch_prompts:
                     logger.warning(f"⚠️ Attempt {attempt_count}: Failed to parse any prompts from response")
-                    logger.debug(f"Response preview (first 500 chars): {response[:500]}")
+                    logger.warning(f"📄 FULL UNPARSEABLE RESPONSE ({len(response)} chars):")
+                    logger.warning(f"{response}")
+                    logger.warning(f"📄 END OF UNPARSEABLE RESPONSE")
                 
                 # Add batch prompts to all_prompts
                 all_prompts.extend(batch_prompts)
@@ -1558,11 +1606,11 @@ CATEGORY: [Different randomly selected category]
         # Get the undress transformation prompt with integrated analysis
         system_prompt = get_undress_transformation_prompt(description)
         
-        logger.info("🔄 Generating 3 undress transformation prompts (current framing only)")
+        logger.info("🔄 Generating 5 undress transformation prompts (bikini, lingerie, fantasy, nude, AI's choice)")
         
-        # Single request for all 6 transformations
+        # Single request for all 5 transformations
         try:
-            user_message = "Generate all 3 ultra-minimal transformation prompts now (bikini, lingerie, nude with current framing only)."
+            user_message = "Generate all 5 ultra-minimal transformation prompts now (bikini, lingerie, fantasy costume, nude, AI's creative choice - all with current framing only)."
             
             if self.api_provider == "openai" and self.openai_api:
                 response = await self.openai_api.generate_response(system_prompt + "\n\n" + user_message)
@@ -1580,7 +1628,7 @@ CATEGORY: [Different randomly selected category]
             
             logger.info(f"📥 Received response: {response[:200]}...")
             
-            # Parse the 6 transformations
+            # Parse the 3 transformations (current framing only)
             prompts = []
             
             # Try multiple parsing strategies
@@ -1620,8 +1668,8 @@ CATEGORY: [Different randomly selected category]
             logger.info(f"📊 Strategy 1 found {len(prompts)} prompts")
             
             # Strategy 2: If not enough prompts, try numbered list parsing
-            if len(prompts) < 6:
-                logger.warning(f"Strategy 1 found only {len(prompts)}/6 prompts, trying Strategy 2 (numbered lists)...")
+            if len(prompts) < 5:
+                logger.warning(f"Strategy 1 found only {len(prompts)}/5 prompts, trying Strategy 2 (numbered lists)...")
                 prompts = []
                 
                 # Split by numbers (1., 2., 3., etc.)
@@ -1643,32 +1691,32 @@ CATEGORY: [Different randomly selected category]
                 
                 logger.info(f"📊 Strategy 2 found {len(prompts)} prompts")
             
-            if len(prompts) >= 3:
-                logger.info(f"✅ Successfully generated {len(prompts)} undress transformation prompts (current framing)")
-                return prompts[:3]  # Return exactly 3
+            if len(prompts) >= 5:
+                logger.info(f"✅ Successfully generated {len(prompts)} undress transformation prompts")
+                return prompts[:5]  # Return exactly 5
             else:
-                logger.warning(f"⚠️ Only generated {len(prompts)} prompts, expected 3")
+                logger.warning(f"⚠️ Only generated {len(prompts)} prompts, expected 5")
+                logger.warning(f"📄 FULL UNPARSEABLE UNDRESS RESPONSE ({len(response)} chars):")
+                logger.warning(f"{response}")
+                logger.warning(f"📄 END OF UNPARSEABLE UNDRESS RESPONSE")
                 # Return what we have plus fallbacks with detailed skin texture
-                while len(prompts) < 3:
+                while len(prompts) < 5:
                     if len(prompts) == 0:
-                        # Group 1: breast size + detailed skin texture
-                        prompts.append("Replace current outfit with black string bikini. Medium sized breasts (C cup). Detailed skin texture.")
+                        # Bikini: breast size + detailed skin texture
+                        prompts.append("Replace current outfit with black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass. Medium sized breasts (C cup). Detailed skin texture.")
                     elif len(prompts) == 1:
-                        # Group 1: breast size + detailed skin texture
-                        prompts.append("Replace current outfit with sheer white lace bodysuit lingerie. Medium sized breasts (C cup). Detailed skin texture.")
+                        # Lingerie: breast size + detailed skin texture
+                        prompts.append("Replace current outfit with completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area. Medium sized breasts (C cup). Detailed skin texture.")
                     elif len(prompts) == 2:
-                        # Group 1 nude: breast size + detailed breasts/nipples + detailed skin texture
-                        prompts.append("Remove current outfit, fully nude. Medium sized breasts (C cup). Detailed breasts and nipples. Detailed skin texture.")
+                        # Fantasy: breast size + detailed skin texture
+                        prompts.append("Replace current outfit with sexy succubus costume with revealing red leather corset pushing breasts up, tiny black horns, demon tail, and skimpy thong bottoms with garter straps. Medium sized breasts (C cup). Detailed skin texture.")
                     elif len(prompts) == 3:
-                        # Group 2: breast size + detailed skin texture (skip average build)
-                        prompts.append("Replace current outfit with red triangle bikini. Full body shot, knees up. Medium sized breasts (C cup). Detailed skin texture.")
+                        # Nude: breast size + detailed breasts/nipples + detailed skin texture
+                        prompts.append("Remove current outfit, fully nude. Medium sized breasts (C cup). Detailed breasts and nipples. Detailed skin texture.")
                     elif len(prompts) == 4:
-                        # Group 2: breast size + detailed skin texture (skip average build)
-                        prompts.append("Replace current outfit with black lace bra and thong set. Full body shot, knees up. Medium sized breasts (C cup). Detailed skin texture.")
-                    else:
-                        # Group 2 nude: breast size + detailed breasts/nipples + detailed skin texture
-                        prompts.append("Remove current outfit, fully nude. Full body shot, knees up. Medium sized breasts (C cup). Detailed breasts and nipples. Detailed skin texture.")
-                return prompts[:6]
+                        # AI's choice: breast size + detailed skin texture
+                        prompts.append("Replace current outfit with wet white tank top clinging to body showing visible nipples and areolas through soaked fabric paired with tiny denim shorts riding up. Medium sized breasts (C cup). Detailed skin texture.")
+                return prompts[:5]
                 
         except Exception as e:
             logger.error(f"Error generating undress transformations: {e}")
@@ -1755,19 +1803,36 @@ Remember: Use DIRECT, TECHNICAL language. NO poetry, artistic descriptions, or f
                 # Parse the response
                 batch_prompts = []
                 
-                # Try to extract examples with category labels using CATEGORY: ... EXAMPLE N: pattern
-                category_example_pattern = r'CATEGORY:\s*([^\n]+)\s*\n?EXAMPLE\s+\d+:?\s*\n?(.*?)(?=CATEGORY:|$)'
-                category_matches = re.findall(category_example_pattern, response, re.DOTALL | re.IGNORECASE)
+                # Strategy 1: Try CATEGORY: [name]\n[prompt] pattern (most common format)
+                category_direct_pattern = r'CATEGORY:\s*([^\n]+)\s*\n\s*```?\s*\n?(.*?)(?=\n\s*```?\s*\n\s*CATEGORY:|\n\s*CATEGORY:|$)'
+                category_matches = re.findall(category_direct_pattern, response, re.DOTALL | re.IGNORECASE)
                 
                 if category_matches:
                     for category, prompt_text in category_matches:
                         category_clean = category.strip()
                         prompt = prompt_text.strip()
-                        prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
-                        if prompt.strip():
-                            batch_prompts.append(f"[{category_clean}]\n{prompt.strip()}")
+                        # Remove markdown code blocks if present
+                        prompt = re.sub(r'^```\s*\n?', '', prompt)
+                        prompt = re.sub(r'\n?```$', '', prompt)
+                        if prompt.strip() and len(prompt.strip()) > 30:
+                            batch_prompts.append(prompt.strip())
                             used_categories.add(category_clean)
-                    logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts with categories")
+                    logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (CATEGORY: direct format)")
+                
+                # Strategy 2: Try to extract examples with category labels using CATEGORY: ... EXAMPLE N: pattern
+                if not batch_prompts:
+                    category_example_pattern = r'CATEGORY:\s*([^\n]+)\s*\n?EXAMPLE\s+\d+:?\s*\n?(.*?)(?=CATEGORY:|$)'
+                    category_matches = re.findall(category_example_pattern, response, re.DOTALL | re.IGNORECASE)
+                    
+                    if category_matches:
+                        for category, prompt_text in category_matches:
+                            category_clean = category.strip()
+                            prompt = prompt_text.strip()
+                            prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
+                            if prompt.strip():
+                                batch_prompts.append(f"[{category_clean}]\n{prompt.strip()}")
+                                used_categories.add(category_clean)
+                        logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (CATEGORY+EXAMPLE format)")
                 
                 # Fallback: Try EXAMPLE N: pattern without categories
                 if not batch_prompts:
@@ -1795,7 +1860,30 @@ Remember: Use DIRECT, TECHNICAL language. NO poetry, artistic descriptions, or f
                                 batch_prompts.append(prompt.strip())
                         logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (numbered list)")
                 
-                # Third fallback: Split by double newlines and take substantial paragraphs
+                # Third fallback: Split by CATEGORY: markers and extract prompts
+                if not batch_prompts:
+                    sections = re.split(r'\n\s*CATEGORY:', response, flags=re.IGNORECASE)
+                    for section in sections:
+                        if not section.strip():
+                            continue
+                        # Split by first newline to separate category name from prompt
+                        lines = section.split('\n', 1)
+                        if len(lines) >= 2:
+                            prompt = lines[1].strip()
+                            # Remove markdown code blocks
+                            prompt = re.sub(r'^```\s*\n?', '', prompt)
+                            prompt = re.sub(r'\n?```$', '', prompt)
+                            # Remove any trailing category markers
+                            prompt = re.split(r'\n\s*CATEGORY:', prompt, flags=re.IGNORECASE)[0].strip()
+                            # Only accept if it looks like a prompt
+                            if prompt and len(prompt) > 50 and ('remove' in prompt.lower() or 'replace' in prompt.lower() or 'change' in prompt.lower()):
+                                batch_prompts.append(prompt)
+                                if len(batch_prompts) >= prompts_in_this_batch:
+                                    break
+                    if batch_prompts:
+                        logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (CATEGORY split)")
+                
+                # Fourth fallback: Split by double newlines and take substantial paragraphs
                 if not batch_prompts:
                     paragraphs = [p.strip() for p in response.split('\n\n') if p.strip()]
                     for para in paragraphs:
@@ -1804,19 +1892,23 @@ Remember: Use DIRECT, TECHNICAL language. NO poetry, artistic descriptions, or f
                         cleaned = re.sub(r'^\[.*?\]\s*\n?', '', cleaned, flags=re.IGNORECASE)
                         cleaned = re.sub(r'^CATEGORY:\s*.*?\n', '', cleaned, flags=re.IGNORECASE)
                         cleaned = re.sub(r'^EXAMPLE\s+\d+:?\s*\n?', '', cleaned, flags=re.IGNORECASE)
+                        cleaned = re.sub(r'^```\s*\n?', '', cleaned)
+                        cleaned = re.sub(r'\n?```$', '', cleaned)
                         
-                        # Only accept if it looks like a prompt (substantial text with "change")
-                        if cleaned.strip() and len(cleaned.strip()) > 30 and 'change' in cleaned.lower():
+                        # Only accept if it looks like a prompt (substantial text)
+                        if cleaned.strip() and len(cleaned.strip()) > 30 and ('remove' in cleaned.lower() or 'replace' in cleaned.lower() or 'change' in cleaned.lower()):
                             batch_prompts.append(cleaned.strip())
                             if len(batch_prompts) >= prompts_in_this_batch:
                                 break
                     if batch_prompts:
                         logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (paragraph splitting)")
                 
-                # If still nothing, log the response for debugging
+                # If still nothing, log FULL response for debugging
                 if not batch_prompts:
                     logger.warning(f"⚠️ Batch {batch_num + 1}: Failed to parse any prompts from response")
-                    logger.debug(f"Response preview (first 500 chars): {response[:500]}")
+                    logger.warning(f"📄 FULL UNPARSEABLE RESPONSE ({len(response)} chars):")
+                    logger.warning(f"{response}")
+                    logger.warning(f"📄 END OF UNPARSEABLE RESPONSE")
                 
                 # Add batch prompts to all_prompts
                 all_prompts.extend(batch_prompts)

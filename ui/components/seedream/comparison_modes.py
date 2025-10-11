@@ -68,6 +68,12 @@ class ComparisonController:
         self.left_zoom = "Fit"
         self.right_zoom = "Fit"
         
+        # Color matching comparison state
+        self.color_match_active = False
+        self.original_result_path = None
+        self.color_matched_path = None
+        self.color_match_buttons_frame = None
+        
         # UI references
         self.mode_var = tk.StringVar(value="side_by_side")
         self.opacity_var = tk.DoubleVar(value=0.5)
@@ -89,6 +95,9 @@ class ComparisonController:
         """
         controls_frame = ttk.Frame(parent_frame, padding="4")
         controls_frame.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+        
+        # Store reference for color match buttons
+        self.controls_frame = controls_frame
         
         # Mode selection
         ttk.Label(controls_frame, text="View Mode:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 10))
@@ -720,11 +729,22 @@ class ComparisonController:
             source_path = None
             result_path = None
             
-            if hasattr(self.layout, 'selected_image_path'):
+            # Try multiple ways to get the source image path
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths:
+                    source_path = paths[0]
+            elif hasattr(self.layout, 'selected_image_path'):
                 source_path = self.layout.selected_image_path
             
-            if hasattr(self.layout, 'result_image_path'):
+            # Get result path
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
                 result_path = self.layout.result_image_path
+            
+            # Debug logging
+            logger.debug(f"Color matching paths - source: {source_path}, result: {result_path}")
             
             # Validate paths
             if not source_path or not os.path.exists(source_path):
@@ -732,6 +752,7 @@ class ComparisonController:
                     "No Source Image",
                     "Please load an input image first to use as color reference."
                 )
+                logger.debug(f"Color matching failed: source_path={source_path}, exists={os.path.exists(source_path) if source_path else False}")
                 return
             
             if not result_path or not os.path.exists(result_path):
@@ -757,26 +778,17 @@ class ComparisonController:
                 corrected_image.save(temp_file.name, quality=95)
                 temp_file.close()
                 
-                # Update result path
-                self.layout.result_image_path = temp_file.name
+                # Store paths for comparison
+                self.original_result_path = result_path
+                self.color_matched_path = temp_file.name
+                self.color_match_active = True
                 
-                # Refresh display
-                if hasattr(self.layout.image_manager, 'display_image_in_panel'):
-                    self.layout.image_manager.display_image_in_panel(
-                        temp_file.name, 'result'
-                    )
+                logger.info(f"Color match files ready: original={result_path}, matched={temp_file.name}")
                 
-                # If in overlay mode, refresh overlay
-                if self.current_mode == "overlay":
-                    self._refresh_overlay_from_zoom()
+                # Show comparison: original (left) vs color-matched (right)
+                self._show_color_match_comparison()
                 
-                logger.info("✅ Color correction applied successfully")
-                messagebox.showinfo(
-                    "Success",
-                    "Subtle color correction applied!\n\n"
-                    "Result colors now match the source image better.\n"
-                    "The correction is subtle to preserve the AI's edits."
-                )
+                logger.info("✅ Color correction applied - showing comparison")
             else:
                 messagebox.showerror("Error", "Failed to apply color matching.")
                 
@@ -1004,6 +1016,181 @@ class ComparisonController:
                     )
             except Exception as e:
                 logger.error(f"Error applying zoom change: {e}")
+    
+    def _show_color_match_comparison(self):
+        """Show before/after comparison for color matching"""
+        try:
+            logger.debug(f"Starting color match comparison display")
+            
+            # Load original result on left (original panel)
+            if hasattr(self.layout, 'display_image_in_panel'):
+                logger.debug(f"Displaying images: original={self.original_result_path}, matched={self.color_matched_path}")
+                self.layout.display_image_in_panel(self.original_result_path, 'original')
+                self.layout.display_image_in_panel(self.color_matched_path, 'result')
+            
+            # Switch to side-by-side mode for comparison
+            logger.debug("Switching to side-by-side mode")
+            self.mode_var.set("side_by_side")
+            self._apply_mode()
+            
+            # Show accept/revert buttons
+            logger.debug("Showing color match buttons")
+            self._show_color_match_buttons()
+            
+            logger.info("✅ Color match comparison displayed successfully")
+        except Exception as e:
+            logger.error(f"Error showing color match comparison: {e}", exc_info=True)
+    
+    def _show_color_match_buttons(self):
+        """Show accept/revert buttons for color matching"""
+        try:
+            logger.debug("_show_color_match_buttons called")
+            
+            # Remove existing buttons if present
+            if self.color_match_buttons_frame and self.color_match_buttons_frame.winfo_exists():
+                logger.debug("Destroying existing color match buttons frame")
+                self.color_match_buttons_frame.destroy()
+            
+            # Create button frame in the controls frame
+            if not hasattr(self, 'controls_frame'):
+                logger.error("controls_frame attribute not found on ComparisonController")
+                return
+            
+            if not self.controls_frame.winfo_exists():
+                logger.error("controls_frame widget no longer exists")
+                return
+            
+            logger.debug(f"Creating color match buttons frame in controls_frame")
+            self.color_match_buttons_frame = ttk.Frame(self.controls_frame)
+            self.color_match_buttons_frame.pack(side=tk.LEFT, padx=(20, 0))
+            
+            # Info label
+            ttk.Label(
+                self.color_match_buttons_frame,
+                text="🎨 Color Match:",
+                foreground="blue",
+                font=("Arial", 9, "bold")
+            ).pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Accept button
+            ttk.Button(
+                self.color_match_buttons_frame,
+                text="✅ Accept",
+                command=self._accept_color_match,
+                width=10
+            ).pack(side=tk.LEFT, padx=2)
+            
+            # Revert button
+            ttk.Button(
+                self.color_match_buttons_frame,
+                text="↩️ Revert",
+                command=self._revert_color_match,
+                width=10
+            ).pack(side=tk.LEFT, padx=2)
+            
+            # Toggle view button (switch between overlay/side-by-side)
+            ttk.Button(
+                self.color_match_buttons_frame,
+                text="🔄 Toggle View",
+                command=self._toggle_color_match_view,
+                width=12
+            ).pack(side=tk.LEFT, padx=2)
+            
+            logger.info("✅ Color match buttons created and displayed successfully")
+        except Exception as e:
+            logger.error(f"Error showing color match buttons: {e}", exc_info=True)
+    
+    def _toggle_color_match_view(self):
+        """Toggle between overlay and side-by-side for color match comparison"""
+        try:
+            if self.current_mode == "side_by_side":
+                self.mode_var.set("overlay")
+                self.opacity_var.set(0.5)
+            else:
+                self.mode_var.set("side_by_side")
+            
+            self._apply_mode()
+            logger.debug(f"Color match view toggled to {self.current_mode}")
+        except Exception as e:
+            logger.error(f"Error toggling color match view: {e}")
+    
+    def _accept_color_match(self):
+        """Accept the color matched result"""
+        try:
+            # Update result path to color-matched version
+            self.layout.result_image_path = self.color_matched_path
+            if hasattr(self.layout, 'results_manager'):
+                self.layout.results_manager.result_image_path = self.color_matched_path
+            
+            # Restore original image to left panel
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and hasattr(self.layout, 'display_image_in_panel'):
+                    self.layout.display_image_in_panel(paths[0], 'original')
+            
+            # Clear color match state
+            self._cleanup_color_match()
+            
+            logger.info("✅ Color matched result accepted")
+            messagebox.showinfo(
+                "Accepted",
+                "Color correction applied!\n\nThe color-matched result is now your active result."
+            )
+        except Exception as e:
+            logger.error(f"Error accepting color match: {e}")
+            messagebox.showerror("Error", f"Failed to accept color match: {str(e)}")
+    
+    def _revert_color_match(self):
+        """Revert to original result (before color matching)"""
+        try:
+            # Restore original result
+            self.layout.result_image_path = self.original_result_path
+            if hasattr(self.layout, 'results_manager'):
+                self.layout.results_manager.result_image_path = self.original_result_path
+            
+            # Display original result on right
+            if hasattr(self.layout, 'display_image_in_panel'):
+                self.layout.display_image_in_panel(self.original_result_path, 'result')
+            
+            # Restore original image to left panel
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths and hasattr(self.layout, 'display_image_in_panel'):
+                    self.layout.display_image_in_panel(paths[0], 'original')
+            
+            # Clean up temp file
+            if self.color_matched_path and os.path.exists(self.color_matched_path):
+                try:
+                    os.remove(self.color_matched_path)
+                except:
+                    pass
+            
+            # Clear color match state
+            self._cleanup_color_match()
+            
+            logger.info("↩️ Color match reverted")
+            messagebox.showinfo(
+                "Reverted",
+                "Color correction removed.\n\nReturned to original result."
+            )
+        except Exception as e:
+            logger.error(f"Error reverting color match: {e}")
+            messagebox.showerror("Error", f"Failed to revert color match: {str(e)}")
+    
+    def _cleanup_color_match(self):
+        """Clean up color match state and UI"""
+        try:
+            self.color_match_active = False
+            self.original_result_path = None
+            self.color_matched_path = None
+            
+            # Remove buttons
+            if self.color_match_buttons_frame and self.color_match_buttons_frame.winfo_exists():
+                self.color_match_buttons_frame.destroy()
+            
+            logger.debug("Color match state cleaned up")
+        except Exception as e:
+            logger.error(f"Error cleaning up color match: {e}")
 
 
 # Export

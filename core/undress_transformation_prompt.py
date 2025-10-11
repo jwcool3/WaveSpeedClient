@@ -14,30 +14,59 @@ NO explanations, NO preservation statements, NO framing details - JUST the outfi
 
 Format: "Replace X with Y." That's it. Nothing more.
 
-## TRANSFORMATION STRUCTURE (3 PROMPTS - CURRENT FRAMING ONLY):
+## TRANSFORMATION STRUCTURE (5 PROMPTS - CURRENT FRAMING ONLY):
 
-Generate 3 prompts with DETAILED, REVEALING outfit descriptions:
+Generate 5 prompts with DETAILED, REVEALING outfit descriptions:
 
-**Current Framing (3 prompts - no zoom out):**
+**Current Framing (5 prompts - no zoom out):**
 1. Replace with REVEALING BIKINI (detailed description emphasizing minimal coverage)
 2. Replace with REVEALING LINGERIE (detailed description emphasizing sheer/revealing nature)
-3. Remove all clothing (nude)
+3. Replace with SEXY FANTASY OUTFIT (detailed costume/roleplay description)
+4. Remove all clothing (nude)
+5. AI's CREATIVE CHOICE (revealing/sexy outfit completely different from categories 1-3)
 
 **FRAMING:** Keep existing shot as-is (no zoom out or reframing)
 
 **DETAILED BIKINI DESCRIPTIONS (Use specific, revealing styles):**
-- String bikini: "micro string bikini with tiny triangle cups and thin side-tie bottoms"
-- Thong bikini: "skimpy thong bikini with minimal coverage triangle top and Brazilian thong bottoms"
-- Bandeau bikini: "revealing bandeau tube top bikini with low-rise thong bottoms"
-- G-string bikini: "barely-there G-string bikini with tiny triangles covering only nipples and minimal string bottoms"
-- Cut-out bikini: "daring cut-out monokini with strategic cutouts exposing sides, underboob, and hips"
+- Micro string bikini: "micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass"
+- G-string bikini: "barely-there G-string bikini with tiny triangles covering only nipples and minimal string bottoms showing full ass"
+- Thong bikini: "skimpy thong bikini with minimal coverage triangle top and Brazilian thong bottoms exposing ass cheeks"
+- Bandeau bikini: "revealing bandeau tube top bikini straining to contain breasts with low-rise thong bottoms"
+- Triangle bikini: "ultra-tiny triangle bikini with string ties barely covering nipples and high-cut bottoms showing hip curves"
+- Side-tie bikini: "scandalous side-tie bikini with adjustable strings, triangles barely covering nipples, and revealing thong bottoms"
+- Cut-out monokini: "daring cut-out monokini with strategic cutouts exposing sides, underboob, cleavage, and hips"
+- Sling bikini: "extreme sling bikini with thin straps connecting top and bottom, exposing maximum skin and barely covering nipples"
+- Halter micro bikini: "halter neck micro bikini with tiny cups straining over breasts and G-string bottoms"
+- Metallic micro bikini: "shiny metallic micro bikini with reflective tiny triangles barely covering nipples and skimpy string bottoms"
 
 **DETAILED LINGERIE DESCRIPTIONS (Use specific, revealing styles):**
-- Sheer bodysuit: "sheer mesh bodysuit lingerie with visible nipples and see-through lace panels"
-- Bra and thong set: "revealing lace bra with sheer cups showing nipples through fabric and matching lace thong"
-- Teddy: "plunging sheer teddy lingerie with deep V-neck exposing cleavage, open back, and high-cut leg openings"
-- Babydoll: "ultra-short sheer babydoll with see-through lace cups, exposed underboob, and matching G-string"
-- Corset set: "strappy lace corset with exposed cleavage, garter belts, and skimpy lace panties"
+- Sheer bodysuit: "completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area"
+- Lace bra & thong: "revealing lace bra with ultra-sheer cups showing nipples and areolas through fabric paired with matching lace thong"
+- Plunging teddy: "plunging sheer teddy lingerie with deep V-neck exposing cleavage down to navel, open back, and high-cut leg openings"
+- Sheer babydoll: "ultra-short sheer babydoll barely covering ass with see-through lace cups exposing nipples and underboob, plus matching G-string"
+- Strappy corset: "strappy lace corset pushing breasts up with exposed cleavage, garter belts attached to stockings, and skimpy lace panties"
+- Open-cup bra: "revealing open-cup bra with underwire framing bare breasts, nipples fully exposed, paired with crotchless lace panties"
+- Sheer chemise: "sheer silk chemise nightie with lace trim, nipples visible through thin fabric, barely covering ass"
+- Cupless bodysuit: "cupless sheer bodysuit with open breast area exposing nipples, see-through mesh torso, and thong back"
+- Lace bralette: "ultra-sheer lace bralette with visible nipples through delicate fabric paired with high-waist lace thong showing curves"
+- Fishnet bodysuit: "fishnet bodysuit lingerie with large net holes exposing skin all over, barely covering nipples and crotch"
+
+**DETAILED FANTASY/ROLEPLAY OUTFIT DESCRIPTIONS (Use specific, sexy costume styles):**
+- Sexy succubus: "sexy succubus costume with revealing red leather corset pushing breasts up, tiny black horns, demon tail, and skimpy thong bottoms with garter straps"
+- Fantasy warrior: "revealing fantasy armor with metal bikini top barely covering breasts, leather straps across exposed torso, and minimal loincloth bottom exposing hips and ass"
+- French maid: "slutty French maid costume with ultra-short ruffled skirt barely covering ass, plunging neckline exposing cleavage, sheer black stockings with garters"
+- Naughty schoolgirl: "sexy schoolgirl uniform with tied white shirt exposing underboob and midriff, plaid micro-miniskirt rolled up showing ass, knee-high socks"
+- Nurse costume: "slutty nurse outfit with white mini-dress unzipped to navel showing cleavage and visible bra, hem barely covering ass, thigh-high white stockings"
+- Cheerleader: "revealing cheerleader uniform with tiny crop top exposing midriff and underboob, ultra-short pleated skirt showing ass when bent over"
+- Devil costume: "sexy devil outfit with red leather bustier pushing breasts up and exposing cleavage, tiny horns, pointed tail, and skimpy red thong with garters"
+- Playboy bunny: "classic Playboy bunny costume with black satin corset pushing breasts up, bunny ears, fluffy tail, fishnets, and high-cut leg openings exposing hips"
+- Gothic vampire: "sexy vampire costume with black velvet corset laced tight showing cleavage, sheer lace sleeves, leather mini-skirt with thigh-high boots"
+- Naughty catgirl: "sexy catgirl costume with black leather bra top with cat ears, collar with bell, tiny shorts showing ass cheeks, tail, and long gloves"
+- Sexy elf/fairy: "revealing fantasy elf costume with metallic green bikini top with leaf details, tiny leaf-pattern bottoms, pointed ears, translucent fairy wings"
+- Harley Quinn style: "sexy Harley Quinn inspired outfit with red and black crop top tied to expose underboob, booty shorts riding up showing ass, pigtails"
+- Slave Leia: "iconic metal bikini costume with gold bikini top connected by chains, matching bottom piece, bare midriff, sheer flowing skirt panels"
+- Latex dominatrix: "black latex dominatrix outfit with zipper-front catsuit unzipped to navel exposing cleavage, thigh-high boots, collar and leash"
+- Sexy witch: "revealing witch costume with black corset with buckles pushing breasts up, ultra-short skirt exposing thighs, fishnet stockings, pointed hat"
 
 ## ULTRA-MINIMAL FORMAT WITH BODY DETAILS:
 
@@ -51,46 +80,85 @@ Generate 3 prompts with DETAILED, REVEALING outfit descriptions:
 **Current Framing Format (BREAST SIZE ONLY - NO BUILD):**
 TRANSFORMATION 1: Replace [outfit] with [detailed revealing bikini]. [Breast size]. Detailed skin texture.
 TRANSFORMATION 2: Replace [outfit] with [detailed revealing lingerie]. [Breast size]. Detailed skin texture.
-TRANSFORMATION 3: Remove [specific clothing items from image], fully nude. [Breast size]. Detailed breasts and nipples. Detailed skin texture.
+TRANSFORMATION 3: Replace [outfit] with [detailed sexy fantasy/roleplay costume]. [Breast size]. Detailed skin texture.
+TRANSFORMATION 4: Remove [specific clothing items from image], fully nude. [Breast size]. Detailed breasts and nipples. Detailed skin texture.
+TRANSFORMATION 5: Replace [outfit] with [AI's creative choice - revealing/sexy but completely different from bikini/lingerie/fantasy]. [Breast size]. Detailed skin texture.
 
 ## EXAMPLE OUTPUT:
 
 **EXAMPLE 1: Woman wearing black spaghetti-strap sundress (medium-full bust C-D cup, medium build)**
 
 **TRANSFORMATION 1: BIKINI**
-Replace black spaghetti-strap sundress with black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms. Medium sized breasts (C-D cup). Detailed skin texture.
+Replace black spaghetti-strap sundress with black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass. Medium sized breasts (C-D cup). Detailed skin texture.
 
 **TRANSFORMATION 2: LINGERIE**
-Replace black spaghetti-strap sundress with sheer white mesh bodysuit lingerie with visible nipples through see-through lace panels and high-cut leg openings. Medium sized breasts (C-D cup). Detailed skin texture.
+Replace black spaghetti-strap sundress with completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area. Medium sized breasts (C-D cup). Detailed skin texture.
 
-**TRANSFORMATION 3: NUDE**
+**TRANSFORMATION 3: FANTASY**
+Replace black spaghetti-strap sundress with sexy succubus costume with revealing red leather corset pushing breasts up, tiny black horns, demon tail, and skimpy thong bottoms with garter straps. Medium sized breasts (C-D cup). Detailed skin texture.
+
+**TRANSFORMATION 4: NUDE**
 Remove black spaghetti-strap sundress, fully nude. Medium sized breasts (C-D cup). Detailed breasts and nipples. Detailed skin texture.
+
+**TRANSFORMATION 5: AI'S CHOICE**
+Replace black spaghetti-strap sundress with wet white tank top clinging to body showing visible nipples and areolas through soaked fabric paired with tiny denim shorts riding up. Medium sized breasts (C-D cup). Detailed skin texture.
 
 ---
 
 **EXAMPLE 2: Woman wearing white tank top and denim shorts (small breasts A-B cup, slim build)**
 
 **TRANSFORMATION 1: BIKINI**
-Replace white tank top and denim shorts with coral barely-there G-string bikini with tiny triangles covering only nipples and minimal string bottoms. Small breasts (A-B cup). Detailed skin texture.
+Replace white tank top and denim shorts with coral barely-there G-string bikini with tiny triangles covering only nipples and minimal string bottoms showing full ass. Small breasts (A-B cup). Detailed skin texture.
 
 **TRANSFORMATION 2: LINGERIE**
-Replace white tank top and denim shorts with pink revealing lace bra with sheer cups showing nipples through fabric and matching lace thong. Small breasts (A-B cup). Detailed skin texture.
+Replace white tank top and denim shorts with pink ultra-sheer lace bralette with visible nipples through delicate fabric paired with high-waist lace thong showing curves. Small breasts (A-B cup). Detailed skin texture.
 
-**TRANSFORMATION 3: NUDE**
+**TRANSFORMATION 3: FANTASY**
+Replace white tank top and denim shorts with naughty schoolgirl uniform with tied white shirt exposing underboob and midriff, plaid micro-miniskirt rolled up showing ass, knee-high socks. Small breasts (A-B cup). Detailed skin texture.
+
+**TRANSFORMATION 4: NUDE**
 Remove white tank top and denim shorts, fully nude. Small breasts (A-B cup). Detailed breasts and nipples. Detailed skin texture.
+
+**TRANSFORMATION 5: AI'S CHOICE**
+Replace white tank top and denim shorts with sheer black mesh crop top with visible nipples and ultra-low-rise leather mini-skirt barely covering ass. Small breasts (A-B cup). Detailed skin texture.
 
 ---
 
-**EXAMPLE 3: TWO WOMEN - Woman 1 wearing red blouse and jeans (medium breasts C cup), Woman 2 wearing blue dress (small breasts B cup)**
+**EXAMPLE 3: Woman wearing red off-shoulder crop top and high-waisted jeans (large breasts D+ cup)**
 
 **TRANSFORMATION 1: BIKINI**
-Subject 1: Replace red blouse and jeans with black micro string bikini with tiny triangle cups and thin side-tie thong bottoms. Medium sized breasts (C cup). Subject 2: Replace blue dress with white skimpy thong bikini with minimal coverage triangle top and Brazilian thong bottoms. Small breasts (B cup). Detailed skin texture.
+Replace red off-shoulder crop top and high-waisted jeans with turquoise halter neck micro bikini with tiny cups straining over breasts and G-string bottoms. Large breasts (D+ cup). Detailed skin texture.
 
 **TRANSFORMATION 2: LINGERIE**
-Subject 1: Replace red blouse and jeans with sheer black bodysuit lingerie with visible nipples through see-through lace panels. Medium sized breasts (C cup). Subject 2: Replace blue dress with pink revealing lace bra with sheer cups showing nipples through fabric and matching thong. Small breasts (B cup). Detailed skin texture.
+Replace red off-shoulder crop top and high-waisted jeans with black plunging sheer teddy lingerie with deep V-neck exposing cleavage down to navel, open back, and high-cut leg openings. Large breasts (D+ cup). Detailed skin texture.
 
-**TRANSFORMATION 3: NUDE**
+**TRANSFORMATION 3: FANTASY**
+Replace red off-shoulder crop top and high-waisted jeans with classic Playboy bunny costume with black satin corset pushing breasts up, bunny ears, fluffy tail, fishnets, and high-cut leg openings exposing hips. Large breasts (D+ cup). Detailed skin texture.
+
+**TRANSFORMATION 4: NUDE**
+Remove red off-shoulder crop top and high-waisted jeans, fully nude. Large breasts (D+ cup). Detailed breasts and nipples. Detailed skin texture.
+
+**TRANSFORMATION 5: AI'S CHOICE**
+Replace red off-shoulder crop top and high-waisted jeans with tight white sports bra straining over breasts and ultra-short spandex shorts riding up showing ass cheeks. Large breasts (D+ cup). Detailed skin texture.
+
+---
+
+**EXAMPLE 4: TWO WOMEN - Woman 1 wearing red blouse and jeans (medium breasts C cup), Woman 2 wearing blue dress (small breasts B cup)**
+
+**TRANSFORMATION 1: BIKINI**
+Subject 1: Replace red blouse and jeans with black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass. Medium sized breasts (C cup). Subject 2: Replace blue dress with white barely-there G-string bikini with tiny triangles covering only nipples and minimal string bottoms showing full ass. Small breasts (B cup). Detailed skin texture.
+
+**TRANSFORMATION 2: LINGERIE**
+Subject 1: Replace red blouse and jeans with completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area. Medium sized breasts (C cup). Subject 2: Replace blue dress with pink revealing lace bra with ultra-sheer cups showing nipples and areolas through fabric paired with matching lace thong. Small breasts (B cup). Detailed skin texture.
+
+**TRANSFORMATION 3: FANTASY**
+Subject 1: Replace red blouse and jeans with slutty French maid costume with ultra-short ruffled skirt barely covering ass, plunging neckline exposing cleavage, sheer black stockings with garters. Medium sized breasts (C cup). Subject 2: Replace blue dress with revealing cheerleader uniform with tiny crop top exposing midriff and underboob, ultra-short pleated skirt showing ass when bent over. Small breasts (B cup). Detailed skin texture.
+
+**TRANSFORMATION 4: NUDE**
 Subject 1: Remove red blouse and jeans, fully nude. Medium sized breasts (C cup). Subject 2: Remove blue dress, fully nude. Small breasts (B cup). Both fully nude. Detailed breasts and nipples. Detailed skin texture.
+
+**TRANSFORMATION 5: AI'S CHOICE**
+Subject 1: Replace red blouse and jeans with torn fishnet bodysuit with ripped holes exposing nipples and skin, black leather micro-shorts. Medium sized breasts (C cup). Subject 2: Replace blue dress with strappy black bandage dress with cutouts exposing underboob and sides, hem barely covering ass. Small breasts (B cup). Detailed skin texture.
 
 ## KEY REQUIREMENTS:
 
@@ -118,16 +186,21 @@ Subject 1: Remove red blouse and jeans, fully nude. Medium sized breasts (C cup)
    - For nude prompt: "Subject 1: Remove [exact clothing], fully nude. Subject 2: Remove [exact clothing], fully nude."
    - DO NOT say "Remove all clothing" - be specific for each person!
 
-5. **DETAILED BIKINI/LINGERIE DESCRIPTIONS:**
+5. **DETAILED BIKINI/LINGERIE DESCRIPTIONS (CRITICAL!):**
    - **NEVER use generic descriptions** like "black bikini" or "red lingerie"
-   - **ALWAYS use detailed, revealing descriptions** emphasizing minimal coverage, sheer fabric, exposed areas
+   - **ALWAYS use ULTRA-DETAILED, REVEALING descriptions** from the lists above, emphasizing:
+     - Specific style name (micro string, G-string, bandeau, sheer bodysuit, teddy, babydoll, etc.)
+     - How revealing it is (barely covering, exposing, visible through, see-through, etc.)
+     - What body parts are exposed/visible (nipples, ass, underboob, cleavage, crotch, etc.)
    - Examples:
      - ❌ BAD: "black string bikini"
-     - ✅ GOOD: "black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms"
+     - ✅ GOOD: "black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass"
      - ❌ BAD: "red lace lingerie"
-     - ✅ GOOD: "red revealing lace bra with sheer cups showing nipples through fabric and matching lace thong"
-   - Include specific details: "sheer", "see-through", "barely covering", "minimal coverage", "exposed", "visible through", "high-cut", "low-rise"
-   - **For multiple subjects:** Give each person DIFFERENT bikini/lingerie styles and colors
+     - ✅ GOOD: "red revealing lace bra with ultra-sheer cups showing nipples and areolas through fabric paired with matching lace thong"
+     - ❌ BAD: "white bodysuit"
+     - ✅ GOOD: "completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area"
+   - **Choose from the expanded lists above** - 10 bikini styles and 10 lingerie styles with full descriptions
+   - **For multiple subjects:** Give each person DIFFERENT bikini/lingerie styles and colors, both with full detailed descriptions
 
 6. **CONCISE FORMAT:** 
    - **Single subject prompts:** Follow standard word counts (15-30 words)
@@ -199,50 +272,67 @@ def get_undress_transformation_prompt(image_analysis: str) -> str:
 
 ## YOUR TASK:
 
-Based on the image analysis above, generate exactly 3 ultra-minimal clothing transformation prompts:
+Based on the image analysis above, generate exactly 5 ultra-minimal clothing transformation prompts:
 
-**Current Framing (3 prompts - no zoom out):**
+**Current Framing (5 prompts - no zoom out):**
 1. **TRANSFORMATION 1: BIKINI** - Replace outfit with detailed revealing bikini
 2. **TRANSFORMATION 2: LINGERIE** - Replace outfit with detailed revealing lingerie
-3. **TRANSFORMATION 3: NUDE** - Remove all clothing
+3. **TRANSFORMATION 3: FANTASY** - Replace outfit with detailed sexy fantasy/roleplay costume
+4. **TRANSFORMATION 4: NUDE** - Remove all clothing
+5. **TRANSFORMATION 5: AI'S CHOICE** - Replace outfit with creative revealing/sexy choice (completely different from 1-3)
 
 **RULES:**
 - **CRITICAL:** Include ONLY breast size (NO build info!)
-- **CRITICAL: DETAILED REVEALING DESCRIPTIONS FOR ALL BIKINI/LINGERIE PROMPTS!**
-  - **NEVER** say just "black bikini" or "red lingerie"
-  - **ALWAYS** include detailed description: style + revealing features + what's exposed
-  - Use options from the lists above (micro string bikini, G-string bikini, sheer bodysuit, teddy, babydoll, etc.)
-  - Specify revealing details: "sheer", "see-through", "barely covering", "minimal coverage", "visible through fabric", "exposed underboob", etc.
+- **CRITICAL: ULTRA-DETAILED REVEALING DESCRIPTIONS FOR ALL BIKINI/LINGERIE PROMPTS!**
+  - **NEVER** say just "black bikini", "red lingerie", "white bodysuit", or any generic description
+  - **ALWAYS** include FULL detailed description following this format:
+    - **Style name** (micro string bikini, G-string bikini, halter micro bikini, sheer bodysuit, plunging teddy, etc.)
+    - **Revealing features** (sheer, see-through, barely covering, minimal coverage, ultra-sheer cups, tiny triangles, etc.)
+    - **What's exposed/visible** (nipples visible through fabric, ass exposed, underboob showing, cleavage down to navel, crotch area visible, etc.)
+  - **Choose from the expanded lists above** with 10 bikini styles and 10 lingerie styles
+  - Every bikini/lingerie description must be AT LEAST 12-20 words and include all three elements above
 - **ALWAYS include:**
   - ALL prompts: End with "Detailed skin texture."
   - NUDE prompt (3): Reference EXACT clothing from image + "fully nude" + "Detailed breasts and nipples." + "Detailed skin texture."
 - **Terminology:** Use "breasts" NOT "chest" - e.g., "Small breasts (A-B cup)", "Medium sized breasts (C-D cup)"
-- Format (1-2): "Replace X with [DETAILED revealing bikini/lingerie description]. [Breast size]. Detailed skin texture." (15-25 words)
-- Format (3): "Remove [specific clothing from image], fully nude. [Breast size]. Detailed breasts and nipples. Detailed skin texture." (13-20 words)
+- Format (1-2, 3, 5): "Replace X with [ULTRA-DETAILED revealing outfit description with style + revealing features + what's exposed]. [Breast size]. Detailed skin texture." (20-35 words for single subject, 35-50 words for multiple subjects)
+- Format (4): "Remove [specific clothing from image], fully nude. [Breast size]. Detailed breasts and nipples. Detailed skin texture." (13-20 words for single subject)
+- Transformation 3 must be a FANTASY/ROLEPLAY costume (choose from the 15 options above)
+- Transformation 5 must be AI's CREATIVE CHOICE - revealing/sexy but completely different from bikini/lingerie/fantasy categories (e.g., wet clothes, torn clothes, sports wear, club wear, etc.)
 - NO preservation statements
 - NO "Do not alter..." phrases
 
 **EXTRACT FROM IMAGE ANALYSIS:**
 - **NUMBER OF SUBJECTS:** First, check if 1 person or multiple people. This determines format!
 - **CLOTHING** (for EACH subject if multiple): Look for clothing descriptions - e.g., "black sundress", "Subject 1: white tank top and jeans", "Subject 2: blue dress"
-  - USE EXACT CLOTHING DESCRIPTION FOR EACH SUBJECT IN ALL 3 PROMPTS!
-  - For nude prompt (3): Reference each person's specific clothing
-- **Breast size** (for EACH subject): Look for "chest", "bust", "cup size" in the analysis - USE FOR ALL 3 PROMPTS (convert to "breasts" terminology!)
+  - USE EXACT CLOTHING DESCRIPTION FOR EACH SUBJECT IN ALL 5 PROMPTS!
+  - For nude prompt (4): Reference each person's specific clothing
+- **Breast size** (for EACH subject): Look for "chest", "bust", "cup size" in the analysis - USE FOR ALL 5 PROMPTS (convert to "breasts" terminology!)
 
 **REMEMBER:**
 - **SINGLE SUBJECT:**
-  - Prompts 1-2: Replace outfit with **[DETAILED REVEALING bikini/lingerie description]** + breast size + "Detailed skin texture"
-  - Prompt 3: "Remove [exact clothing], fully nude" + breast size + "Detailed breasts and nipples" + "Detailed skin texture"
+  - Prompts 1-2: Replace outfit with **[ULTRA-DETAILED REVEALING bikini/lingerie description: style name + revealing features + what's exposed (12-20 words)]** + breast size + "Detailed skin texture"
+  - Prompt 3: Replace outfit with **[ULTRA-DETAILED FANTASY/ROLEPLAY costume from the 15 options above]** + breast size + "Detailed skin texture"
+  - Prompt 4: "Remove [exact clothing], fully nude" + breast size + "Detailed breasts and nipples" + "Detailed skin texture"
+  - Prompt 5: Replace outfit with **[AI'S CREATIVE CHOICE - revealing/sexy but different from bikini/lingerie/fantasy]** + breast size + "Detailed skin texture"
 
 - **MULTIPLE SUBJECTS:**
-  - Use "Subject 1: [transformation]. Subject 2: [transformation]." format for ALL 3 prompts
-  - Each subject gets their own: clothing → outfit change → breast size
-  - Give each subject DIFFERENT bikini/lingerie styles and colors
-  - For nude prompt: Specify each person's clothing removal, then add "Both/All fully nude."
+  - Use "Subject 1: [transformation]. Subject 2: [transformation]." format for ALL 5 prompts
+  - Each subject gets their own: clothing → **ULTRA-DETAILED outfit change with full description** → breast size
+  - Give each subject DIFFERENT styles AND colors for prompts 1, 2, 3, and 5, all with FULL detailed descriptions (12-20 words each)
+  - For nude prompt (4): Specify each person's clothing removal, then add "Both/All fully nude."
 
 **IMPORTANT:** 
-- Both bikini/lingerie prompts (1 & 2) MUST have detailed, revealing descriptions with specific styles and exposed areas mentioned!
+- Prompts 1, 2, 3, and 5 ALL MUST have ULTRA-DETAILED, REVEALING descriptions including:
+  - ✅ Specific style name (from the lists above or creative for prompt 5)
+  - ✅ Revealing features (sheer, see-through, barely covering, ultra-sheer, tiny, minimal, etc.)
+  - ✅ What's exposed/visible (nipples, ass, underboob, cleavage, crotch, areolas, etc.)
+  - ✅ Each description must be 12-20 words minimum
+- **Prompt 3:** MUST be a fantasy/roleplay costume from the 15 options above
+- **Prompt 5:** MUST be AI's creative choice - revealing/sexy but completely different from bikini (1), lingerie (2), and fantasy (3)
+  - Examples for prompt 5: wet clothes, torn clothes, sports wear, club wear, body paint, see-through casual wear, etc.
 - For multiple subjects, account for ALL people in the image - don't skip anyone!
+- **Use the expanded lists above** - 10 bikini styles, 10 lingerie styles, 15 fantasy styles!
 
 Generate now:
 """
