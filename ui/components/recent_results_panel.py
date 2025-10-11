@@ -15,6 +15,7 @@ from PIL import Image, ImageTk
 import os
 import json
 import glob
+from pathlib import Path
 from datetime import datetime
 import threading
 from core.logger import get_logger
@@ -85,7 +86,7 @@ class RecentResultsPanel:
     def setup_header(self):
         """Setup header with title and controls"""
         header_frame = ttk.Frame(self.panel_frame)
-        header_frame.pack(fill=tk.X, padx=3, pady=(0, 0))  # No top padding
+        header_frame.pack(fill=tk.X, padx=(3, 0), pady=(0, 0))  # Left padding only, no right gap
         
         # Title with icon
         title_label = ttk.Label(
@@ -125,7 +126,7 @@ class RecentResultsPanel:
     def setup_filter_section(self):
         """Setup filter controls"""
         filter_frame = ttk.Frame(self.panel_frame)
-        filter_frame.pack(fill=tk.X, padx=3, pady=(3, 0))
+        filter_frame.pack(fill=tk.X, padx=(3, 0), pady=(3, 0))  # Left padding only, no right gap
         
         ttk.Label(filter_frame, text="Filter:", font=('Arial', 8)).pack(side=tk.LEFT)
         
@@ -145,7 +146,7 @@ class RecentResultsPanel:
         """Setup enhanced scrollable area for results grid with proper height constraint"""
         # Create canvas frame (will constrain to available height)
         canvas_frame = ttk.Frame(self.panel_frame)
-        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=3, pady=(3, 0))
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=(0, 0))  # No padding to eliminate gaps
         
         # Canvas and scrollbar (canvas height will be constrained by parent)
         self.canvas = tk.Canvas(canvas_frame, highlightthickness=0, bg='#f8f8f8', height=1)
@@ -162,21 +163,28 @@ class RecentResultsPanel:
         self.canvas.configure(yscrollcommand=scrollbar.set)
         
         # Pack canvas and scrollbar (canvas will expand to fill available space)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        # Canvas on left, scrollbar flush on right edge
+        self.canvas.pack(side="left", fill="both", expand=True, padx=0, pady=0)
+        scrollbar.pack(side="right", fill="y", padx=0, pady=0)
         
         # Bind events
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
         self.canvas.bind('<Configure>', self.on_canvas_configure)
         
-        # Results grid frame
+        # Bind mousewheel to scrollable frame as well (so it works when hovering over content)
+        self.scrollable_frame.bind("<MouseWheel>", self._on_mousewheel)
+        
+        # Results grid frame - minimal padding to avoid gap near scrollbar
         self.results_grid = ttk.Frame(self.scrollable_frame)
-        self.results_grid.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+        self.results_grid.pack(fill=tk.BOTH, expand=True, padx=(3, 0), pady=2)  # Left padding only
+        
+        # Bind mousewheel to results grid too
+        self.results_grid.bind("<MouseWheel>", self._on_mousewheel)
     
     def setup_status_bar(self):
         """Setup status bar at bottom"""
         status_frame = ttk.Frame(self.panel_frame)
-        status_frame.pack(fill=tk.X, padx=3, pady=(0, 3))
+        status_frame.pack(fill=tk.X, padx=(3, 0), pady=(0, 3))  # Left padding only, no right gap
         
         # Results count
         self.count_label = ttk.Label(
@@ -542,6 +550,10 @@ class RecentResultsPanel:
             parent.bind("<Enter>", on_enter)
             parent.bind("<Leave>", on_leave)
             
+            # Bind mousewheel to all item widgets for smooth scrolling
+            for widget in [parent, img_button, main_frame, info_frame, tab_label, time_label]:
+                widget.bind("<MouseWheel>", self._on_mousewheel)
+            
         except Exception as e:
             logger.error(f"Error creating result item: {e}")
             # Create error placeholder
@@ -641,14 +653,50 @@ class RecentResultsPanel:
         except Exception as e:
             logger.error(f"Error loading into Seedream: {e}")
     
-    def _try_load_into_tab(self, current_tab, result):
-        """Try various methods to load image into a tab"""
+    def _get_input_image_from_metadata(self, result):
+        """Get the input image path from the result's metadata JSON file"""
         try:
+            # Construct the JSON metadata file path
+            image_path = result['image_path']
+            json_path = str(Path(image_path).with_suffix('.json'))
+            
+            # Read the metadata
+            if Path(json_path).exists():
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    metadata = json.load(f)
+                    
+                # Try to get input image path
+                input_path = metadata.get('input_image_path')
+                
+                # Verify the input image exists
+                if input_path and Path(input_path).exists():
+                    return input_path
+                else:
+                    logger.debug(f"Input image path from metadata doesn't exist: {input_path}")
+            else:
+                logger.debug(f"Metadata JSON not found: {json_path}")
+                
+        except Exception as e:
+            logger.error(f"Error reading metadata for input image: {e}")
+        
+        return None
+    
+    def _try_load_into_tab(self, current_tab, result):
+        """Try various methods to load INPUT image (not result) into a tab"""
+        try:
+            # First, get the INPUT image path from the metadata
+            input_image_path = self._get_input_image_from_metadata(result)
+            
+            if not input_image_path:
+                logger.warning(f"No input image found in metadata for {result['filename']}")
+                # Fallback to showing the result image itself
+                input_image_path = result['image_path']
+            
             # 1. Try improved_layout first (new refactored system for Seedream V4)
             if hasattr(current_tab, 'improved_layout') and hasattr(current_tab.improved_layout, 'load_image'):
                 try:
-                    current_tab.improved_layout.load_image(result['image_path'])
-                    logger.info(f"✓ Loaded image into improved layout: {result['filename']}")
+                    current_tab.improved_layout.load_image(input_image_path)
+                    logger.info(f"✓ Loaded INPUT image into improved layout from: {Path(input_image_path).name}")
                     return
                 except Exception as e:
                     logger.debug(f"Could not use improved_layout: {e}")
@@ -657,28 +705,28 @@ class RecentResultsPanel:
             if hasattr(current_tab, 'on_image_selected'):
                 try:
                     # Try with replacing_image parameter first
-                    current_tab.on_image_selected(result['image_path'], replacing_image=True)
-                    logger.info(f"✓ Loaded image via on_image_selected: {result['filename']}")
+                    current_tab.on_image_selected(input_image_path, replacing_image=True)
+                    logger.info(f"✓ Loaded INPUT image via on_image_selected from: {Path(input_image_path).name}")
                     return
                 except TypeError:
                     # Fallback to without the parameter
-                    current_tab.on_image_selected(result['image_path'])
-                    logger.info(f"✓ Loaded image via on_image_selected: {result['filename']}")
+                    current_tab.on_image_selected(input_image_path)
+                    logger.info(f"✓ Loaded INPUT image via on_image_selected from: {Path(input_image_path).name}")
                     return
                 except Exception as e:
                     logger.debug(f"Could not use on_image_selected: {e}")
             
             # 3. Try optimized_layout (older system)
             if hasattr(current_tab, 'optimized_layout') and hasattr(current_tab.optimized_layout, 'update_input_image'):
-                success = current_tab.optimized_layout.update_input_image(result['image_path'])
+                success = current_tab.optimized_layout.update_input_image(input_image_path)
                 if success:
-                    logger.info(f"✓ Loaded image via optimized_layout: {result['filename']}")
+                    logger.info(f"✓ Loaded INPUT image via optimized_layout from: {Path(input_image_path).name}")
                     return
             
             # 4. Try image_selector
             if hasattr(current_tab, 'image_selector') and hasattr(current_tab.image_selector, 'update_image'):
-                current_tab.image_selector.update_image(result['image_path'])
-                logger.info(f"✓ Loaded image via image_selector: {result['filename']}")
+                current_tab.image_selector.update_image(input_image_path)
+                logger.info(f"✓ Loaded INPUT image via image_selector from: {Path(input_image_path).name}")
                 return
             
             # No method worked

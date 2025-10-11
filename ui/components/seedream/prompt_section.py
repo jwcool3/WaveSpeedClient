@@ -123,71 +123,70 @@ class PromptSectionManager:
         """Setup the tools row with AI and prompt management buttons"""
         tools_frame = ttk.Frame(self.prompt_frame)
         tools_frame.grid(row=0, column=0, sticky="ew", pady=(0, 6))
-        tools_frame.columnconfigure(2, weight=1)
         
-        # AI assistance tools
-        ai_frame = ttk.Frame(tools_frame)
-        ai_frame.grid(row=0, column=0, sticky="w")
+        # Configure columns to expand and fill space together
+        for i in range(7):  # 7 buttons total
+            tools_frame.columnconfigure(i, weight=1, uniform="buttons")
+        
+        # Create all buttons directly in tools_frame for cohesive layout
+        col = 0
         
         # AI Improve button
         ai_btn = ttk.Button(
-            ai_frame,
+            tools_frame,
             text="🤖 AI Improve",
-            command=self.improve_with_ai,
-            width=12
+            command=self.improve_with_ai
         )
-        ai_btn.pack(side=tk.LEFT, padx=(0, 4))
+        ai_btn.grid(row=0, column=col, sticky="ew", padx=(0, 1))
         if not self.ai_available:
             ai_btn.config(state='disabled')
+        col += 1
         
-        # Advanced tools (filter training - will be moved to filter module in Phase 4)
-        advanced_frame = ttk.Frame(tools_frame)
-        advanced_frame.grid(row=0, column=1, sticky="w", padx=(8, 0))
-        
+        # Mild button
         mild_btn = ttk.Button(
-            advanced_frame,
+            tools_frame,
             text="🔥 Mild",
-            command=self._generate_mild_examples_placeholder,
-            width=6
+            command=self._generate_mild_examples_placeholder
         )
-        mild_btn.pack(side=tk.LEFT, padx=(0, 2))
+        mild_btn.grid(row=0, column=col, sticky="ew", padx=1)
         self._create_tooltip(mild_btn, "Generate mild filter training examples")
+        col += 1
         
+        # Moderate button
         moderate_btn = ttk.Button(
-            advanced_frame,
+            tools_frame,
             text="⚡ Moderate",
-            command=self._generate_moderate_examples_placeholder,
-            width=8
+            command=self._generate_moderate_examples_placeholder
         )
-        moderate_btn.pack(side=tk.LEFT, padx=(0, 2))
+        moderate_btn.grid(row=0, column=col, sticky="ew", padx=1)
         self._create_tooltip(moderate_btn, "Generate sophisticated moderate examples")
+        col += 1
         
+        # Undress button
         undress_btn = ttk.Button(
-            advanced_frame,
+            tools_frame,
             text="👗 Undress",
-            command=self._generate_undress_transformations_placeholder,
-            width=8
+            command=self._generate_undress_transformations_placeholder
         )
-        undress_btn.pack(side=tk.LEFT, padx=(0, 4))
+        undress_btn.grid(row=0, column=col, sticky="ew", padx=1)
         self._create_tooltip(undress_btn, "Generate undress transformation prompts")
+        col += 1
         
-        # Prompt management
-        mgmt_frame = ttk.Frame(tools_frame)
-        mgmt_frame.grid(row=0, column=3, sticky="e")
-        
+        # Save button
         ttk.Button(
-            mgmt_frame,
+            tools_frame,
             text="💾 Save",
-            command=self.save_preset,
-            width=6
-        ).pack(side=tk.LEFT, padx=(0, 2))
+            command=self.save_preset
+        ).grid(row=0, column=col, sticky="ew", padx=1)
+        col += 1
         
+        # Load button
         ttk.Button(
-            mgmt_frame,
+            tools_frame,
             text="📋 Load",
-            command=self.show_prompt_browser,
-            width=6
-        ).pack(side=tk.LEFT)
+            command=self.show_prompt_browser
+        ).grid(row=0, column=col, sticky="ew", padx=(1, 0))
+        col += 1
     
     def _setup_prompt_text_area(self) -> None:
         """Setup the main prompt text area with scrollbar"""

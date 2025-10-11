@@ -52,14 +52,14 @@ class SettingsPanelManager:
         self.locked_aspect_ratio = None
         self._updating_size = False  # Flag to prevent recursion
         
-        # Size presets - multipliers based on input image
+        # Size presets - multipliers based on CURRENT generation resolution (not input image)
         self.size_presets = [
             ("1.5x", 1.5),
             ("2x", 2.0),
             ("2.5x", 2.5)
         ]
         
-        # Store original image dimensions for multiplier calculations
+        # Store original image dimensions (for auto-set and reference only, not for multipliers)
         self.original_image_width = None
         self.original_image_height = None
         
@@ -576,17 +576,23 @@ class SettingsPanelManager:
             self.locked_aspect_ratio = None
     
     def set_size_multiplier(self, multiplier: float) -> None:
-        """Set size based on multiplier of original image"""
+        """Set size based on multiplier of CURRENT generation resolution (not original image)"""
         try:
-            if not self.original_image_width or not self.original_image_height:
+            # Get CURRENT generation resolution settings (not original image!)
+            current_width = self.width_var.get()
+            current_height = self.height_var.get()
+            
+            # Validate current settings exist
+            if not current_width or not current_height or current_width < 256 or current_height < 256:
                 messagebox.showwarning(
-                    "No Reference Image", 
-                    "Load an image first to use size multipliers"
+                    "Invalid Resolution", 
+                    "Please set a valid generation resolution first (or load an image)"
                 )
                 return
             
-            new_width = int(self.original_image_width * multiplier)
-            new_height = int(self.original_image_height * multiplier)
+            # Calculate new dimensions based on CURRENT generation resolution
+            new_width = int(current_width * multiplier)
+            new_height = int(current_height * multiplier)
             
             # Clamp to valid ranges
             new_width = max(256, min(4096, new_width))
@@ -606,9 +612,10 @@ class SettingsPanelManager:
             
             if hasattr(self.parent_layout, 'log_message'):
                 self.parent_layout.log_message(
-                    f"📐 Size set to {multiplier}x: {new_width} x {new_height}"
+                    f"📐 Resolution scaled {multiplier}x: {current_width}×{current_height} → {new_width}×{new_height}"
                 )
             
+            logger.info(f"Resolution multiplier {multiplier}x: {current_width}×{current_height} → {new_width}×{new_height}")
             self._on_setting_changed()
             
         except Exception as e:
@@ -616,20 +623,26 @@ class SettingsPanelManager:
             messagebox.showerror("Error", f"Failed to set size multiplier: {str(e)}")
     
     def show_custom_scale_dialog(self) -> None:
-        """Show custom scale multiplier dialog"""
+        """Show custom scale multiplier dialog based on CURRENT generation resolution"""
         try:
-            if not self.original_image_width or not self.original_image_height:
+            # Get CURRENT generation resolution settings
+            current_width = self.width_var.get()
+            current_height = self.height_var.get()
+            
+            # Validate current settings exist
+            if not current_width or not current_height or current_width < 256 or current_height < 256:
                 messagebox.showwarning(
-                    "No Reference Image", 
-                    "Load an image first to use custom scaling"
+                    "Invalid Resolution", 
+                    "Please set a valid generation resolution first (or load an image)"
                 )
                 return
             
             # Get custom multiplier from user
             multiplier_str = simpledialog.askstring(
                 "Custom Scale",
-                f"Enter scale multiplier for {self.original_image_width}x{self.original_image_height}:\n"
-                "(e.g., 1.5 for 1.5x size)",
+                f"Enter scale multiplier for current resolution:\n"
+                f"{current_width}×{current_height}\n\n"
+                f"(e.g., 1.5 for 1.5x size, 0.5 for half size)",
                 initialvalue="2.0"
             )
             
@@ -1263,7 +1276,7 @@ class SettingsPanelManager:
     
     def validate_integer(self, value: str) -> bool:
         """
-        Validate that the input is a positive integer within valid range (256-4096).
+        Validate that the input is a positive integer (allows partial input while typing).
         
         Args:
             value: String value to validate
@@ -1276,7 +1289,8 @@ class SettingsPanelManager:
         
         try:
             int_value = int(value)
-            return 256 <= int_value <= 4096  # Fixed: Match entry validation range
+            # Allow any positive integer while typing - range validation happens on FocusOut
+            return int_value >= 0  # Just check it's a valid non-negative integer
         except ValueError:
             return False
     

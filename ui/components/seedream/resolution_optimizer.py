@@ -168,9 +168,9 @@ class SeedreamResolutionOptimizer:
             search_pool = [r for r in self.all_resolutions if r['tier'] == prefer_tier]
         
         # Find best match based on:
-        # 1. STRONGLY prefer same tier (keep similar size/quality)
-        # 2. Aspect ratio match (fix the ratio within the same tier)
-        # 3. Minimal dimensional changes
+        # 1. PRIMARY: Match aspect ratio as closely as possible
+        # 2. SECONDARY: Minimize dimensional changes (prefer closest size)
+        # 3. TERTIARY: Prefer not changing tiers (but allow if needed for better aspect ratio)
         best_match = None
         best_score = float('inf')
         
@@ -178,17 +178,11 @@ class SeedreamResolutionOptimizer:
         current_tier = "2M" if target_pixels >= 2000000 else "1M" if target_pixels >= 1000000 else "100K"
         
         logger.debug(f"Finding recommendation for {width}×{height} ({target_pixels:,} pixels, tier: {current_tier})")
+        logger.debug(f"🎯 New strategy: Prioritizing aspect ratio match with minimal dimensional changes")
         
-        # First, try to find best match within SAME tier (unless user specifically chose tiny resolution)
-        preferred_pool = [r for r in search_pool if r['tier'] == current_tier]
-        if not preferred_pool and current_tier != "100K":
-            # If no matches in current tier, expand search
-            logger.debug(f"No matches in {current_tier} tier, expanding search to all tiers")
-            preferred_pool = search_pool
-        elif not preferred_pool:
-            preferred_pool = search_pool
-        else:
-            logger.debug(f"Searching within {current_tier} tier ({len(preferred_pool)} resolutions)")
+        # Search ALL resolutions - don't limit by tier initially
+        # We want the best aspect ratio match, even if it means changing tiers
+        preferred_pool = search_pool
         
         for recommended in preferred_pool:
             # Check if we need to compare with portrait orientation
@@ -216,20 +210,36 @@ class SeedreamResolutionOptimizer:
                 rec_ratio = rec_width / rec_height
                 ratio_diff = abs(ratio_target - rec_ratio)
             
-            # Tier matching - HEAVILY prefer same tier (user's chosen size is king!)
-            # If different tier, add massive penalty to prevent tier changes
-            tier_penalty = 0 if recommended['tier'] == current_tier else 500  # Massive penalty for tier change!
+            # NEW SCORING STRATEGY:
+            # 1. PRIMARY: Aspect ratio match (1000x weight) - most important!
+            # 2. SECONDARY: Minimal dimensional changes (100x weight)
+            #    - Prefer smaller changes
+            #    - Slightly prefer reductions over increases (but both are ok)
+            # 3. TERTIARY: Tier matching (10x weight) - least important now
             
-            # Dimensional distance (how much width/height changes)
-            # Keep this small to avoid drastic size changes
-            dim_change_pct = (abs(width - rec_width) / width + abs(height - rec_height) / height) / 2
+            # Tier matching - small bonus for staying in same tier
+            tier_bonus = 0 if recommended['tier'] == current_tier else 10  # Small penalty for tier change
+            
+            # Dimensional distance (how much width/height changes in absolute pixels)
+            # Use absolute pixel changes instead of percentages for more intuitive scaling
+            width_change = abs(width - rec_width)
+            height_change = abs(height - rec_height)
+            total_dim_change = width_change + height_change
+            
+            # Normalize dimensional change to 0-1 scale (assuming max change of 1000 pixels is significant)
+            dim_change_score = total_dim_change / 1000.0
             
             # Combined score:
-            # - Tier matching is HIGHEST priority (500 point penalty for tier change)
-            # - Aspect ratio difference is secondary (100x weight - still important)
-            # - Dimensional change is tertiary (50x weight)
-            # Goal: Fix aspect ratio WITHOUT changing size tier
-            score = tier_penalty + (ratio_diff * 100) + (dim_change_pct * 50)
+            # - Aspect ratio difference: 1000x weight (HIGHEST priority - must match aspect ratio!)
+            # - Dimensional change: 100x weight (minimize changes)
+            # - Tier matching: 10x weight (nice to have, but not critical)
+            # Goal: Match aspect ratio with MINIMAL reduction
+            score = (ratio_diff * 1000) + (dim_change_score * 100) + tier_bonus
+            
+            # Debug logging for top candidates
+            if score < best_score * 2:  # Log competitive options
+                logger.debug(f"  Candidate: {rec_width}×{rec_height} ({recommended['ratio']} {recommended['tier']}) | "
+                           f"Score: {score:.2f} (ratio: {ratio_diff:.4f}, dim_change: {total_dim_change}px, tier: {tier_bonus})")
             
             if score < best_score:
                 best_score = score
@@ -267,7 +277,8 @@ class SeedreamResolutionOptimizer:
             adjusted_recommendation['ratio'] = f"{best_match['ratio']} Portrait"
         
         logger.info(f"✨ Recommended: {rec_width}×{rec_height} ({adjusted_recommendation['ratio']} {best_match['tier']}) "
-                    f"for input {width}×{height} | Change: {pixel_change_pct:+.1f}% pixels")
+                    f"for input {width}×{height} | Dimensional change: {width_diff:+d}×{height_diff:+d} pixels | "
+                    f"Pixel change: {pixel_change_pct:+.1f}%")
         
         return {
             'recommended': adjusted_recommendation,
