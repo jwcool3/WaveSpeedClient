@@ -245,8 +245,16 @@ class ActionsHandlerManager:
     def _validate_inputs(self) -> bool:
         """Validate inputs before processing"""
         try:
-            # Check for selected image
-            if not hasattr(self.parent_layout, 'selected_image_path') or not self.parent_layout.selected_image_path:
+            # Check for selected image (refactored to use image_manager)
+            has_image = False
+            if hasattr(self.parent_layout, 'image_manager') and hasattr(self.parent_layout.image_manager, 'selected_image_paths'):
+                paths = self.parent_layout.image_manager.selected_image_paths
+                has_image = bool(paths and len(paths) > 0)
+            elif hasattr(self.parent_layout, 'selected_image_path'):
+                # Fallback for backward compatibility
+                has_image = bool(self.parent_layout.selected_image_path)
+            
+            if not has_image:
                 messagebox.showerror("Missing Image", "Please select an input image.")
                 return False
             
@@ -334,8 +342,13 @@ class ActionsHandlerManager:
             if hasattr(self.parent_layout, 'prompt_text'):
                 settings['prompt'] = self.parent_layout.prompt_text.get("1.0", tk.END).strip()
             
-            # Get image path
-            if hasattr(self.parent_layout, 'selected_image_path'):
+            # Get image path (refactored to use image_manager)
+            if hasattr(self.parent_layout, 'image_manager') and hasattr(self.parent_layout.image_manager, 'selected_image_paths'):
+                paths = self.parent_layout.image_manager.selected_image_paths
+                if paths and len(paths) > 0:
+                    settings['image_path'] = paths[0]  # Use first image
+            elif hasattr(self.parent_layout, 'selected_image_path'):
+                # Fallback for backward compatibility
                 settings['image_path'] = self.parent_layout.selected_image_path
             
             # Get settings from settings manager if available
@@ -779,8 +792,10 @@ class ActionsHandlerManager:
             # Cancel any ongoing processing
             self.cancel_processing()
             
-            # Clear layout data
-            if hasattr(self.parent_layout, 'selected_image_path'):
+            # Clear layout data (refactored to use image_manager)
+            if hasattr(self.parent_layout, 'image_manager') and hasattr(self.parent_layout.image_manager, 'selected_image_paths'):
+                self.parent_layout.image_manager.selected_image_paths = []
+            elif hasattr(self.parent_layout, 'selected_image_path'):
                 self.parent_layout.selected_image_path = None
             
             if hasattr(self.parent_layout, 'result_image_path'):

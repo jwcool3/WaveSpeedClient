@@ -436,13 +436,25 @@ class FilterTrainingManager:
                     example_text.insert("1.0", prompt_text)
                     example_text.configure(state='normal')  # Allow selection
                     
+                    # Action buttons frame
+                    buttons_frame = ttk.Frame(example_frame)
+                    buttons_frame.pack(fill="x", pady=(5, 0))
+                    
                     # Copy button
                     copy_btn = ttk.Button(
-                        example_frame,
+                        buttons_frame,
                         text="📋 Copy",
                         command=lambda text=prompt_text: self._copy_to_clipboard(text)
                     )
-                    copy_btn.pack(anchor="e", pady=(5, 0))
+                    copy_btn.pack(side="left", padx=(0, 5))
+                    
+                    # Use This button
+                    use_btn = ttk.Button(
+                        buttons_frame,
+                        text="✅ Use This",
+                        command=lambda text=prompt_text: self._use_prompt(text, popup)
+                    )
+                    use_btn.pack(side="left")
             
             # Add initial examples
             add_examples_to_display(examples)
@@ -562,6 +574,74 @@ class FilterTrainingManager:
                 )
             )
     
+    def _generate_more_moderate_examples(self, popup_state, add_examples_callback, button) -> None:
+        """Generate 6 more moderate examples in background thread"""
+        try:
+            # Generate 6 more examples
+            new_examples = []
+            
+            if self.ai_available:
+                new_examples = self._generate_moderate_with_ai()
+            
+            if not new_examples and self.vocab_available:
+                new_examples = self._generate_moderate_with_vocab()
+            
+            if not new_examples:
+                # Fallback moderate examples
+                new_examples = [
+                    "Transform into swimwear with natural proportions",
+                    "Convert clothing to intimate attire while preserving pose",
+                    "Adjust to minimal coverage with detailed anatomy",
+                    "Modify outfit to revealing beachwear",
+                    "Change attire to form-fitting undergarments"
+                ][:6]
+            
+            # Limit to 6
+            new_examples = new_examples[:6]
+            
+            # Update UI on main thread
+            def update_display():
+                try:
+                    # Get current count
+                    current_count = len(popup_state['examples_list'])
+                    
+                    # Add new examples to list
+                    popup_state['examples_list'].extend(new_examples)
+                    
+                    # Add to display starting from current count + 1
+                    add_examples_callback(new_examples, starting_index=current_count + 1)
+                    
+                    # Update title
+                    new_count = len(popup_state['examples_list'])
+                    popup_state['title_label'].config(text=f"⚡ Filter Training - {new_count} Moderate Examples")
+                    
+                    # Scroll to bottom to show new examples
+                    popup_state['canvas'].yview_moveto(1.0)
+                    
+                    # Re-enable button
+                    button.config(state='normal', text="⚡ Generate More (6)")
+                    
+                    # Show success message
+                    self._show_tooltip(f"✅ Added {len(new_examples)} more examples!")
+                    
+                except Exception as e:
+                    logger.error(f"Error updating display: {e}")
+                    button.config(state='normal', text="⚡ Generate More (6)")
+                    self._show_tooltip(f"❌ Error: {str(e)}")
+            
+            # Schedule UI update
+            self.parent_layout.parent_frame.after(0, update_display)
+            
+        except Exception as e:
+            logger.error(f"Error generating more moderate examples: {e}")
+            self.parent_layout.parent_frame.after(
+                0,
+                lambda: (
+                    button.config(state='normal', text="⚡ Generate More (6)"),
+                    self._show_tooltip(f"❌ Generation failed: {str(e)}")
+                )
+            )
+    
     def _display_moderate_examples(self, examples: List[str]) -> None:
         """Display generated moderate examples in a popup window"""
         try:
@@ -616,64 +696,108 @@ class FilterTrainingManager:
             scrollbar.pack(side="right", fill="y")
             canvas.pack(side="left", fill="both", expand=True)
             
-            # Add examples to scrollable frame
-            for i, example in enumerate(examples, 1):
-                # Example frame with enhanced styling for moderate examples
-                example_frame = ttk.LabelFrame(
-                    scrollable_frame, 
-                    text=f"Sophisticated Example {i}",
-                    padding="12"
-                )
-                example_frame.pack(fill="x", pady=(0, 8), padx=8)
-                
-                # Example text with larger area for complex examples
-                example_text = tk.Text(
-                    example_frame,
-                    height=4,
-                    wrap=tk.WORD,
-                    font=('Arial', 10),
-                    relief='solid',
-                    borderwidth=1,
-                    bg='#fff8e1'  # Light yellow background for moderate examples
-                )
-                example_text.pack(fill="x", pady=(0, 8))
-                example_text.insert("1.0", example.strip())
-                example_text.config(state="readonly")
-                
-                # Action buttons frame
-                buttons_frame = ttk.Frame(example_frame)
-                buttons_frame.pack(fill="x")
-                
-                # Copy button
-                copy_btn = ttk.Button(
-                    buttons_frame,
-                    text="📋 Copy",
-                    command=lambda text=example.strip(): self._copy_to_clipboard(text)
-                )
-                copy_btn.pack(side="right", padx=(5, 0))
-                
-                # Analyze button
-                analyze_btn = ttk.Button(
-                    buttons_frame,
-                    text="🔍 Analyze",
-                    command=lambda text=example.strip(): self._show_example_analysis(text)
-                )
-                analyze_btn.pack(side="right")
-            
             # Bind mousewheel
             def on_mousewheel(event):
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
+            # Store popup state for Generate More functionality
+            popup_state = {
+                'examples_list': list(examples),
+                'scrollable_frame': scrollable_frame,
+                'title_label': title_label,
+                'popup': popup,
+                'canvas': canvas
+            }
+            
+            # Helper function to add examples to display
+            def add_examples_to_display(examples_to_add, starting_index=1):
+                for i, example in enumerate(examples_to_add, starting_index):
+                    # Example frame with enhanced styling for moderate examples
+                    example_frame = ttk.LabelFrame(
+                        scrollable_frame, 
+                        text=f"Sophisticated Example {i}",
+                        padding="12"
+                    )
+                    example_frame.pack(fill="x", pady=(0, 8), padx=8)
+                    
+                    # Example text with larger area for complex examples
+                    example_text = tk.Text(
+                        example_frame,
+                        height=4,
+                        wrap=tk.WORD,
+                        font=('Arial', 10),
+                        relief='solid',
+                        borderwidth=1,
+                        bg='#fff8e1'
+                    )
+                    example_text.pack(fill="x", pady=(0, 8))
+                    example_text.insert("1.0", example.strip())
+                    example_text.config(state="normal")
+                    
+                    # Action buttons frame
+                    buttons_frame = ttk.Frame(example_frame)
+                    buttons_frame.pack(fill="x")
+                    
+                    # Copy button
+                    copy_btn = ttk.Button(
+                        buttons_frame,
+                        text="📋 Copy",
+                        command=lambda text=example.strip(): self._copy_to_clipboard(text)
+                    )
+                    copy_btn.pack(side="left", padx=(0, 5))
+                    
+                    # Use This button
+                    use_btn = ttk.Button(
+                        buttons_frame,
+                        text="✅ Use This",
+                        command=lambda text=example.strip(): self._use_prompt(text, popup)
+                    )
+                    use_btn.pack(side="left", padx=(0, 5))
+                    
+                    # Analyze button
+                    analyze_btn = ttk.Button(
+                        buttons_frame,
+                        text="🔍 Analyze",
+                        command=lambda text=example.strip(): self._show_example_analysis(text)
+                    )
+                    analyze_btn.pack(side="left")
+            
+            # Add initial examples to display
+            add_examples_to_display(examples)
+            
+            # Generate More button handler
+            def generate_more_examples():
+                try:
+                    generate_more_btn.config(state="disabled", text="⏳ Generating...")
+                    
+                    def generation_thread():
+                        self._generate_more_moderate_examples(popup_state, add_examples_to_display, generate_more_btn)
+                    
+                    threading.Thread(target=generation_thread, daemon=True).start()
+                    
+                except Exception as e:
+                    logger.error(f"Error in generate more handler: {e}")
+                    generate_more_btn.config(state="normal", text="⚡ Generate More (6)")
+                    self._show_tooltip(f"❌ Error: {str(e)}")
+            
             # Bottom buttons
             buttons_bottom = ttk.Frame(popup)
             buttons_bottom.pack(fill="x", padx=10, pady=(0, 10))
+            
+            # Generate More button
+            generate_more_btn = ttk.Button(
+                buttons_bottom,
+                text="⚡ Generate More (6)",
+                command=generate_more_examples
+            )
+            generate_more_btn.pack(side="left", padx=(0, 10))
             
             # Export button
             export_btn = ttk.Button(
                 buttons_bottom,
                 text="💾 Export All",
-                command=lambda: self._export_examples(examples, "moderate")
+                command=lambda: self._export_examples(popup_state['examples_list'], "moderate")
             )
             export_btn.pack(side="left")
             
@@ -1092,9 +1216,21 @@ class FilterTrainingManager:
                 canvas.yview_scroll(int(-1*(event.delta/120)), "units")
             canvas.bind_all("<MouseWheel>", on_mousewheel)
             
+            # Bottom buttons frame
+            bottom_frame = ttk.Frame(popup)
+            bottom_frame.pack(pady=10, fill="x", padx=10)
+            
+            # Generate More button
+            generate_more_btn = ttk.Button(
+                bottom_frame,
+                text="🔥 Generate More (6)",
+                command=lambda: self._generate_more_undress_transformations(popup, scrollable_frame, canvas, generate_more_btn, title_label)
+            )
+            generate_more_btn.pack(side="left", padx=(0, 10))
+            
             # Close button
-            close_btn = ttk.Button(popup, text="Close", command=popup.destroy)
-            close_btn.pack(pady=5)
+            close_btn = ttk.Button(bottom_frame, text="Close", command=popup.destroy)
+            close_btn.pack(side="right")
             
             # Focus on popup
             popup.focus_set()
@@ -1130,6 +1266,147 @@ class FilterTrainingManager:
         except Exception as e:
             logger.error(f"Error using prompt: {e}")
             self._show_tooltip("❌ Failed to use prompt")
+    
+    def _generate_more_undress_transformations(self, popup, scrollable_frame, canvas, button, title_label) -> None:
+        """Generate 6 more undress transformations and add to existing display"""
+        try:
+            # Disable button and show loading
+            button.config(state="disabled", text="⏳ Generating...")
+            
+            # Run generation in background thread
+            def generate_thread():
+                try:
+                    from core.ai_prompt_advisor import get_ai_advisor
+                    
+                    ai_advisor = get_ai_advisor()
+                    if not ai_advisor.is_available():
+                        popup.after(0, lambda: (
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip("❌ AI service not available")
+                        ))
+                        return
+                    
+                    # Analyze image
+                    description = asyncio.run(
+                        ai_advisor.describe_image(self.selected_image_path, detailed_analysis=True)
+                    )
+                    
+                    if not description:
+                        popup.after(0, lambda: (
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip("❌ Image analysis failed")
+                        ))
+                        return
+                    
+                    # Generate new transformations
+                    new_transformations = asyncio.run(
+                        ai_advisor.generate_undress_transformations(description)
+                    )
+                    
+                    if new_transformations and len(new_transformations) > 0:
+                        # Add new transformations to display
+                        popup.after(0, lambda: self._add_undress_transformations_to_display(
+                            new_transformations, 
+                            scrollable_frame, 
+                            canvas, 
+                            button, 
+                            title_label,
+                            popup
+                        ))
+                    else:
+                        popup.after(0, lambda: (
+                            button.config(state="normal", text="🔥 Generate More (6)"),
+                            self._show_tooltip("❌ Generation failed")
+                        ))
+                        
+                except Exception as e:
+                    logger.error(f"Error generating more transformations: {e}")
+                    popup.after(0, lambda: (
+                        button.config(state="normal", text="🔥 Generate More (6)"),
+                        self._show_tooltip(f"❌ Error: {str(e)}")
+                    ))
+            
+            threading.Thread(target=generate_thread, daemon=True).start()
+            
+        except Exception as e:
+            logger.error(f"Error in generate more: {e}")
+            button.config(state="normal", text="🔥 Generate More (6)")
+    
+    def _add_undress_transformations_to_display(self, transformations, scrollable_frame, canvas, button, title_label, popup) -> None:
+        """Add newly generated transformations to the display"""
+        try:
+            # Count existing transformations
+            existing_count = len([child for child in scrollable_frame.winfo_children() if isinstance(child, ttk.LabelFrame)])
+            
+            # Define transformation types with icons
+            transformation_types = ["BIKINI", "LINGERIE", "NUDE", "BIKINI (FULL BODY)", "LINGERIE (FULL BODY)", "NUDE (FULL BODY)"]
+            transformation_icons = ["👙", "💄", "🔞", "👙📏", "💄📏", "🔞📏"]
+            
+            # Add new transformations
+            for i, transformation in enumerate(transformations[:6], existing_count + 1):
+                # Use cycling pattern for types/icons if we exceed 6
+                type_idx = (i - 1) % 6
+                type_name = transformation_types[type_idx]
+                icon = transformation_icons[type_idx]
+                
+                # Transformation frame with icon
+                transform_frame = ttk.LabelFrame(
+                    scrollable_frame,
+                    text=f"{icon} {type_name}",
+                    padding="10"
+                )
+                transform_frame.pack(fill="x", pady=(0, 8), padx=5)
+                
+                # Transformation text
+                transform_text = tk.Text(
+                    transform_frame,
+                    height=3,
+                    wrap=tk.WORD,
+                    font=('Arial', 10),
+                    relief='solid',
+                    borderwidth=1,
+                    bg='#f0f8ff'
+                )
+                transform_text.pack(fill="x", pady=(0, 5))
+                transform_text.insert("1.0", transformation.strip())
+                transform_text.config(state="normal")
+                
+                # Action buttons
+                buttons_frame = ttk.Frame(transform_frame)
+                buttons_frame.pack(fill="x")
+                
+                # Copy button
+                copy_btn = ttk.Button(
+                    buttons_frame,
+                    text="📋 Copy",
+                    command=lambda text=transformation.strip(): self._copy_to_clipboard(text)
+                )
+                copy_btn.pack(side="left", padx=(0, 5))
+                
+                # Use button
+                use_btn = ttk.Button(
+                    buttons_frame,
+                    text="✅ Use This",
+                    command=lambda text=transformation.strip(): self._use_prompt(text, popup)
+                )
+                use_btn.pack(side="left")
+            
+            # Update title with new count
+            new_count = existing_count + len(transformations)
+            title_label.config(text=f"👙 {new_count} Outfit Transformations")
+            
+            # Re-enable button
+            button.config(state="normal", text="🔥 Generate More (6)")
+            
+            # Scroll to bottom to show new items
+            canvas.update_idletasks()
+            canvas.yview_moveto(1.0)
+            
+            self._show_tooltip(f"✅ Added {len(transformations)} more transformations!")
+            
+        except Exception as e:
+            logger.error(f"Error adding transformations to display: {e}")
+            button.config(state="normal", text="🔥 Generate More (6)")
     
     def is_available(self) -> bool:
         """Check if filter training features are available"""

@@ -1475,9 +1475,43 @@ CATEGORY: [Different randomly selected category]
                                 batch_prompts.append(prompt.strip())
                         logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (no categories)")
                 
-                # If still no prompts, log warning
+                # Second fallback: Try numbered list pattern (1. 2. 3.)
+                if not batch_prompts:
+                    numbered_pattern = r'^\s*\d+[\.\)]\s*(.+?)(?=^\s*\d+[\.\)]|\Z)'
+                    matches = re.findall(numbered_pattern, response, re.MULTILINE | re.DOTALL)
+                    logger.info(f"🔍 Attempt {attempt_count} Pattern 3 (numbered list): Found {len(matches)} matches")
+                    if matches:
+                        for match in matches:
+                            prompt = match.strip()
+                            # Remove category brackets if present
+                            prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
+                            # Clean up and validate
+                            if prompt.strip() and len(prompt.strip()) > 20:
+                                batch_prompts.append(prompt.strip())
+                        logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (numbered list)")
+                
+                # Third fallback: Split by double newlines and take substantial paragraphs
+                if not batch_prompts:
+                    paragraphs = [p.strip() for p in response.split('\n\n') if p.strip()]
+                    for para in paragraphs:
+                        # Remove any numbering or category labels
+                        cleaned = re.sub(r'^\d+[\.\)]\s*', '', para)
+                        cleaned = re.sub(r'^\[.*?\]\s*\n?', '', cleaned, flags=re.IGNORECASE)
+                        cleaned = re.sub(r'^CATEGORY:\s*.*?\n', '', cleaned, flags=re.IGNORECASE)
+                        cleaned = re.sub(r'^EXAMPLE\s+\d+:?\s*\n?', '', cleaned, flags=re.IGNORECASE)
+                        
+                        # Only accept if it looks like a prompt (substantial text)
+                        if cleaned.strip() and len(cleaned.strip()) > 30 and ('remove' in cleaned.lower() or 'change' in cleaned.lower()):
+                            batch_prompts.append(cleaned.strip())
+                            if len(batch_prompts) >= prompts_in_this_batch:
+                                break
+                    if batch_prompts:
+                        logger.info(f"✅ Attempt {attempt_count}: Parsed {len(batch_prompts)} moderate prompts (paragraph splitting)")
+                
+                # If still no prompts, log warning with debug info
                 if not batch_prompts:
                     logger.warning(f"⚠️ Attempt {attempt_count}: Failed to parse any prompts from response")
+                    logger.debug(f"Response preview (first 500 chars): {response[:500]}")
                 
                 # Add batch prompts to all_prompts
                 all_prompts.extend(batch_prompts)
@@ -1746,6 +1780,43 @@ Remember: Use DIRECT, TECHNICAL language. NO poetry, artistic descriptions, or f
                             if prompt.strip():
                                 batch_prompts.append(prompt.strip())
                         logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (no categories)")
+                
+                # Second fallback: Try numbered list pattern (1. 2. 3.)
+                if not batch_prompts:
+                    numbered_pattern = r'^\s*\d+[\.\)]\s*(.+?)(?=^\s*\d+[\.\)]|\Z)'
+                    matches = re.findall(numbered_pattern, response, re.MULTILINE | re.DOTALL)
+                    if matches:
+                        for match in matches:
+                            prompt = match.strip()
+                            # Remove category brackets if present
+                            prompt = re.sub(r'^\[.*?\]\s*\n?', '', prompt, flags=re.IGNORECASE)
+                            # Clean up and validate
+                            if prompt.strip() and len(prompt.strip()) > 20:  # Must be substantial
+                                batch_prompts.append(prompt.strip())
+                        logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (numbered list)")
+                
+                # Third fallback: Split by double newlines and take substantial paragraphs
+                if not batch_prompts:
+                    paragraphs = [p.strip() for p in response.split('\n\n') if p.strip()]
+                    for para in paragraphs:
+                        # Remove any numbering or category labels
+                        cleaned = re.sub(r'^\d+[\.\)]\s*', '', para)
+                        cleaned = re.sub(r'^\[.*?\]\s*\n?', '', cleaned, flags=re.IGNORECASE)
+                        cleaned = re.sub(r'^CATEGORY:\s*.*?\n', '', cleaned, flags=re.IGNORECASE)
+                        cleaned = re.sub(r'^EXAMPLE\s+\d+:?\s*\n?', '', cleaned, flags=re.IGNORECASE)
+                        
+                        # Only accept if it looks like a prompt (substantial text with "change")
+                        if cleaned.strip() and len(cleaned.strip()) > 30 and 'change' in cleaned.lower():
+                            batch_prompts.append(cleaned.strip())
+                            if len(batch_prompts) >= prompts_in_this_batch:
+                                break
+                    if batch_prompts:
+                        logger.info(f"✅ Batch {batch_num + 1}: Parsed {len(batch_prompts)} prompts (paragraph splitting)")
+                
+                # If still nothing, log the response for debugging
+                if not batch_prompts:
+                    logger.warning(f"⚠️ Batch {batch_num + 1}: Failed to parse any prompts from response")
+                    logger.debug(f"Response preview (first 500 chars): {response[:500]}")
                 
                 # Add batch prompts to all_prompts
                 all_prompts.extend(batch_prompts)
