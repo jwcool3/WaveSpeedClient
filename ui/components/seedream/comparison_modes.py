@@ -397,19 +397,13 @@ class ComparisonController:
         """Handle sync zoom checkbox change"""
         is_synced = self.layout.sync_zoom_var.get()
         logger.info(f"Sync zoom {'enabled' if is_synced else 'disabled'}")
-        
-        # Update enhanced sync manager if available
-        if hasattr(self.layout, 'enhanced_sync_manager'):
-            self.layout.enhanced_sync_manager.set_sync_zoom(is_synced)
+        # The sync manager reads directly from sync_zoom_var, no method call needed
     
     def _on_sync_drag_changed(self):
         """Handle sync drag checkbox change"""
         is_synced = self.layout.sync_drag_var.get()
         logger.info(f"Sync drag {'enabled' if is_synced else 'disabled'}")
-        
-        # Update enhanced sync manager if available
-        if hasattr(self.layout, 'enhanced_sync_manager'):
-            self.layout.enhanced_sync_manager.set_sync_drag(is_synced)
+        # The sync manager reads directly from sync_drag_var, no method call needed
     
     def _on_zoom_changed(self, event=None):
         """Handle zoom dropdown change"""

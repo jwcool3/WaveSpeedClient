@@ -70,7 +70,7 @@ class WaveSpeedAIApp:
         self.root.title(Config.WINDOW_TITLE)
         self.root.geometry(Config.WINDOW_SIZE)
         self.root.minsize(*Config.WINDOW_MIN_SIZE)
-        self.root.configure(bg=Config.COLORS['background'])
+        self.root.configure(bg=Config.COLORS['background'], highlightthickness=0, bd=0)
         
         # Setup responsive layout
         self.setup_responsive_layout()
@@ -214,13 +214,20 @@ class WaveSpeedAIApp:
         style = ttk.Style()
         style.configure('Flat.TPanedwindow', background='white', borderwidth=0, relief='flat')
         style.configure('Flat.TFrame', borderwidth=0, relief='flat')
-        # Remove notebook padding at the top
+        # Remove notebook padding at the top - aggressive settings
         style.configure('TNotebook', borderwidth=0, relief='flat', padding=0)
-        style.configure('TNotebook.Tab', padding=[5, 2])
+        style.configure('TNotebook.Tab', padding=[5, 0])  # Zero vertical padding on tabs
+        style.configure('TFrame.Label', padding=0)
+        
+        # Additional style tweaks to eliminate gaps
+        try:
+            style.configure('TNotebook', tabmargins=[0, 0, 0, 0])
+        except:
+            pass  # May not be supported on all platforms
         
         # Create main container with paned window for resizable layout (no borders/padding)
         self.main_paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL, style='Flat.TPanedwindow')
-        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0, side=tk.TOP)
+        self.main_paned_window.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
         # Create left panel for main content (no padding for full space)
         self.left_panel = ttk.Frame(self.main_paned_window, padding="0")
@@ -355,12 +362,18 @@ class WaveSpeedAIApp:
             logger.error(f"Error creating recent results panel: {str(e)}")
     
     def create_balance_indicator(self):
-        """Create the balance indicator at bottom left corner"""
+        """Create the balance indicator as an overlay at bottom left corner"""
         try:
-            self.balance_indicator = BalanceIndicator(self.left_panel, self.api_client)
-            # Pack at bottom of left panel
-            self.balance_indicator.get_frame().pack(side=tk.BOTTOM, fill=tk.X, padx=5, pady=5)
-            logger.info("Balance indicator created at bottom left")
+            # Create balance indicator with root as parent for overlay positioning
+            self.balance_indicator = BalanceIndicator(self.root, self.api_client)
+            
+            # Use place() for absolute positioning as an overlay (doesn't take layout space)
+            self.balance_indicator.get_frame().place(x=10, y=10, anchor='nw')
+            
+            # Start balance updates after a short delay to ensure main loop is ready
+            self.root.after(1000, self.balance_indicator.start_balance_updates)
+            
+            logger.info("Balance indicator created as overlay (no layout impact)")
         except Exception as e:
             logger.error(f"Error creating balance indicator: {str(e)}")
     
