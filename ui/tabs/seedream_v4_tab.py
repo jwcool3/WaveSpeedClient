@@ -831,18 +831,27 @@ class SeedreamV4Tab(BaseTab):
     
     def show_progress(self, message="Processing..."):
         """Show progress indicator"""
-        self.progress_bar.grid()
-        self.progress_bar.start(10)
-        self.status_label.config(text=message)
+        if hasattr(self, 'progress_bar') and self.progress_bar:
+            self.progress_bar.grid()
+            self.progress_bar.start(10)
+        if hasattr(self, 'status_label') and self.status_label and hasattr(self.status_label, 'config'):
+            self.status_label.config(text=message)
+        else:
+            logger.info(f"Progress: {message}")
     
     def hide_progress(self):
         """Hide progress indicator"""
-        self.progress_bar.stop()
-        self.progress_bar.grid_remove()
+        if hasattr(self, 'progress_bar') and self.progress_bar:
+            self.progress_bar.stop()
+            self.progress_bar.grid_remove()
     
     def update_status(self, message):
         """Update status message"""
-        self.status_label.config(text=message)
+        if hasattr(self, 'status_label') and self.status_label and hasattr(self.status_label, 'config'):
+            self.status_label.config(text=message)
+        else:
+            # Fallback to logging if status label not available
+            logger.info(f"Status: {message}")
     
     def save_current_prompt(self):
         """Save current prompt to file"""
