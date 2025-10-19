@@ -633,7 +633,7 @@ class RecentResultsPanel:
             return ImageTk.PhotoImage(placeholder)
     
     def show_image_preview(self, result):
-        """Show image preview - switches to Seedream V4 tab and loads INPUT image"""
+        """Show image preview - switches to Seedream V4 tab and loads INPUT image and prompt"""
         try:
             if not self.main_app:
                 show_error("Error", "Cannot access main application")
@@ -643,50 +643,67 @@ class RecentResultsPanel:
             tab_name = result.get('tab_name', 'Seedream V4')
             tab_id = result.get('tab_id', '1')  # Default to tab 1
             
-            # If it's a Seedream V4 result (or unknown), switch to appropriate Seedream V4 tab
+            # Determine target tab
+            target_tab = None
+            
+            # If it's a Seedream V4 result (or unknown), try to get Seedream tab
             if tab_name == 'Seedream V4' or tab_name not in ['Nano Banana', 'SeedEdit', 'Upscaler', 'Wan 2.2', 'SeedDance Pro']:
-                # Determine which Seedream tab to use
+                # Try to get the specific Seedream tab
                 if tab_id == '2' and hasattr(self.main_app, 'seedream_tab_2'):
                     target_tab = self.main_app.seedream_tab_2
                     tab_name_for_log = "Seedream V4 #2"
-                else:
-                    # Default to tab 1
-                    target_tab = self.main_app.seedream_tab_1 if hasattr(self.main_app, 'seedream_tab_1') else self.main_app.seedream_v4_tab
+                elif hasattr(self.main_app, 'seedream_tab_1'):
+                    target_tab = self.main_app.seedream_tab_1
                     tab_name_for_log = "Seedream V4 #1"
+                elif hasattr(self.main_app, 'seedream_v4_tab'):
+                    target_tab = self.main_app.seedream_v4_tab
+                    tab_name_for_log = "Seedream V4"
                 
-                if hasattr(self.main_app, 'notebook') and target_tab:
+                # Try to switch to the target tab
+                if target_tab and hasattr(self.main_app, 'notebook'):
                     try:
-                        # Get the tab index
-                        tabs = [
-                            self.main_app.editor_tab,
-                            self.main_app.seededit_tab,
-                            self.main_app.seedream_tab_1 if hasattr(self.main_app, 'seedream_tab_1') else self.main_app.seedream_v4_tab,
-                            self.main_app.seedream_tab_2 if hasattr(self.main_app, 'seedream_tab_2') else None,
-                            self.main_app.upscaler_tab,
-                            self.main_app.video_tab,
-                            self.main_app.seeddance_tab
-                        ]
-                        # Remove None entries
-                        tabs = [t for t in tabs if t is not None]
+                        # Build list of all tabs
+                        tabs = []
+                        for tab_attr in ['editor_tab', 'seededit_tab', 'seedream_tab_1', 'seedream_v4_tab', 
+                                        'seedream_tab_2', 'upscaler_tab', 'video_tab', 'seeddance_tab']:
+                            if hasattr(self.main_app, tab_attr):
+                                tab = getattr(self.main_app, tab_attr)
+                                if tab is not None:
+                                    tabs.append(tab)
                         
-                        seedream_index = tabs.index(target_tab)
-                        self.main_app.notebook.select(seedream_index)
-                        logger.info(f"✓ Switched to {tab_name_for_log}")
-                        
-                        # Give UI a moment to render the tab, then load INPUT image
-                        self.parent.after(50, lambda: self._load_into_seedream(result, target_tab))
-                        return
+                        # Find the index of target tab
+                        if target_tab in tabs:
+                            seedream_index = tabs.index(target_tab)
+                            self.main_app.notebook.select(seedream_index)
+                            logger.info(f"✓ Switched to {tab_name_for_log}")
+                            
+                            # Give UI a moment to render the tab, then load INPUT image and prompt
+                            self.parent.after(50, lambda: self._load_into_seedream(result, target_tab))
+                            return
+                        else:
+                            logger.warning(f"Target tab not found in tabs list")
                     except Exception as e:
                         logger.error(f"Could not switch to Seedream V4 tab: {e}")
             
-            # For other tabs, get currently active tab
-            current_tab = self.get_current_active_tab()
-            if not current_tab:
-                show_error("Error", "No active tab found")
+            # Fallback: Try to use currently active tab if we couldn't switch to target
+            if not target_tab:
+                target_tab = self.get_current_active_tab()
+            
+            if not target_tab:
+                # Last resort: try any Seedream tab
+                for tab_attr in ['seedream_tab_1', 'seedream_v4_tab', 'seedream_tab_2']:
+                    if hasattr(self.main_app, tab_attr):
+                        target_tab = getattr(self.main_app, tab_attr)
+                        if target_tab:
+                            logger.info(f"Using fallback tab: {tab_attr}")
+                            break
+            
+            if not target_tab:
+                show_error("Error", "No compatible tab found. Please open a Seedream V4 tab first.")
                 return
             
-            # Try to load the INPUT image
-            self._try_load_into_tab(current_tab, result)
+            # Try to load the INPUT image and prompt
+            self._try_load_into_tab(target_tab, result)
                 
         except Exception as e:
             logger.error(f"Error showing image preview: {e}")
@@ -737,10 +754,11 @@ class RecentResultsPanel:
         return None
     
     def _try_load_into_tab(self, current_tab, result):
-        """Try various methods to load INPUT image (not result) into a tab"""
+        """Try various methods to load INPUT image and prompt into a tab"""
         try:
-            # First, get the INPUT image path from the metadata
+            # First, get the INPUT image path and prompt from the metadata
             input_image_path = self._get_input_image_from_metadata(result)
+            prompt_text = result.get('prompt', '')  # Get prompt from result data
             
             if not input_image_path:
                 logger.warning(f"No input image found in metadata for {result['filename']}")
@@ -748,10 +766,17 @@ class RecentResultsPanel:
                 input_image_path = result['image_path']
             
             # 1. Try improved_layout first (new refactored system for Seedream V4)
-            if hasattr(current_tab, 'improved_layout') and hasattr(current_tab.improved_layout, 'load_image'):
+            if hasattr(current_tab, 'improved_layout'):
                 try:
-                    current_tab.improved_layout.load_image(input_image_path)
-                    logger.info(f"✓ Loaded INPUT image into improved layout from: {Path(input_image_path).name}")
+                    # Load image
+                    if hasattr(current_tab.improved_layout, 'load_image'):
+                        current_tab.improved_layout.load_image(input_image_path)
+                        logger.info(f"✓ Loaded INPUT image into improved layout from: {Path(input_image_path).name}")
+                    
+                    # Load prompt
+                    if prompt_text:
+                        self._load_prompt_into_tab(current_tab, prompt_text)
+                    
                     return
                 except Exception as e:
                     logger.debug(f"Could not use improved_layout: {e}")
@@ -762,11 +787,21 @@ class RecentResultsPanel:
                     # Try with replacing_image parameter first
                     current_tab.on_image_selected(input_image_path, replacing_image=True)
                     logger.info(f"✓ Loaded INPUT image via on_image_selected from: {Path(input_image_path).name}")
+                    
+                    # Load prompt
+                    if prompt_text:
+                        self._load_prompt_into_tab(current_tab, prompt_text)
+                    
                     return
                 except TypeError:
                     # Fallback to without the parameter
                     current_tab.on_image_selected(input_image_path)
                     logger.info(f"✓ Loaded INPUT image via on_image_selected from: {Path(input_image_path).name}")
+                    
+                    # Load prompt
+                    if prompt_text:
+                        self._load_prompt_into_tab(current_tab, prompt_text)
+                    
                     return
                 except Exception as e:
                     logger.debug(f"Could not use on_image_selected: {e}")
@@ -776,12 +811,22 @@ class RecentResultsPanel:
                 success = current_tab.optimized_layout.update_input_image(input_image_path)
                 if success:
                     logger.info(f"✓ Loaded INPUT image via optimized_layout from: {Path(input_image_path).name}")
+                    
+                    # Load prompt
+                    if prompt_text:
+                        self._load_prompt_into_tab(current_tab, prompt_text)
+                    
                     return
             
             # 4. Try image_selector
             if hasattr(current_tab, 'image_selector') and hasattr(current_tab.image_selector, 'update_image'):
                 current_tab.image_selector.update_image(input_image_path)
                 logger.info(f"✓ Loaded INPUT image via image_selector from: {Path(input_image_path).name}")
+                
+                # Load prompt
+                if prompt_text:
+                    self._load_prompt_into_tab(current_tab, prompt_text)
+                
                 return
             
             # No method worked
@@ -789,6 +834,61 @@ class RecentResultsPanel:
                 
         except Exception as e:
             logger.error(f"Error trying to load into tab: {e}")
+    
+    def _load_prompt_into_tab(self, current_tab, prompt_text):
+        """Load prompt text into the appropriate prompt field"""
+        try:
+            # Try improved_layout prompt_manager (new Seedream V4 system)
+            if hasattr(current_tab, 'improved_layout') and hasattr(current_tab.improved_layout, 'prompt_manager'):
+                if hasattr(current_tab.improved_layout.prompt_manager, 'set_prompt_text'):
+                    current_tab.improved_layout.prompt_manager.set_prompt_text(prompt_text)
+                    logger.info(f"✓ Loaded prompt via prompt_manager: {prompt_text[:50]}...")
+                    return
+            
+            # Try direct prompt_text widget (common in many tabs)
+            if hasattr(current_tab, 'prompt_text'):
+                try:
+                    # Clear placeholder if exists
+                    if hasattr(current_tab, '_clear_placeholder'):
+                        current_tab._clear_placeholder()
+                    
+                    # Set the prompt text
+                    current_tab.prompt_text.delete("1.0", tk.END)
+                    current_tab.prompt_text.insert("1.0", prompt_text)
+                    
+                    # Update placeholder state
+                    if hasattr(current_tab, 'prompt_has_placeholder'):
+                        current_tab.prompt_has_placeholder = False
+                    
+                    # Trigger any change handlers
+                    if hasattr(current_tab, '_on_prompt_text_changed'):
+                        current_tab._on_prompt_text_changed()
+                    
+                    logger.info(f"✓ Loaded prompt via prompt_text: {prompt_text[:50]}...")
+                    return
+                except Exception as e:
+                    logger.debug(f"Could not use prompt_text widget: {e}")
+            
+            # Try improved_layout direct prompt_text access
+            if hasattr(current_tab, 'improved_layout') and hasattr(current_tab.improved_layout, 'prompt_text'):
+                try:
+                    # Use the set_prompt_text method if available
+                    if hasattr(current_tab.improved_layout, 'set_prompt_text'):
+                        current_tab.improved_layout.set_prompt_text(prompt_text)
+                    else:
+                        # Direct widget access
+                        current_tab.improved_layout.prompt_text.delete("1.0", tk.END)
+                        current_tab.improved_layout.prompt_text.insert("1.0", prompt_text)
+                    
+                    logger.info(f"✓ Loaded prompt via improved_layout.prompt_text: {prompt_text[:50]}...")
+                    return
+                except Exception as e:
+                    logger.debug(f"Could not use improved_layout.prompt_text: {e}")
+            
+            logger.debug("No compatible prompt field found in tab")
+                
+        except Exception as e:
+            logger.error(f"Error loading prompt into tab: {e}")
     
     def get_current_active_tab(self):
         """Get the currently active tab"""
