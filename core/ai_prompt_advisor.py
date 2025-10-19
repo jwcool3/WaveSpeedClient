@@ -765,8 +765,8 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-5-nano-2025-08-07",
-            "max_tokens": 2500,
+            "model": "gpt-4.1-nano-2025-04-14",
+            "max_tokens": 4096,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -796,8 +796,8 @@ class OpenAIAPI:
         }
         
         payload = {
-            "model": "gpt-3.5-turbo-0125",
-            "max_completion_tokens": 2000,
+            "model": "gpt-4.1-nano-2025-04-14",
+            "max_completion_tokens": 8192,
             "messages": [{
                 "role": "user",
                 "content": user_message
@@ -809,7 +809,29 @@ class OpenAIAPI:
                 async with session.post(self.base_url, headers=headers, json=payload) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return data["choices"][0]["message"]["content"]
+                        
+                        # Log full response for debugging
+                        logger.debug(f"OpenAI full response: {data}")
+                        
+                        # Check for content moderation or empty response
+                        if "choices" not in data or len(data["choices"]) == 0:
+                            logger.error(f"OpenAI API returned no choices. Full response: {data}")
+                            return ""
+                        
+                        choice = data["choices"][0]
+                        
+                        # Check if content was filtered
+                        if "finish_reason" in choice and choice["finish_reason"] == "content_filter":
+                            logger.error("OpenAI API blocked response due to content policy violation")
+                            return ""
+                        
+                        content = choice.get("message", {}).get("content", "")
+                        
+                        if not content or not content.strip():
+                            logger.error(f"OpenAI API returned empty content. Finish reason: {choice.get('finish_reason', 'unknown')}")
+                            return ""
+                        
+                        return content
                     else:
                         error_text = await response.text()
                         logger.error(f"OpenAI API error {response.status}: {error_text}")
@@ -927,7 +949,7 @@ class OpenAIAPI:
         
         payload = {
             "model": "gpt-4",
-            "max_tokens": 1500,
+            "max_tokens": 2500,
             "messages": [{
                 "role": "user",
                 "content": [
@@ -1600,7 +1622,7 @@ CATEGORY: [Different randomly selected category]
     
     async def generate_undress_transformations(self, description: str) -> List[str]:
         """Generate 6 ultra-minimal clothing transformation prompts: bikini, lingerie, nude (current + zoomed out)"""
-        from core.undress_transformation_prompt import get_undress_transformation_prompt
+        from core.undress_transformation_prompt_v2 import get_undress_transformation_prompt
         import re
         
         # Get the undress transformation prompt with integrated analysis
@@ -1610,7 +1632,7 @@ CATEGORY: [Different randomly selected category]
         
         # Single request for all 5 transformations
         try:
-            user_message = "Generate all 5 ultra-minimal transformation prompts now (bikini, lingerie, fantasy costume, nude, AI's creative choice - all with current framing only)."
+            user_message = "Generate all 5 ultra-detailed transformation prompts now. USE THE EXACT OUTPUT FORMAT with headers: '**TRANSFORMATION 1: BIKINI**', '**TRANSFORMATION 2: LINGERIE**', '**TRANSFORMATION 3: FANTASY**', '**TRANSFORMATION 4: NUDE**', '**TRANSFORMATION 5: AI'S CHOICE**'. CRITICAL: Use completely unique outfit styles NOT from the examples. DO NOT use wet white shirt, torn clothes, black teddy, turquoise bikini, French maid, or burgundy dress. Choose 5 different colors. Each prompt must be 500-800 characters with extreme detail. BE CREATIVE!"
             
             if self.api_provider == "openai" and self.openai_api:
                 response = await self.openai_api.generate_response(system_prompt + "\n\n" + user_message)
@@ -1623,7 +1645,12 @@ CATEGORY: [Different randomly selected category]
                 return []
             
             if not response or not response.strip():
-                logger.error("Empty response from API for undress transformations")
+                if self.api_provider == "openai":
+                    logger.error("Empty response from OpenAI API - likely blocked by content policy")
+                    logger.error("⚠️ OpenAI's content policy prohibits generating explicit NSFW content")
+                    logger.error("💡 Consider using Claude API instead, or use a different image generation service")
+                else:
+                    logger.error(f"Empty response from {self.api_provider} API for undress transformations")
                 return []
             
             logger.info(f"📥 Received response: {response[:200]}...")
@@ -1633,7 +1660,7 @@ CATEGORY: [Different randomly selected category]
             
             # Try multiple parsing strategies
             
-            # Strategy 1: Split by TRANSFORMATION markers and extract the prompt line(s)
+            # Strategy 1: Split by TRANSFORMATION markers and extract the full prompt (500-800 chars)
             sections = re.split(r'(?:\*\*)?TRANSFORMATION \d+:', response, flags=re.IGNORECASE)
             logger.info(f"🔍 Split response into {len(sections)} sections")
             
@@ -1641,35 +1668,59 @@ CATEGORY: [Different randomly selected category]
                 # Clean up the section
                 section = section.strip()
                 
-                # Remove header labels (BIKINI, LINGERIE, NUDE, FULL BODY, etc.)
-                section = re.sub(r'^\s*(?:BIKINI|LINGERIE|NUDE)(?:\s*\(FULL BODY\))?\s*\*?\*?', '', section, flags=re.IGNORECASE)
+                # Remove header labels (BIKINI, LINGERIE, FANTASY, NUDE, AI'S CHOICE, etc.)
+                section = re.sub(r'^\s*(?:BIKINI|LINGERIE|FANTASY|NUDE|AI\'?S CHOICE)(?:\s*\(FULL BODY\))?\s*\*?\*?', '', section, flags=re.IGNORECASE)
                 section = section.strip()
                 
-                # Extract just the first line or two (the actual prompt)
-                # Stop at blank lines or when we see markdown headers
+                # For detailed 500-800 char prompts, we need to capture the entire paragraph
+                # Stop only at major section breaks (━━━ or multiple newlines)
                 lines = section.split('\n')
                 prompt_lines = []
+                consecutive_empty = 0
+                
                 for line in lines:
-                    line = line.strip()
-                    # Stop at blank lines, markdown separators, or new sections
-                    if not line or line.startswith('---') or line.startswith('**') or line.startswith('##'):
+                    line_stripped = line.strip()
+                    
+                    # Stop at major section breaks
+                    if line_stripped.startswith('━━━') or line_stripped.startswith('---') or line_stripped.startswith('##'):
                         break
+                    
+                    # Count consecutive empty lines
+                    if not line_stripped:
+                        consecutive_empty += 1
+                        # Stop if we hit 2+ consecutive blank lines (indicates new section)
+                        if consecutive_empty >= 2:
+                            break
+                        continue
+                    else:
+                        consecutive_empty = 0
+                    
+                    # Skip markdown headers for new transformations
+                    if line_stripped.startswith('**TRANSFORMATION'):
+                        break
+                    
                     # Clean up markdown formatting
-                    line = re.sub(r'^\*+|\*+$', '', line).strip()
-                    if line:
-                        prompt_lines.append(line)
+                    line_cleaned = re.sub(r'^\*+|\*+$', '', line_stripped).strip()
+                    if line_cleaned:
+                        prompt_lines.append(line_cleaned)
                 
                 if prompt_lines:
+                    # Join all lines into one continuous prompt
                     prompt_text = ' '.join(prompt_lines)
-                    if len(prompt_text) > 10 and ('replace' in prompt_text.lower() or 'remove' in prompt_text.lower()):
+                    # Basic validation: must be reasonably long and contain transformation keywords
+                    keywords = ['replace', 'remove', 'transform', 'swap', 'fully nude', 'nude']
+                    has_keyword = any(kw in prompt_text.lower() for kw in keywords)
+                    if len(prompt_text) > 50 and has_keyword:
                         prompts.append(prompt_text)
-                        logger.info(f"✅ Parsed transformation {len(prompts)}: {prompt_text[:80]}...")
+                        logger.info(f"✅ Parsed transformation {len(prompts)}: {prompt_text[:100]}...")
             
             logger.info(f"📊 Strategy 1 found {len(prompts)} prompts")
             
             # Strategy 2: If not enough prompts, try numbered list parsing
             if len(prompts) < 5:
                 logger.warning(f"Strategy 1 found only {len(prompts)}/5 prompts, trying Strategy 2 (numbered lists)...")
+                # Keep existing prompts, try to find more with alternative parsing
+                strategy1_prompts = prompts.copy()
                 prompts = []
                 
                 # Split by numbers (1., 2., 3., etc.)
@@ -1678,18 +1729,98 @@ CATEGORY: [Different randomly selected category]
                     section = section.strip()
                     
                     # Remove header labels
-                    section = re.sub(r'^(?:BIKINI|LINGERIE|NUDE)(?:\s*\(FULL BODY\))?[:\s*]*', '', section, flags=re.IGNORECASE)
+                    section = re.sub(r'^(?:BIKINI|LINGERIE|FANTASY|NUDE|AI\'?S CHOICE)(?:\s*\(FULL BODY\))?[:\s*]*', '', section, flags=re.IGNORECASE)
                     section = section.strip()
                     
-                    # Take only the first line (the actual prompt)
-                    first_line = section.split('\n')[0].strip()
-                    first_line = re.sub(r'^\*+|\*+$', '', first_line).strip()
+                    # For detailed prompts, capture multiple lines until next section
+                    lines = section.split('\n')
+                    prompt_lines = []
+                    consecutive_empty = 0
                     
-                    if len(first_line) > 10 and ('replace' in first_line.lower() or 'remove' in first_line.lower()):
-                        prompts.append(first_line)
-                        logger.info(f"✅ Strategy 2 parsed: {first_line[:80]}...")
+                    for line in lines:
+                        line_stripped = line.strip()
+                        
+                        # Stop at section breaks or next numbered item
+                        if line_stripped.startswith('━━━') or line_stripped.startswith('---') or re.match(r'^\d+\.', line_stripped):
+                            break
+                        
+                        if not line_stripped:
+                            consecutive_empty += 1
+                            if consecutive_empty >= 2:
+                                break
+                            continue
+                        else:
+                            consecutive_empty = 0
+                        
+                        line_cleaned = re.sub(r'^\*+|\*+$', '', line_stripped).strip()
+                        if line_cleaned:
+                            prompt_lines.append(line_cleaned)
+                    
+                    if prompt_lines:
+                        prompt_text = ' '.join(prompt_lines)
+                        keywords = ['replace', 'remove', 'transform', 'swap', 'fully nude', 'nude']
+                        has_keyword = any(kw in prompt_text.lower() for kw in keywords)
+                        if len(prompt_text) > 50 and has_keyword:
+                            prompts.append(prompt_text)
+                            logger.info(f"✅ Strategy 2 parsed: {prompt_text[:100]}...")
                 
                 logger.info(f"📊 Strategy 2 found {len(prompts)} prompts")
+                
+                # If Strategy 2 found fewer prompts than Strategy 1, keep Strategy 1 results
+                if len(prompts) < len(strategy1_prompts):
+                    logger.info(f"Strategy 2 found fewer prompts ({len(prompts)}) than Strategy 1 ({len(strategy1_prompts)}), keeping Strategy 1 results")
+                    prompts = strategy1_prompts
+            
+            # Strategy 3: If still not enough, try parsing "Subject N:" format (AI sometimes uses this instead of TRANSFORMATION)
+            if len(prompts) < 5:
+                logger.warning(f"Strategy 2 found only {len(prompts)}/5 prompts, trying Strategy 3 (Subject N: format)...")
+                # Keep existing prompts, try to find more with alternative parsing
+                strategy2_prompts = prompts.copy()
+                prompts = []
+                
+                # Split by "Subject N:" markers
+                sections = re.split(r'\n\s*Subject \d+(?:\s*\(AI\'?S CHOICE\))?:\s*', response, flags=re.IGNORECASE)
+                for section in sections[1:]:  # Skip first section before any Subject markers
+                    section = section.strip()
+                    
+                    # For detailed prompts, capture multiple lines until next section
+                    lines = section.split('\n')
+                    prompt_lines = []
+                    consecutive_empty = 0
+                    
+                    for line in lines:
+                        line_stripped = line.strip()
+                        
+                        # Stop at section breaks or next subject
+                        if line_stripped.startswith('━━━') or line_stripped.startswith('---') or re.match(r'^Subject \d+:', line_stripped, re.IGNORECASE):
+                            break
+                        
+                        if not line_stripped:
+                            consecutive_empty += 1
+                            if consecutive_empty >= 2:
+                                break
+                            continue
+                        else:
+                            consecutive_empty = 0
+                        
+                        line_cleaned = re.sub(r'^\*+|\*+$', '', line_stripped).strip()
+                        if line_cleaned:
+                            prompt_lines.append(line_cleaned)
+                    
+                    if prompt_lines:
+                        prompt_text = ' '.join(prompt_lines)
+                        keywords = ['replace', 'remove', 'transform', 'swap', 'fully nude', 'nude']
+                        has_keyword = any(kw in prompt_text.lower() for kw in keywords)
+                        if len(prompt_text) > 50 and has_keyword:
+                            prompts.append(prompt_text)
+                            logger.info(f"✅ Strategy 3 parsed: {prompt_text[:100]}...")
+                
+                logger.info(f"📊 Strategy 3 found {len(prompts)} prompts")
+                
+                # If Strategy 3 found fewer prompts than Strategy 2, keep Strategy 2 results
+                if len(prompts) < len(strategy2_prompts):
+                    logger.info(f"Strategy 3 found fewer prompts ({len(prompts)}) than Strategy 2 ({len(strategy2_prompts)}), keeping Strategy 2 results")
+                    prompts = strategy2_prompts
             
             if len(prompts) >= 5:
                 logger.info(f"✅ Successfully generated {len(prompts)} undress transformation prompts")
@@ -1699,23 +1830,23 @@ CATEGORY: [Different randomly selected category]
                 logger.warning(f"📄 FULL UNPARSEABLE UNDRESS RESPONSE ({len(response)} chars):")
                 logger.warning(f"{response}")
                 logger.warning(f"📄 END OF UNPARSEABLE UNDRESS RESPONSE")
-                # Return what we have plus fallbacks with detailed skin texture
+                # Return what we have plus fallbacks with detailed descriptions
                 while len(prompts) < 5:
                     if len(prompts) == 0:
-                        # Bikini: breast size + detailed skin texture
-                        prompts.append("Replace current outfit with black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass. Medium sized breasts (C cup). Detailed skin texture.")
+                        # Bikini: detailed 500+ char description
+                        prompts.append("Replace current outfit with black micro string bikini with tiny triangle cups barely covering nipples and thin side-tie thong bottoms exposing entire ass, adjustable strings creating indentation marks on skin where they press into hips and neck, minimal fabric coverage with maximum skin exposure, high-cut leg openings revealing hip curves and inner thighs. Medium sized breasts (C cup) with natural shape visible. Detailed skin texture with visible pores on chest and stomach, natural skin tone with tan lines, bikini strings creating pressed lines in skin, highlights on breast curves and shoulders where light reflects, realistic shadows in cleavage enhancing three-dimensional form.")
                     elif len(prompts) == 1:
-                        # Lingerie: breast size + detailed skin texture
-                        prompts.append("Replace current outfit with completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area. Medium sized breasts (C cup). Detailed skin texture.")
+                        # Lingerie: detailed 500+ char description
+                        prompts.append("Replace current outfit with completely sheer mesh bodysuit lingerie with nipples clearly visible through see-through fabric and exposed crotch area, ultra-transparent construction allowing full view of body underneath, delicate lace trim along edges doing nothing to obscure view, high-cut leg openings, adjustable spaghetti straps. Medium sized breasts (C cup) completely visible through transparent mesh with nipple and areola detail clearly showing. Detailed skin texture visible through sheer material showing natural pores and skin tone, breast tissue and nipple texture clearly defined through layers, subtle shadows visible through mesh creating depth, skin appearing luminous with light filtering through transparent fabric.")
                     elif len(prompts) == 2:
-                        # Fantasy: breast size + detailed skin texture
-                        prompts.append("Replace current outfit with sexy succubus costume with revealing red leather corset pushing breasts up, tiny black horns, demon tail, and skimpy thong bottoms with garter straps. Medium sized breasts (C cup). Detailed skin texture.")
+                        # Fantasy: detailed 500+ char description
+                        prompts.append("Replace current outfit with sexy succubus costume with revealing red leather corset pushing breasts up with exposed cleavage, tiny black horns, demon tail, and skimpy thong bottoms with garter straps, corset laced tight with boning creating dramatic cleavage, cups cut low exposing upper breast curves, paired with red leather micro-skirt barely covering ass, black fishnet thigh-high stockings, red and black color scheme. Medium sized breasts (C cup) pushed up dramatically by tight corset creating enhanced cleavage. Detailed skin texture with compression marks from corset boning visible on ribcage, breast tissue compressed and pushed upward, visible pores on exposed cleavage, natural skin tone contrasting with red costume, highlights on exposed breast curves creating dramatic lighting effects.")
                     elif len(prompts) == 3:
-                        # Nude: breast size + detailed breasts/nipples + detailed skin texture
-                        prompts.append("Remove current outfit, fully nude. Medium sized breasts (C cup). Detailed breasts and nipples. Detailed skin texture.")
+                        # Nude: detailed 500+ char description
+                        prompts.append("Remove current outfit, fully nude with all clothing removed. Medium sized breasts (C cup) with natural shape exhibiting realistic volume and proportion, breasts sitting naturally on chest wall, visible nipples in natural state, areolas displaying natural pink-brown pigmentation with Montgomery glands visible as small raised bumps. Detailed breasts and nipples with photorealistic anatomy including natural breast shape, subtle vein patterns visible beneath breast skin, realistic nipple and areola texture. Detailed skin texture across entire body showing visible individual pores, natural subsurface scattering creating soft luminous quality, realistic skin tone variation, natural characteristics including freckles or beauty marks, realistic highlights creating sheen on curved surfaces, natural shadows enhancing three-dimensional body form.")
                     elif len(prompts) == 4:
-                        # AI's choice: breast size + detailed skin texture
-                        prompts.append("Replace current outfit with wet white tank top clinging to body showing visible nipples and areolas through soaked fabric paired with tiny denim shorts riding up. Medium sized breasts (C cup). Detailed skin texture.")
+                        # AI's choice: detailed 500+ char description
+                        prompts.append("Replace current outfit with wet white tank top clinging to body showing visible nipples and areolas through soaked fabric paired with tiny denim shorts riding up, fabric drenched and transparent from water, shirt plastered to breasts showing exact breast shape, water causing complete transparency with nipples clearly visible as dark circles through wet white material, shorts soaked and riding up between ass cheeks, water droplets running down exposed skin and dripping from fabric. Medium sized breasts (C cup) clearly defined through soaked transparent shirt. Detailed skin texture showing wet skin glistening with water creating shiny reflective surface, visible pores on exposed areas, water droplets beading on skin, breast shape and nipples clearly visible through wet fabric, highlights on wet skin creating bright reflective spots, realistic wet fabric transparency.")
                 return prompts[:5]
                 
         except Exception as e:

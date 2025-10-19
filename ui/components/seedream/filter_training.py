@@ -1211,9 +1211,14 @@ class FilterTrainingManager:
             )
             
             if not transformations or len(transformations) == 0:
+                # Check if OpenAI is being used (content policy issue)
+                if ai_advisor.api_provider == "openai":
+                    error_msg = "❌ OpenAI blocks explicit content. Try Claude API or use fallback prompts."
+                else:
+                    error_msg = "❌ Generation failed - API returned no content"
                 self.parent_layout.parent_frame.after(
                     0,
-                    lambda: self._show_tooltip("❌ Generation failed")
+                    lambda msg=error_msg: self._show_tooltip(msg)
                 )
                 return
             
