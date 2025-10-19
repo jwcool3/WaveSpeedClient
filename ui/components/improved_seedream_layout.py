@@ -1323,7 +1323,12 @@ class ImprovedSeedreamLayout(AIChatMixin):
             transformations = asyncio.run(ai_advisor.generate_undress_transformations(description))
             
             if not transformations or len(transformations) == 0:
-                self.parent_frame.after(0, lambda: self.show_tooltip("❌ Generation failed"))
+                # Check if OpenAI is being used (content policy issue)
+                if ai_advisor.api_provider == "openai":
+                    error_msg = "❌ OpenAI blocks explicit content. Try Claude API or use fallback prompts."
+                else:
+                    error_msg = "❌ Generation failed - API returned no content"
+                self.parent_frame.after(0, lambda msg=error_msg: self.show_tooltip(msg))
                 return
             
             # Show results in UI thread
