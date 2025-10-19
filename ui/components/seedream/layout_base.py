@@ -1010,7 +1010,7 @@ class SeedreamLayoutV2:
             if 'splitter_position' in current_settings:
                 message += f"📏 Seedream Controls Splitter: {current_settings['splitter_position']}px\n"
             if 'side_panel_position' in current_settings:
-                message += f"📏 Side Panel Splitter: {current_settings['side_panel_position']}px\n"
+                message += f"📏 Side Panel Width (Undress Prompts): {current_settings['side_panel_position']}px\n"
             
             # Recent Results zoom
             if 'recent_results_zoom' in current_settings:
@@ -1438,7 +1438,8 @@ class SeedreamLayoutV2:
             else:
                 # Add side panel to outer paned window
                 logger.debug("Adding side panel to outer paned window...")
-                self.outer_paned_window.add(self.side_panel_container, weight=40)
+                # Use a smaller default weight for narrower side panel
+                self.outer_paned_window.add(self.side_panel_container, weight=25)
             
             # Create header with close button
             header_frame = ttk.Frame(self.side_panel_container)
@@ -1468,6 +1469,19 @@ class SeedreamLayoutV2:
             
             self.side_panel_visible = True
             self.side_panel_content = content_widget
+            
+            # Restore saved side panel width if available
+            if 'side_panel_position' in self.ui_preferences:
+                def restore_width():
+                    try:
+                        position = self.ui_preferences['side_panel_position']
+                        self.outer_paned_window.sashpos(0, position)
+                        logger.info(f"✓ Restored side panel width: {position}px")
+                    except Exception as e:
+                        logger.debug(f"Could not restore side panel width: {e}")
+                # Schedule after a short delay to ensure widgets are rendered
+                self.parent_frame.after(100, restore_width)
+            
             logger.info(f"✓ Side panel shown successfully: {title}")
             
         except Exception as e:

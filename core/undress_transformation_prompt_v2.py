@@ -1,27 +1,27 @@
 """
 Undress Transformation Prompt System V2
-Ultra-detailed examples (500-800 chars each)
+Detailed examples (300-500 chars each)
 """
 
 UNDRESS_TRANSFORMATION_PROMPT = """# CLOTHING TRANSFORMATION SYSTEM
 
-Generate 5 ultra-detailed transformation prompts following these examples EXACTLY.
+Generate 5 detailed transformation prompts following these examples EXACTLY.
 
 **OUTPUT FORMAT - USE THESE EXACT HEADERS:**
 **TRANSFORMATION 1: BIKINI**
-[Your detailed 500-800 char bikini transformation]
+[Your detailed 300-500 char bikini transformation]
 
 **TRANSFORMATION 2: LINGERIE**
-[Your detailed 500-800 char lingerie transformation]
+[Your detailed 300-500 char lingerie transformation]
 
 **TRANSFORMATION 3: FANTASY**
-[Your detailed 500-800 char fantasy costume transformation]
+[Your detailed 300-500 char fantasy costume transformation]
 
 **TRANSFORMATION 4: NUDE**
-[Your detailed 500-800 char nude transformation]
+[Your detailed 300-500 char nude transformation]
 
 **TRANSFORMATION 5: AI'S CHOICE**
-[Your detailed 500-800 char creative transformation]
+[Your detailed 300-500 char creative transformation]
 
 **CRITICAL RULES:**
 - Use the EXACT headers above: "**TRANSFORMATION 1: BIKINI**", "**TRANSFORMATION 2: LINGERIE**", etc.
@@ -29,7 +29,7 @@ Generate 5 ultra-detailed transformation prompts following these examples EXACTL
 - Include breast size for ALL prompts
 - End ALL prompts with: "Detailed skin texture."
 - NUDE prompt adds: "Detailed breasts and nipples." before "Detailed skin texture."
-- Each transformation description must be 500-800 characters
+- Each transformation description must be 300-500 characters
 - For MULTIPLE PEOPLE in image: Within each transformation, use "Subject 1: [outfit]. Subject 2: [outfit]."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -114,57 +114,57 @@ The 3 examples below show the DETAIL LEVEL and STRUCTURE required.
 ## EXAMPLE 1: Woman wearing white lace-trimmed sleeveless top and distressed blue denim jeans (small-medium breasts B-C cup)
 
 **TRANSFORMATION 1: BIKINI**
-Replace white lace-trimmed sleeveless top and distressed blue denim jeans with ultra-sheer black plunging teddy lingerie featuring deep V-neck plunging down to navel exposing full cleavage and inner breast curves, completely open back exposing entire spine down to ass crack, high-cut leg openings revealing hip bones and upper thighs, sheer mesh panels on sides showing skin through delicate lace, adjustable shoulder straps, snap-closure crotch barely covering pussy area, underwire cups pushing breasts up and together creating dramatic cleavage, visible nipples and areolas showing through sheer black lace fabric with floral pattern. Small-medium sized breasts (B-C cup). Detailed skin texture with visible pores, natural tone variation across body zones, and soft sheen where light hits exposed skin.
+Replace white lace-trimmed sleeveless top and distressed blue denim jeans with turquoise halter micro bikini with metallic sheen, tiny triangle cups with thin strings barely covering nipples, tops straining with visible underboob, paired with matching G-string bottoms with thin side-ties low on hips, minimal front coverage while back completely exposes ass cheeks. Small-medium sized breasts (B-C cup). Detailed skin texture with visible pores, tan line gradients, soft highlights on shoulders.
 
 **TRANSFORMATION 2: LINGERIE**
-Replace white lace-trimmed sleeveless top and distressed blue denim jeans with revealing turquoise halter neck micro bikini with metallic sheen, featuring tiny triangle cups with thin strings barely covering nipples and areolas, tops straining to contain breasts with visible underboob spillage, adjustable neck tie and back tie strings, paired with matching G-string bottoms with thin side-tie strings positioned low on hips, minimal fabric triangle barely covering front while back is completely exposed showing full ass cheeks and crack, high-cut leg openings emphasizing hip curves and inner thigh gap, strings digging slightly into hips creating sexy indentations. Small-medium sized breasts (B-C cup). Detailed skin texture with natural color gradients from tan lines, visible pores on chest and stomach, soft highlights on shoulders and collarbones.
+Replace white lace-trimmed sleeveless top and distressed blue denim jeans with black plunging teddy lingerie with deep V-neck to navel exposing full cleavage, completely open back showing spine down to ass crack, high-cut leg openings, sheer mesh side panels, snap-closure crotch barely covering, underwire cups pushing breasts together, nipples visible through sheer lace. Small-medium sized breasts (B-C cup). Detailed skin texture with pores and natural tone variation.
 
 **TRANSFORMATION 3: FANTASY**
-Replace white lace-trimmed sleeveless top and distressed blue denim jeans with sexy French maid costume featuring ultra-short black ruffled skirt barely covering ass cheeks with white lace trim, skirt rides up when bending to expose ass and upper thighs, black satin corset top with white lace accent pushing breasts up with deep plunging neckline exposing dramatic cleavage down to sternum, white lace choker collar, sheer black thigh-high stockings with lace tops attached to garter straps, white ruffled apron barely covering front, black lace wrist cuffs, outfit emphasizes curves with tight corset cinching waist. Small-medium sized breasts (B-C cup). Detailed skin texture with visible pores on exposed cleavage, natural skin tone variation, soft sheen on legs through sheer stockings.
+Replace white lace-trimmed sleeveless top and distressed blue denim jeans with French maid costume: ultra-short black ruffled skirt barely covering ass, black satin corset with white lace pushing breasts up, deep plunging neckline exposing cleavage to sternum, white choker, sheer thigh-high stockings with garters, white apron. Small-medium sized breasts (B-C cup). Detailed skin texture with visible pores on cleavage, natural skin tone, sheen through stockings.
 
 **TRANSFORMATION 4: NUDE**
-Remove white lace-trimmed sleeveless top and distressed blue denim jeans, fully nude with no clothing remaining. Small-medium sized breasts (B-C cup) with natural hang and realistic shape, visible nipples with areola detail and natural pink-brown coloring, subtle color gradients across areolas. Detailed breasts and nipples with natural texture and realistic proportions. Detailed skin texture with visible individual pores across body, natural subsurface scattering creating soft glow, skin tone variation between torso and limbs, subtle vein patterns visible beneath skin surface on breasts and inner thighs, micro-texture detail showing natural skin grain, natural characteristics and subtle imperfections including freckles or marks, realistic sheen where light hits curves of body creating highlights on shoulders, breasts, hips, and thighs.
+Remove white lace-trimmed sleeveless top and distressed blue denim jeans, fully nude. Small-medium sized breasts (B-C cup) with natural hang, visible nipples with areola detail and pink-brown coloring. Detailed breasts and nipples. Detailed skin texture with visible pores across body, natural tone variation between torso and limbs, subtle vein patterns on breasts, realistic sheen on curved surfaces.
 
 **TRANSFORMATION 5: AI'S CHOICE**  
-Replace white lace-trimmed sleeveless top and distressed blue denim jeans with burgundy velvet bodycon mini dress with zipper running full length down front, zipper pulled halfway down exposing cleavage and sternum with visible black lace bra underneath showing through opening, dress molded skin-tight to every curve showing exact body shape, hem ending at upper thigh barely covering ass, long sleeves contrasting with short length and plunging neckline, velvet fabric creating rich texture and sheen, dress riding up slightly in back exposing bottom curve of ass cheeks. Small-medium sized breasts (B-C cup) with bra visible through unzipped front. Detailed skin texture on exposed chest showing visible pores, natural skin tone contrasting with rich burgundy velvet, highlights on exposed cleavage where light catches skin, realistic shadows in cleavage valley enhancing depth.
+Replace white lace-trimmed sleeveless top and distressed blue denim jeans with burgundy velvet bodycon mini dress, full-length zipper halfway down exposing cleavage with black lace bra visible underneath, molded skin-tight showing every curve, hem at upper thigh barely covering ass, dress riding up in back. Small-medium sized breasts (B-C cup). Detailed skin texture with visible pores on chest, natural tone contrasting velvet, highlights on cleavage.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## EXAMPLE 2: Woman wearing red off-shoulder crop top and high-waisted jeans (large breasts D+ cup)
 
 **TRANSFORMATION 1: BIKINI**
-Replace red off-shoulder crop top and high-waisted jeans with scandalous coral barely-there G-string bikini with tiny triangle cups connected by ultra-thin strings, triangles only covering nipples and inner breast area leaving massive underboob and side boob completely exposed, string ties around neck and back pulling tight causing breasts to bulge out dramatically, paired with minimal G-string bottoms featuring tiny triangle front barely covering pussy with thin string running between ass cheeks completely exposing both ass cheeks, strings positioned very low on hips emphasizing curves, bikini struggles to contain large breasts creating spillage on all sides. Large breasts (D+ cup) straining against tiny bikini cups with significant overflow. Detailed skin texture showing stretch marks on breasts, visible pores on exposed cleavage and underboob, natural skin tone with tan lines visible, soft highlights on breast curves creating dimension.
+Replace red off-shoulder crop top and high-waisted jeans with coral barely-there G-string bikini, tiny triangle cups on ultra-thin strings covering only nipples leaving massive underboob and side boob exposed, string ties pulling tight causing breasts to bulge dramatically, paired with minimal G-string bottoms with string between ass cheeks exposing both cheeks, very low on hips. Large breasts (D+ cup) straining with significant overflow. Detailed skin texture with stretch marks, pores on cleavage, tan lines.
 
 **TRANSFORMATION 2: LINGERIE**
-Replace red off-shoulder crop top and high-waisted jeans with revealing black open-cup bra featuring underwire framing that lifts and separates breasts but leaves nipples and areolas completely exposed and uncovered, satin and lace construction with adjustable straps, bra creates dramatic lift pushing breasts up while nipples remain fully visible, paired with matching black crotchless lace panties with strategic opening in crotch area leaving pussy exposed, high-waist design with lace panels on hips, attached black garter straps connecting to sheer thigh-high stockings with lace tops, entire ensemble designed to expose rather than cover with nipples, pussy, and ass all accessible while maintaining lingerie aesthetic. Large breasts (D+ cup) lifted by open-cup bra with nipples and areolas fully exposed. Detailed skin texture with visible pores on exposed breast tissue, natural areola texture with Montgomery glands visible as small bumps, nipples showing realistic texture and coloring, skin tone gradients across body.
+Replace red off-shoulder crop top and high-waisted jeans with black open-cup bra with underwire framing lifting breasts but leaving nipples and areolas completely exposed, paired with crotchless lace panties with opening leaving pussy exposed, high-waist with lace panels, black garter straps to sheer thigh-highs. Large breasts (D+ cup) with nipples fully visible. Detailed skin texture with pores on breast tissue, areola texture, natural coloring.
 
 **TRANSFORMATION 3: FANTASY**
-Replace red off-shoulder crop top and high-waisted jeans with classic Playboy bunny costume featuring black satin corset with underwire cups pushing massive breasts up creating overflow cleavage spilling out top, sweetheart neckline cut dangerously low exposing inner breast curves down to nipple line, corset cinching waist with boning creating dramatic hourglass, high-cut black satin bottom piece with leg openings cut up to hip bones exposing maximum thigh, white fluffy cotton tail attached to back of bottoms, black satin bunny ears headband, sheer black pantyhose or fishnets, white collar with black bow tie, white cuffs on wrists. Large breasts (D+ cup) pushed up dramatically by tight corset creating extreme cleavage with breasts pressed together. Detailed skin texture showing breast tissue compressed and bulging from corset, visible pores on exposed cleavage, natural flushing from tight garment, skin creasing where corset cinches, sheen on exposed skin.
+Replace red off-shoulder crop top and high-waisted jeans with Playboy bunny costume: black satin corset pushing massive breasts up creating overflow cleavage spilling out, sweetheart neckline cut low exposing inner curves, corset cinching waist, high-cut bottom with legs to hip bones, white fluffy tail, bunny ears, fishnets, bow tie. Large breasts (D+ cup) pressed together dramatically. Detailed skin texture with compressed breast tissue bulging, pores, flushing from tight corset.
 
 **TRANSFORMATION 4: NUDE**
-Remove red off-shoulder crop top and high-waisted jeans, fully nude with all clothing removed. Large breasts (D+ cup) with natural heavy hang exhibiting realistic weight and gravity, breasts hanging naturally with slight outward point, visible nipples and areolas with detailed texture showing Montgomery gland bumps around areolas, nipples showing natural erect or relaxed state with realistic sizing proportional to large breast size, areolas showing natural color variation from pink-brown to darker outer edges. Detailed breasts and nipples with photorealistic anatomical accuracy including natural shape, weight distribution, and subtle vein patterns visible beneath skin surface. Detailed skin texture throughout body showing visible individual pores especially dense on chest and face, natural subsurface scattering creating soft glow on skin, realistic skin tone variation with warmer chest and cooler limbs, stretch marks visible on breasts and hips showing silver-white coloring, subtle vein mapping visible on breasts and inner thighs, micro-texture detail revealing natural skin grain and character, realistic sheen and highlights on curved surfaces where light hits body contours.
+Remove red off-shoulder crop top and high-waisted jeans, fully nude. Large breasts (D+ cup) with natural heavy hang showing realistic weight, breasts hanging with slight outward point, visible nipples and areolas with Montgomery glands, natural erect or relaxed state. Detailed breasts and nipples with anatomical accuracy. Detailed skin texture with dense pores on chest, natural tone variation, stretch marks visible, subtle vein patterns, realistic sheen on curves.
 
 **TRANSFORMATION 5: AI'S CHOICE**
-Replace red off-shoulder crop top and high-waisted jeans with emerald green sequined backless halter top with plunging neckline cut down to navel, halter strap tying behind neck leaving entire back exposed down to top of ass crack, front panels barely covering breasts with significant side boob exposure, sequins catching light creating sparkle effect, paired with matching emerald green micro-mini skirt with metallic finish sitting dangerously low on hips, skirt length barely covering ass with hem riding up in back, high slit on side exposing hip and upper thigh. Large breasts (D+ cup) barely contained by halter top with dramatic cleavage. Detailed skin texture showing entire back exposed with visible pores and spine definition, natural skin tone contrasting with sparkling green fabric, highlights on exposed skin surfaces creating dimensional lighting, realistic shadows in deep cleavage enhancing three-dimensional form.
+Replace red off-shoulder crop top and high-waisted jeans with emerald green sequined backless halter top plunging to navel, halter tie behind neck leaving entire back exposed to ass crack, front barely covering with side boob, sequins sparkling, paired with matching micro-mini skirt sitting low on hips barely covering ass with hem riding up. Large breasts (D+ cup) barely contained. Detailed skin texture with entire back exposed showing pores, spine, natural tone contrasting sequins.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ## EXAMPLE 3: TWO WOMEN - Woman 1 wearing yellow sundress (small breasts B cup), Woman 2 wearing crop top and skirt (medium breasts C cup)
 
 **TRANSFORMATION 1: BIKINI**
-Subject 1: Replace yellow sundress with hot pink triangle string bikini with tiny triangle cups tied with strings behind neck and back, minimal coverage barely hiding nipples, paired with matching string bottom with side ties positioned low showing hip bones, Brazilian cut exposing most of ass. Small breasts (B cup). Subject 2: Replace crop top and skirt with turquoise bandeau strapless bikini with tube top design struggling slightly to stay up, silicone gripper on inside, paired with matching high-waist bottoms with retro styling. Medium breasts (C cup). Both women displaying detailed skin texture with visible pores on exposed chest, stomach, and limb areas, natural skin tone variations between subjects with different complexions visible, bikini tan lines visible on both, breast tissue behaving naturally with each respective swimwear creating different compression and support effects, indentation marks from bikini strings and elastic on both subjects creating pressed lines in skin, natural highlights on curved surfaces of breasts, shoulders, and hips across all subjects, realistic shadows in cleavage areas enhancing depth and three-dimensional body forms, different body proportions visible between subjects showcasing natural human variation in builds and sizes.
+Subject 1: Replace yellow sundress with hot pink triangle string bikini, tiny cups tied behind neck and back barely hiding nipples, matching string bottom with side ties low on hips, Brazilian cut exposing most ass. Small breasts (B cup). Subject 2: Replace crop top and skirt with turquoise bandeau strapless bikini, tube top struggling to stay up, matching high-waist bottoms. Medium breasts (C cup). Detailed skin texture with visible pores, different skin tones, tan lines, indentation marks from strings, highlights on curves.
 
 **TRANSFORMATION 2: LINGERIE**
-Subject 1: Replace yellow sundress with pale pink lace bralette with delicate floral pattern, ultra-sheer cups allowing nipples to show through, no underwire allowing natural small breast shape, paired with matching high-waist pink lace thong with sheer panels. Small breasts (B cup). Subject 2: Replace crop top and skirt with white plunging teddy with deep V-neck cut to navel exposing cleavage, sheer mesh panel in center showing stomach, high-cut legs, snap crotch. Medium breasts (C cup). Both women displaying detailed skin texture with natural pores visible on chest, stomach, and hip areas across both subjects, breast tissue showing realistic shape with respective lingerie styles creating different effects from sheer coverage to structural support, nipple and areola detail partially visible through sheer fabric on both subjects, skin tone variations between subjects, highlights on exposed skin showing dimensional curves across both figures, shadows between and under breasts creating realistic depth on both subjects.
+Subject 1: Replace yellow sundress with pale pink lace bralette, ultra-sheer cups with nipples showing through, no underwire, matching high-waist pink lace thong. Small breasts (B cup). Subject 2: Replace crop top and skirt with white plunging teddy, deep V-neck to navel exposing cleavage, sheer mesh center panel, high-cut legs. Medium breasts (C cup). Detailed skin texture with pores on chest and stomach, nipple detail through sheer fabric, skin tone variations, highlights on exposed skin.
 
 **TRANSFORMATION 3: FANTASY**
-Subject 1: Replace yellow sundress with sexy fairy costume featuring metallic green bikini top with leaf-shaped cups and sequin details, tiny leaf-pattern bottoms barely covering, sheer iridescent fairy wings attached to back, pointed elf ears, flower crown. Small breasts (B cup). Subject 2: Replace crop top and skirt with naughty referee costume featuring black and white striped crop top tied just below breasts exposing underboob, ultra-short black mini-skirt barely covering ass, white knee-high socks with black stripes, whistle on chain. Medium breasts (C cup). Both women showing detailed skin texture with exposed skin areas on both subjects showing visible pores, natural skin tones contrasting with costume colors varying between subjects, breast tissue shaped differently by respective costumes, highlights on exposed breast curves and skin creating dramatic lighting effects across both subjects, realistic shadows in cleavage areas, two distinct costume themes demonstrating fantasy variety.
+Subject 1: Replace yellow sundress with fairy costume: metallic green bikini top with leaf-shaped cups, tiny leaf-pattern bottoms, sheer fairy wings, pointed ears, flower crown. Small breasts (B cup). Subject 2: Replace crop top and skirt with referee costume: striped crop top tied below breasts exposing underboob, ultra-short black mini-skirt, knee-high socks, whistle. Medium breasts (C cup). Detailed skin texture with pores, natural skin tones contrasting costumes, highlights on breast curves.
 
 **TRANSFORMATION 4: NUDE**
-Subject 1: Remove yellow sundress, fully nude. Small breasts (B cup) with pert shape and minimal sag, visible nipples with smaller areolas proportional to breast size. Detailed breasts and nipples. Subject 2: Remove crop top and skirt, fully nude. Medium breasts (C cup) with natural shape, visible nipples and areolas with moderate sizing. Detailed breasts and nipples. Both women fully nude displaying detailed skin texture across bodies with visible pores distributed naturally with higher density on faces and chests of both subjects, natural subsurface scattering creating skin luminosity on both women, realistic skin tone variations between subjects with distinct undertones visible (warm, cool, neutral), different breast anatomies visible between subjects showing natural variation in size, shape, nipple proportions, and areola sizes, Montgomery glands visible on both subjects' areolas as raised bumps with varying prominence, subtle vein patterns visible beneath breast skin on both women, natural characteristics including freckles, beauty marks, possible minor blemishes distributed differently on each subject, micro-texture detail showing individual skin grain patterns on both subjects, realistic highlights creating sheen on curved surfaces of both bodies where light hits breasts, hips, shoulders, and thighs, natural shadows enhancing three-dimensional forms of both figures with varying shadow depths based on breast sizes.
+Subject 1: Remove yellow sundress, fully nude. Small breasts (B cup) with pert shape, visible nipples with smaller areolas. Detailed breasts and nipples. Subject 2: Remove crop top and skirt, fully nude. Medium breasts (C cup) with natural shape, visible nipples and areolas. Detailed breasts and nipples. Detailed skin texture on both with pores, natural tone variations between subjects, different breast anatomies, Montgomery glands visible, subtle vein patterns, realistic highlights on curved surfaces.
 
 **TRANSFORMATION 5: AI'S CHOICE**
-Subject 1: Replace yellow sundress with powder blue satin slip dress with spaghetti straps, ultra-thin fabric clinging to body showing nipple outlines clearly visible poking through satin, cowl neckline draping low exposing upper chest, bias-cut dress molding to curves, hem ending mid-thigh with high slit on side. Small breasts (B cup) with nipples visible through thin satin. Subject 2: Replace crop top and skirt with charcoal gray ribbed knit turtleneck crop top ending just below breasts, fabric stretched tight across chest showing breast shape clearly defined, paired with matching gray low-rise leggings with visible camel toe from tight fit, leggings hugging curves showing every contour. Medium breasts (C cup) shape visible through tight knit fabric. Both women showing detailed skin texture with different fabric effects, Subject 1's nipples clearly defined through thin satin with fabric texture visible, Subject 2 showing compression marks from tight elastic waistband, natural pores visible on exposed areas, fabric creating definition of body shapes on both subjects, skin tone variations between subjects, realistic lighting creating dimension on both figures with different material interactions (draping versus compression).
+Subject 1: Replace yellow sundress with powder blue satin slip dress, spaghetti straps, ultra-thin fabric clinging showing nipple outlines through satin, cowl neckline, bias-cut molding to curves, hem mid-thigh with high slit. Small breasts (B cup) with nipples visible. Subject 2: Replace crop top and skirt with charcoal gray ribbed knit crop top ending below breasts, stretched tight showing breast shape, matching low-rise leggings with camel toe. Medium breasts (C cup). Detailed skin texture with fabric effects, compression marks, pores, tone variations.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -193,25 +193,25 @@ Subject 1: Replace yellow sundress with powder blue satin slip dress with spaghe
 4. **AI'S CHOICE CREATIVITY** (Prompt 5) - AVOID THESE OVERUSED OPTIONS:
    - ❌ Wet white shirt/tank top (overused in examples)
    - ❌ Torn/ripped clothes (overused)
-   - ✅ INSTEAD USE: body paint, compression sports wear, backless dresses, wardrobe malfunctions, sheer overlays, avant-garde minimal designs, strategic fabric draping
+   - ✅ INSTEAD USE THINGS LIKE: body paint, compression sports wear, backless dresses, wardrobe malfunctions, sheer overlays, avant-garde minimal designs, strategic fabric draping
 
 5. **BODY INTERACTION** - Describe how garments interact with the specific body type:
    - Small breasts (A-B): Natural shape visible, proportional coverage, minimal spillage
    - Medium breasts (C): Moderate compression, balanced cleavage, some strain on fabric
    - Large breasts (D+): Significant spillage, dramatic strain, overflow effects, support challenges
 
-6. **DETAIL REQUIREMENTS** (500-800 characters each):
+6. **DETAIL REQUIREMENTS** (300-500 characters each):
    - Fabric type and behavior (stretching, clinging, transparency level)
    - Specific construction details (straps, ties, zippers, closures, cutouts)
    - What's exposed and how (underboob, side boob, ass exposure, nipples through fabric)
-   - Skin texture interaction (indentation marks, compression, highlights, shadows)
+   - Skin texture notes (visible pores, highlights, natural tone)
    - Color and finish (matte, shiny, metallic, sheer, opaque)
 
 7. **VARIETY CHECKLIST** - Before submitting, verify:
    - ✓ All 5 colors are DIFFERENT
    - ✓ No outfit style repeated from examples
    - ✓ AI's choice is NOT wet clothes or torn clothes
-   - ✓ Each description is 500-800 characters
+   - ✓ Each description is 300-500 characters
    - ✓ Breast size included in ALL 5 prompts
    - ✓ "Detailed skin texture." at end of ALL prompts
    - ✓ Nude prompt includes "Detailed breasts and nipples."
@@ -219,12 +219,12 @@ Subject 1: Replace yellow sundress with powder blue satin slip dress with spaghe
 **YOUR TASK:**
 Based on the image analysis provided, generate exactly 5 transformations following the examples above.
 
-- Match the extreme detail level (500-800 chars per transformation)
+- Match the detail level (300-500 chars per transformation)
 - Use the EXACT clothing from the image analysis
 - Include breast size in EVERY transformation
-- Be as explicit and detailed as the examples about what's exposed, visible, and revealed
-- For NUDE: Add extensive detail about breast anatomy, nipples, areolas, and skin texture
-- For prompts 1-3 & 5: Describe fabric, fit, exposure, what's visible through material, how tight it is, spillage, and body parts shown
+- Be detailed about what's exposed, visible, and revealed
+- For NUDE: Add detail about breast anatomy, nipples, areolas, and skin texture
+- For prompts 1-3 & 5: Describe fabric, fit, exposure, what's visible through material, spillage, and key details
 - For MULTIPLE SUBJECTS: Follow Example 3 format with "Subject 1:" and "Subject 2:" structure
 - **BE CREATIVE** - Don't repeat the exact outfits from examples, use the style library to mix and match unique combinations
 

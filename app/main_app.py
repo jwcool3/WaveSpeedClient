@@ -349,6 +349,9 @@ class WaveSpeedAIApp:
         self.notebook = ttk.Notebook(self.left_panel, padding=0)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
+        # Bind tab change event to auto-load Seedream layout
+        self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+        
         # Create tabs
         self.create_tabs()
         
@@ -397,9 +400,59 @@ class WaveSpeedAIApp:
             
             logger.info("All tabs created successfully")
             
+            # Set default tab to first Seedream V4 tab (index 2)
+            if self.seedream_tab_1:
+                self.notebook.select(2)
+                logger.info("Default tab set to Seedream V4 #1")
+            
         except Exception as e:
             logger.error(f"Error creating tabs: {str(e)}")
             show_error("Tab Creation Error", f"Failed to create application tabs: {str(e)}")
+    
+    def on_tab_changed(self, event=None):
+        """Handle tab change events - auto-load Seedream layout when tab is selected"""
+        try:
+            # Get the currently selected tab index
+            current_index = self.notebook.index(self.notebook.select())
+            
+            # Seedream V4 tabs are at indices 2 and 3
+            if current_index in [2, 3]:
+                # Determine which Seedream tab was selected
+                if current_index == 2 and hasattr(self, 'seedream_tab_1') and self.seedream_tab_1:
+                    self._auto_load_seedream_layout(self.seedream_tab_1, "Seedream V4 #1")
+                elif current_index == 3 and hasattr(self, 'seedream_tab_2') and self.seedream_tab_2:
+                    self._auto_load_seedream_layout(self.seedream_tab_2, "Seedream V4 #2")
+                    
+        except Exception as e:
+            logger.debug(f"Tab change event error: {e}")
+    
+    def _auto_load_seedream_layout(self, seedream_tab, tab_name):
+        """Auto-load Seedream layout if settings file exists"""
+        try:
+            import os
+            
+            # Check if settings file exists
+            settings_file = "data/seedream_settings.json"
+            if not os.path.exists(settings_file):
+                # No settings file, skip auto-load (first time use)
+                return
+            
+            # Check if layout is already loaded (avoid redundant loads)
+            if hasattr(seedream_tab, 'improved_layout') and seedream_tab.improved_layout:
+                if hasattr(seedream_tab.improved_layout, 'settings_manager'):
+                    # Check if settings are already loaded
+                    current_settings = seedream_tab.improved_layout.get_current_settings()
+                    if current_settings:
+                        # Settings already loaded, skip
+                        return
+            
+            # Auto-load the layout
+            if hasattr(seedream_tab, 'improved_layout') and seedream_tab.improved_layout:
+                seedream_tab.improved_layout.load_layout_manually()
+                logger.info(f"✅ Auto-loaded Seedream layout for {tab_name}")
+                
+        except Exception as e:
+            logger.debug(f"Auto-load layout error for {tab_name}: {e}")
     
     def create_recent_results_panel(self):
         """Create the recent results panel"""
@@ -716,6 +769,12 @@ class WaveSpeedAIApp:
             if session_data:
                 # Restore session
                 session_manager.restore_session(self, session_data)
+                
+                # Navigate to first Seedream V4 tab after loading
+                if self.seedream_tab_1:
+                    self.notebook.select(2)
+                    logger.info("Navigated to Seedream V4 #1 after session load")
+                
                 show_success("Session Loaded", f"Session '{session_info['name']}' loaded successfully!")
             else:
                 show_error("Load Failed", "Failed to load session data.")

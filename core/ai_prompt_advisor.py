@@ -766,7 +766,7 @@ class OpenAIAPI:
         
         payload = {
             "model": "gpt-4.1-nano-2025-04-14",
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
@@ -949,7 +949,7 @@ class OpenAIAPI:
         
         payload = {
             "model": "gpt-4",
-            "max_tokens": 2500,
+            "max_tokens": 3000,
             "messages": [{
                 "role": "user",
                 "content": [
@@ -1632,7 +1632,7 @@ CATEGORY: [Different randomly selected category]
         
         # Single request for all 5 transformations
         try:
-            user_message = "Generate all 5 ultra-detailed transformation prompts now. USE THE EXACT OUTPUT FORMAT with headers: '**TRANSFORMATION 1: BIKINI**', '**TRANSFORMATION 2: LINGERIE**', '**TRANSFORMATION 3: FANTASY**', '**TRANSFORMATION 4: NUDE**', '**TRANSFORMATION 5: AI'S CHOICE**'. CRITICAL: Use completely unique outfit styles NOT from the examples. DO NOT use wet white shirt, torn clothes, black teddy, turquoise bikini, French maid, or burgundy dress. Choose 5 different colors. Each prompt must be 500-800 characters with extreme detail. BE CREATIVE!"
+            user_message = "Generate all 5 detailed transformation prompts now. USE THE EXACT OUTPUT FORMAT with headers: '**TRANSFORMATION 1: BIKINI**', '**TRANSFORMATION 2: LINGERIE**', '**TRANSFORMATION 3: FANTASY**', '**TRANSFORMATION 4: NUDE**', '**TRANSFORMATION 5: AI'S CHOICE**'. CRITICAL: Use completely unique outfit styles NOT from the examples. DO NOT use wet white shirt, torn clothes, black teddy, turquoise bikini, French maid, or burgundy dress. Choose 5 different colors. Each prompt must be 300-500 characters with good detail. BE CREATIVE!"
             
             if self.api_provider == "openai" and self.openai_api:
                 response = await self.openai_api.generate_response(system_prompt + "\n\n" + user_message)

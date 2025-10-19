@@ -1405,10 +1405,8 @@ class FilterTrainingManager:
             # Use prompt_manager API for proper handling
             if hasattr(self.parent_layout, 'prompt_manager'):
                 self.parent_layout.prompt_manager.set_prompt_text(prompt)
-                self._show_tooltip("✅ Prompt inserted")
-                # Close side panel after using prompt
-                if hasattr(self.parent_layout, 'hide_side_panel'):
-                    self.parent_layout.hide_side_panel()
+                self._show_tooltip("✅ Prompt inserted - Panel kept open")
+                # Keep side panel open so user can continue browsing prompts
             elif hasattr(self.parent_layout, 'prompt_text'):
                 # Fallback: direct access
                 self.parent_layout.prompt_text.delete("1.0", tk.END)
@@ -1420,10 +1418,8 @@ class FilterTrainingManager:
                 if hasattr(self.parent_layout, '_on_prompt_text_changed'):
                     self.parent_layout._on_prompt_text_changed()
                 
-                self._show_tooltip("✅ Prompt inserted")
-                # Close side panel
-                if hasattr(self.parent_layout, 'hide_side_panel'):
-                    self.parent_layout.hide_side_panel()
+                self._show_tooltip("✅ Prompt inserted - Panel kept open")
+                # Keep side panel open so user can continue browsing prompts
             else:
                 self._show_tooltip("❌ Prompt field not available")
                 
