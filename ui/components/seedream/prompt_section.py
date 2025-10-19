@@ -196,7 +196,7 @@ class PromptSectionManager:
         prompt_container.grid(row=1, column=0, sticky="ew", pady=(0, 4))
         prompt_container.columnconfigure(0, weight=1)
         
-        # Prompt text - compact fixed height
+        # Prompt text - compact fixed height with undo enabled
         self.prompt_text = tk.Text(
             prompt_container,
             height=4,  # Compact height (was 6, now 4 for better fit)
@@ -207,7 +207,9 @@ class PromptSectionManager:
             padx=8,
             pady=6,
             bg='#ffffff',
-            fg='#333333'
+            fg='#333333',
+            undo=True,  # Enable undo/redo functionality
+            maxundo=-1  # Unlimited undo levels
         )
         self.prompt_text.grid(row=0, column=0, sticky="ew")
         
@@ -225,6 +227,11 @@ class PromptSectionManager:
         self.prompt_text.bind('<FocusOut>', self._on_prompt_focus_out)
         self.prompt_text.bind('<KeyRelease>', self._on_prompt_text_changed)
         self.prompt_text.bind('<Button-1>', self._on_prompt_click)
+        
+        # Bind undo/redo keyboard shortcuts
+        self.prompt_text.bind('<Control-z>', lambda e: self._handle_undo())
+        self.prompt_text.bind('<Control-y>', lambda e: self._handle_redo())
+        self.prompt_text.bind('<Control-Shift-Z>', lambda e: self._handle_redo())  # Alternative redo
     
     def _setup_status_row(self) -> None:
         """Setup character counter and status"""
@@ -413,6 +420,32 @@ class PromptSectionManager:
                 
         except Exception as e:
             logger.error(f"Error updating character count: {e}")
+    
+    def _handle_undo(self) -> None:
+        """Handle Ctrl+Z undo operation"""
+        try:
+            if self.prompt_has_placeholder:
+                self._clear_placeholder()
+            self.prompt_text.edit_undo()
+            self._on_prompt_text_changed()  # Update character count after undo
+            logger.debug("Undo operation performed")
+        except tk.TclError:
+            # No more undo operations available
+            logger.debug("No more undo operations available")
+        except Exception as e:
+            logger.error(f"Error performing undo: {e}")
+    
+    def _handle_redo(self) -> None:
+        """Handle Ctrl+Y or Ctrl+Shift+Z redo operation"""
+        try:
+            self.prompt_text.edit_redo()
+            self._on_prompt_text_changed()  # Update character count after redo
+            logger.debug("Redo operation performed")
+        except tk.TclError:
+            # No more redo operations available
+            logger.debug("No more redo operations available")
+        except Exception as e:
+            logger.error(f"Error performing redo: {e}")
     
     def _on_history_double_click(self, event=None) -> None:
         """Handle double-click on history item"""

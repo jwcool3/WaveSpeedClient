@@ -232,16 +232,24 @@ class ComparisonController:
         
         ttk.Label(self.opacity_frame, text="Blend:").pack(side=tk.LEFT, padx=(0, 5))
         
-        # Use discrete 10% increments to reduce lag
-        # ttk.Scale doesn't support resolution, but we'll snap to 10% in the handler
-        opacity_scale = ttk.Scale(
+        # Use tk.Scale instead of ttk.Scale for tick marks and resolution
+        opacity_scale = tk.Scale(
             self.opacity_frame,
             from_=0.0,
             to=1.0,
+            resolution=0.1,  # 10% increments
+            tickinterval=0.1,  # Show tick marks every 10%
             orient=tk.HORIZONTAL,
             variable=self.opacity_var,
             command=self._on_opacity_changed,
-            length=150
+            length=150,
+            showvalue=0,  # Hide the built-in value display (we use our own label)
+            bg='#f0f0f0',
+            troughcolor='#d0d0d0',
+            activebackground='#0078d7',
+            highlightthickness=0,
+            bd=1,
+            relief=tk.FLAT
         )
         opacity_scale.pack(side=tk.LEFT, padx=5)
         
@@ -273,6 +281,14 @@ class ComparisonController:
             controls_frame,
             text="🎨 Match Colors",
             command=self.apply_color_matching,
+            width=14
+        ).pack(side=tk.RIGHT, padx=2)
+        
+        # Smart Mask button
+        ttk.Button(
+            controls_frame,
+            text="🎯 Smart Mask",
+            command=self.show_smart_mask_controls,
             width=14
         ).pack(side=tk.RIGHT, padx=2)
         
@@ -362,7 +378,7 @@ class ComparisonController:
                 self.layout.display_paned_window.add(self.layout.original_container, weight=1)
                 logger.debug("Showing overlay in full-width original panel")
             
-            # Automatically set zoom to "Fit" for optimal overlay viewing
+            # Automatically set zoom to "Fit" for optimal overlay viewing and centering
             if hasattr(self.layout, 'zoom_var'):
                 current_zoom = self.layout.zoom_var.get()
                 if current_zoom != "Fit":
@@ -373,6 +389,12 @@ class ComparisonController:
                     if hasattr(self, 'zoom_label'):
                         self.zoom_label.config(text="Fit")
                     logger.debug("Auto-set zoom to Fit for overlay mode")
+            
+            # Automatically reset opacity to 50% for optimal comparison
+            self.overlay_opacity = 0.5
+            self.opacity_var.set(0.5)
+            self.opacity_label.config(text="50%")
+            logger.debug("Auto-set blend to 50% for overlay mode")
             
             # Get image paths
             original_path = None
@@ -795,6 +817,370 @@ class ComparisonController:
         except Exception as e:
             logger.error(f"Error applying color matching: {e}")
             messagebox.showerror("Error", f"Color matching failed: {str(e)}")
+    
+    def show_smart_mask_controls(self):
+        """Show smart mask dialog with preview and controls"""
+        try:
+            # Get source and result paths
+            source_path = None
+            result_path = None
+            
+            # Try multiple ways to get the source image path
+            if hasattr(self.layout, 'image_manager') and hasattr(self.layout.image_manager, 'selected_image_paths'):
+                paths = self.layout.image_manager.selected_image_paths
+                if paths:
+                    source_path = paths[0]
+            elif hasattr(self.layout, 'selected_image_path'):
+                source_path = self.layout.selected_image_path
+            
+            # Get result path
+            if hasattr(self.layout, 'results_manager') and hasattr(self.layout.results_manager, 'result_image_path'):
+                result_path = self.layout.results_manager.result_image_path
+            elif hasattr(self.layout, 'result_image_path'):
+                result_path = self.layout.result_image_path
+            
+            # Validate paths
+            if not source_path or not os.path.exists(source_path):
+                messagebox.showwarning(
+                    "No Source Image",
+                    "Please load an input image first."
+                )
+                return
+            
+            if not result_path or not os.path.exists(result_path):
+                messagebox.showwarning(
+                    "No Result Image",
+                    "Please generate a result image first."
+                )
+                return
+            
+            # Import smart mask utility
+            from utils.smart_mask import SmartMaskProcessor
+            
+            # Create dialog
+            self._show_smart_mask_dialog(source_path, result_path)
+            
+        except Exception as e:
+            logger.error(f"Error showing smart mask controls: {e}")
+            messagebox.showerror("Error", f"Failed to open smart mask: {str(e)}")
+    
+    def _show_smart_mask_dialog(self, source_path: str, result_path: str):
+        """Show smart mask dialog with controls"""
+        try:
+            from utils.smart_mask import SmartMaskProcessor
+            
+            # Create processor
+            processor = SmartMaskProcessor()
+            
+            # Create dialog window
+            dialog = tk.Toplevel(self.layout.parent_frame)
+            dialog.title("🎯 Smart Mask - Selective Compositing")
+            dialog.geometry("700x650")
+            dialog.transient(self.layout.parent_frame.winfo_toplevel())
+            dialog.grab_set()
+            
+            # Instructions
+            instructions = ttk.Label(
+                dialog,
+                text="Preserves background/face by only applying AI changes to modified areas (red preview).\nAdjust settings and click Apply to composite.",
+                font=('Arial', 9),
+                justify=tk.CENTER
+            )
+            instructions.pack(pady=10, padx=10)
+            
+            # Preview canvas
+            preview_frame = ttk.LabelFrame(dialog, text="Mask Preview (Red = AI Changes Applied)", padding="5")
+            preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+            
+            preview_canvas = tk.Canvas(preview_frame, bg='gray', width=660, height=400)
+            preview_canvas.pack(fill=tk.BOTH, expand=True)
+            
+            # Store preview image reference
+            preview_photo = [None]  # Use list to allow modification in nested function
+            
+            # Controls frame
+            controls_frame = ttk.LabelFrame(dialog, text="Mask Settings", padding="10")
+            controls_frame.pack(fill=tk.X, padx=10, pady=5)
+            
+            # Threshold control
+            threshold_frame = ttk.Frame(controls_frame)
+            threshold_frame.pack(fill=tk.X, pady=5)
+            
+            ttk.Label(threshold_frame, text="Threshold (% difference):").pack(side=tk.LEFT, padx=(0, 10))
+            threshold_var = tk.IntVar(value=15)
+            threshold_slider = tk.Scale(
+                threshold_frame,
+                from_=5,
+                to=50,
+                resolution=1,
+                orient=tk.HORIZONTAL,
+                variable=threshold_var,
+                length=250,
+                showvalue=1
+            )
+            threshold_slider.pack(side=tk.LEFT, padx=5)
+            
+            ttk.Label(threshold_frame, text="Lower = more preservation").pack(side=tk.LEFT, padx=(10, 0))
+            
+            # Feather control
+            feather_frame = ttk.Frame(controls_frame)
+            feather_frame.pack(fill=tk.X, pady=5)
+            
+            ttk.Label(feather_frame, text="Edge Feather (pixels):").pack(side=tk.LEFT, padx=(0, 10))
+            feather_var = tk.IntVar(value=20)
+            feather_slider = tk.Scale(
+                feather_frame,
+                from_=0,
+                to=50,
+                resolution=5,
+                orient=tk.HORIZONTAL,
+                variable=feather_var,
+                length=250,
+                showvalue=1
+            )
+            feather_slider.pack(side=tk.LEFT, padx=5)
+            
+            ttk.Label(feather_frame, text="Higher = softer edges").pack(side=tk.LEFT, padx=(10, 0))
+            
+            # Focus on primary region checkbox
+            focus_frame = ttk.Frame(controls_frame)
+            focus_frame.pack(fill=tk.X, pady=5)
+            
+            focus_primary_var = tk.BooleanVar(value=True)
+            focus_check = ttk.Checkbutton(
+                focus_frame,
+                text="🎯 Focus on Primary Region (isolate main clothing change, filter artifacts)",
+                variable=focus_primary_var,
+                command=lambda: None  # Will update preview when changed
+            )
+            focus_check.pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Label(
+                focus_frame, 
+                text="← Recommended for clothing transformations",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack(side=tk.LEFT)
+            
+            # Loading indicator
+            loading_text = [None]  # Store text ID
+            
+            # Update preview function (async with threading)
+            def update_preview():
+                try:
+                    # Show loading indicator
+                    preview_canvas.delete("all")
+                    loading_text[0] = preview_canvas.create_text(
+                        330, 200,
+                        text="Generating preview...",
+                        font=('Arial', 12),
+                        fill='white'
+                    )
+                    preview_canvas.update()
+                    
+                    threshold = threshold_var.get()
+                    feather = feather_var.get()
+                    focus_primary = focus_primary_var.get()
+                    
+                    # Run preview generation in thread to avoid freezing
+                    def generate_preview():
+                        try:
+                            preview_img = processor.preview_mask(source_path, result_path, threshold, feather, focus_primary)
+                            
+                            if preview_img:
+                                # Schedule UI update on main thread
+                                dialog.after(0, lambda: display_preview(preview_img))
+                            else:
+                                dialog.after(0, lambda: show_error_preview())
+                        except Exception as e:
+                            logger.error(f"Error generating preview: {e}")
+                            dialog.after(0, lambda: show_error_preview())
+                    
+                    # Start background thread
+                    import threading
+                    thread = threading.Thread(target=generate_preview, daemon=True)
+                    thread.start()
+                    
+                except Exception as e:
+                    logger.error(f"Error updating preview: {e}")
+                    show_error_preview()
+            
+            def display_preview(preview_img):
+                """Display the generated preview on main thread"""
+                try:
+                    # Resize to fit canvas
+                    canvas_width = preview_canvas.winfo_width()
+                    canvas_height = preview_canvas.winfo_height()
+                    
+                    if canvas_width < 10:  # Canvas not yet sized
+                        canvas_width = 660
+                        canvas_height = 400
+                    
+                    # Calculate scaling to fit
+                    img_ratio = preview_img.width / preview_img.height
+                    canvas_ratio = canvas_width / canvas_height
+                    
+                    if img_ratio > canvas_ratio:
+                        new_width = canvas_width - 10
+                        new_height = int(new_width / img_ratio)
+                    else:
+                        new_height = canvas_height - 10
+                        new_width = int(new_height * img_ratio)
+                    
+                    preview_resized = preview_img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    preview_photo[0] = ImageTk.PhotoImage(preview_resized)
+                    
+                    # Clear canvas and display
+                    preview_canvas.delete("all")
+                    x = (canvas_width - new_width) // 2
+                    y = (canvas_height - new_height) // 2
+                    preview_canvas.create_image(x, y, anchor=tk.NW, image=preview_photo[0])
+                    
+                except Exception as e:
+                    logger.error(f"Error displaying preview: {e}")
+                    show_error_preview()
+            
+            def show_error_preview():
+                """Show error message on canvas"""
+                preview_canvas.delete("all")
+                preview_canvas.create_text(
+                    330, 200,
+                    text="Error generating preview",
+                    font=('Arial', 12),
+                    fill='red'
+                )
+            
+            # Bind slider changes to preview update
+            threshold_slider.config(command=lambda v: update_preview())
+            feather_slider.config(command=lambda v: update_preview())
+            focus_check.config(command=update_preview)
+            
+            # Initial preview
+            dialog.after(100, update_preview)
+            
+            # Buttons frame
+            button_frame = ttk.Frame(dialog)
+            button_frame.pack(fill=tk.X, padx=10, pady=10)
+            
+            # Track if processing to prevent multiple clicks
+            processing = [False]
+            
+            def apply_masking():
+                try:
+                    if processing[0]:
+                        return  # Already processing
+                    
+                    processing[0] = True
+                    threshold = threshold_var.get()
+                    feather = feather_var.get()
+                    focus_primary = focus_primary_var.get()
+                    
+                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}")
+                    
+                    # Disable buttons during processing
+                    for widget in button_frame.winfo_children():
+                        if isinstance(widget, ttk.Button):
+                            widget.config(state='disabled')
+                    
+                    # Show processing message
+                    status_label = ttk.Label(button_frame, text="⏳ Processing...", foreground='blue')
+                    status_label.pack(side=tk.LEFT, padx=10)
+                    
+                    # Run in background thread
+                    def process_mask():
+                        try:
+                            result_img = processor.apply_smart_composite(
+                                source_path, 
+                                result_path,
+                                None,
+                                threshold,
+                                feather,
+                                focus_primary
+                            )
+                            
+                            if result_img:
+                                # Save to temp file
+                                import tempfile
+                                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_smart_masked.png')
+                                result_img.save(temp_file.name, quality=95)
+                                temp_file.close()
+                                
+                                # Update UI on main thread
+                                dialog.after(0, lambda: finish_apply(temp_file.name, True))
+                            else:
+                                dialog.after(0, lambda: finish_apply(None, False))
+                                
+                        except Exception as e:
+                            logger.error(f"Error in mask processing thread: {e}")
+                            dialog.after(0, lambda: finish_apply(None, False, str(e)))
+                    
+                    def finish_apply(temp_path, success, error_msg=None):
+                        """Complete the apply operation on main thread"""
+                        try:
+                            processing[0] = False
+                            status_label.destroy()
+                            
+                            # Re-enable buttons
+                            for widget in button_frame.winfo_children():
+                                if isinstance(widget, ttk.Button):
+                                    widget.config(state='normal')
+                            
+                            if success and temp_path:
+                                logger.info(f"Smart masked image saved to: {temp_path}")
+                                
+                                # Display result in result panel
+                                self.layout.display_image_in_panel(temp_path, 'result')
+                                
+                                # Update result path
+                                if hasattr(self.layout, 'results_manager'):
+                                    self.layout.results_manager.result_image_path = temp_path
+                                elif hasattr(self.layout, 'result_image_path'):
+                                    self.layout.result_image_path = temp_path
+                                
+                                messagebox.showinfo("Success", "Smart mask applied! Background and face preserved.")
+                                dialog.destroy()
+                            else:
+                                error_text = f"Failed to apply mask: {error_msg}" if error_msg else "Failed to apply smart mask."
+                                messagebox.showerror("Error", error_text)
+                                
+                        except Exception as e:
+                            logger.error(f"Error finishing apply: {e}")
+                            messagebox.showerror("Error", f"Failed to complete: {str(e)}")
+                    
+                    # Start background thread
+                    import threading
+                    thread = threading.Thread(target=process_mask, daemon=True)
+                    thread.start()
+                    
+                except Exception as e:
+                    processing[0] = False
+                    logger.error(f"Error applying smart mask: {e}")
+                    messagebox.showerror("Error", f"Failed to apply mask: {str(e)}")
+            
+            ttk.Button(
+                button_frame,
+                text="✅ Apply Smart Mask",
+                command=apply_masking,
+                width=20
+            ).pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(
+                button_frame,
+                text="❌ Cancel",
+                command=dialog.destroy,
+                width=15
+            ).pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(
+                button_frame,
+                text="🔄 Refresh Preview",
+                command=update_preview,
+                width=18
+            ).pack(side=tk.RIGHT, padx=5)
+            
+        except Exception as e:
+            logger.error(f"Error creating smart mask dialog: {e}")
+            messagebox.showerror("Error", f"Failed to create dialog: {str(e)}")
     
     def _setup_zoom_listener(self):
         """Setup zoom change listener to refresh overlay when zoom changes"""

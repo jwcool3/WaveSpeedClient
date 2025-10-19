@@ -47,10 +47,14 @@ class ImageCropTool:
         self.crop_end = None
         self.crop_rect = None
         
+        # Aspect ratio state
+        self.lock_aspect = tk.BooleanVar(value=False)
+        self.aspect_ratio = None  # Will be set based on selection
+        
         # Create dialog
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Crop Image")
-        self.dialog.geometry("900x700")
+        self.dialog.geometry("900x750")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
@@ -61,7 +65,7 @@ class ImageCropTool:
         # Instructions
         instructions = ttk.Label(
             self.dialog,
-            text="Click and drag to select crop area. Release to confirm selection.",
+            text="Click and drag to select crop area. Use aspect ratio presets to constrain proportions.",
             font=('Arial', 10)
         )
         instructions.pack(pady=10)
@@ -107,6 +111,38 @@ class ImageCropTool:
         self.info_label = ttk.Label(self.dialog, text="No selection", font=('Arial', 9))
         self.info_label.pack(pady=5)
         
+        # Aspect ratio controls
+        aspect_frame = ttk.LabelFrame(self.dialog, text="Aspect Ratio Options", padding="10")
+        aspect_frame.pack(pady=10, padx=10, fill=tk.X)
+        
+        # Lock aspect ratio checkbox
+        lock_frame = ttk.Frame(aspect_frame)
+        lock_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Checkbutton(
+            lock_frame,
+            text="Lock Aspect Ratio",
+            variable=self.lock_aspect,
+            command=self._on_lock_aspect_changed
+        ).pack(side=tk.LEFT)
+        
+        # Aspect ratio presets
+        preset_frame = ttk.Frame(aspect_frame)
+        preset_frame.pack(fill=tk.X, pady=5)
+        
+        ttk.Label(preset_frame, text="Preset:").pack(side=tk.LEFT, padx=(0, 5))
+        
+        self.aspect_preset_var = tk.StringVar(value="Free")
+        aspect_combo = ttk.Combobox(
+            preset_frame,
+            textvariable=self.aspect_preset_var,
+            values=["Free", "Original", "1:1 (Square)", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
+            state="readonly",
+            width=20
+        )
+        aspect_combo.pack(side=tk.LEFT, padx=5)
+        aspect_combo.bind('<<ComboboxSelected>>', self._on_aspect_preset_changed)
+        
         # Buttons
         btn_frame = ttk.Frame(self.dialog)
         btn_frame.pack(pady=10)
@@ -151,6 +187,12 @@ class ImageCropTool:
         x = max(0, min(event.x, self.display_width))
         y = max(0, min(event.y, self.display_height))
         
+        # Apply aspect ratio constraint if locked
+        if self.lock_aspect.get() and self.aspect_ratio:
+            x, y = self._constrain_to_aspect_ratio(
+                self.crop_start[0], self.crop_start[1], x, y
+            )
+        
         # Update end position
         self.crop_end = (x, y)
         
@@ -174,8 +216,82 @@ class ImageCropTool:
         if self.crop_start:
             x = max(0, min(event.x, self.display_width))
             y = max(0, min(event.y, self.display_height))
+            
+            # Apply aspect ratio constraint if locked
+            if self.lock_aspect.get() and self.aspect_ratio:
+                x, y = self._constrain_to_aspect_ratio(
+                    self.crop_start[0], self.crop_start[1], x, y
+                )
+            
             self.crop_end = (x, y)
             self._update_info()
+    
+    def _constrain_to_aspect_ratio(self, x1, y1, x2, y2):
+        """Constrain selection to maintain aspect ratio"""
+        # Calculate current dimensions
+        width = abs(x2 - x1)
+        height = abs(y2 - y1)
+        
+        if width == 0 or height == 0:
+            return x2, y2
+        
+        # Calculate new dimensions based on aspect ratio
+        # Determine which dimension to constrain based on drag direction
+        current_aspect = width / height
+        
+        if current_aspect > self.aspect_ratio:
+            # Width is too large, constrain it
+            new_width = int(height * self.aspect_ratio)
+            if x2 > x1:
+                x2 = x1 + new_width
+            else:
+                x2 = x1 - new_width
+        else:
+            # Height is too large, constrain it
+            new_height = int(width / self.aspect_ratio)
+            if y2 > y1:
+                y2 = y1 + new_height
+            else:
+                y2 = y1 - new_height
+        
+        # Ensure within canvas bounds
+        x2 = max(0, min(x2, self.display_width))
+        y2 = max(0, min(y2, self.display_height))
+        
+        return x2, y2
+    
+    def _on_lock_aspect_changed(self):
+        """Handle lock aspect ratio checkbox change"""
+        if self.lock_aspect.get():
+            # Get the current preset and set aspect ratio
+            self._on_aspect_preset_changed()
+    
+    def _on_aspect_preset_changed(self, event=None):
+        """Handle aspect ratio preset selection"""
+        preset = self.aspect_preset_var.get()
+        
+        # Map preset to aspect ratio
+        aspect_map = {
+            "Free": None,
+            "Original": self.image_width / self.image_height,
+            "1:1 (Square)": 1.0,
+            "16:9": 16/9,
+            "9:16": 9/16,
+            "4:3": 4/3,
+            "3:4": 3/4,
+            "3:2": 3/2,
+            "2:3": 2/3,
+        }
+        
+        self.aspect_ratio = aspect_map.get(preset)
+        
+        # If "Free" is selected, uncheck lock
+        if preset == "Free":
+            self.lock_aspect.set(False)
+        else:
+            self.lock_aspect.set(True)
+        
+        logger.debug(f"Aspect ratio set to: {preset} ({self.aspect_ratio})")
     
     def _update_info(self):
         """Update selection info label"""
@@ -189,8 +305,15 @@ class ImageCropTool:
             width = x2 - x1
             height = y2 - y1
             
+            # Calculate aspect ratio
+            if height > 0:
+                current_aspect = width / height
+                aspect_text = f"  |  Aspect: {current_aspect:.2f}:1"
+            else:
+                aspect_text = ""
+            
             self.info_label.config(
-                text=f"Selection: {width} × {height} px  |  Position: ({x1}, {y1}) to ({x2}, {y2})"
+                text=f"Selection: {width} × {height} px  |  Position: ({x1}, {y1}) to ({x2}, {y2}){aspect_text}"
             )
         else:
             self.info_label.config(text="No selection")

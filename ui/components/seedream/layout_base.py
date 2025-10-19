@@ -805,17 +805,24 @@ class SeedreamLayoutV2:
                 except:
                     pass
             
-            # Save Recent Results panel thumbnail zoom level
+            # Save Recent Results panel settings
             try:
                 if (hasattr(self, 'tab_instance') and self.tab_instance and 
                     hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
                     hasattr(self.tab_instance.main_app, 'recent_results_panel')):
                     recent_results = self.tab_instance.main_app.recent_results_panel
+                    
+                    # Save thumbnail zoom level
                     if hasattr(recent_results, 'current_thumbnail_size'):
                         layout_prefs['recent_results_zoom'] = recent_results.current_thumbnail_size
                         logger.debug(f"Saved Recent Results zoom: {recent_results.current_thumbnail_size}px")
+                    
+                    # Save filter setting
+                    if hasattr(recent_results, 'filter_var'):
+                        layout_prefs['recent_results_filter'] = recent_results.filter_var.get()
+                        logger.debug(f"Saved Recent Results filter: {recent_results.filter_var.get()}")
             except Exception as e:
-                logger.debug(f"Could not save Recent Results zoom: {e}")
+                logger.debug(f"Could not save Recent Results settings: {e}")
             
             # Update ui_preferences with ONLY layout preferences
             self.ui_preferences = layout_prefs
@@ -845,25 +852,36 @@ class SeedreamLayoutV2:
             # Also bind to visibility to restore when tab becomes visible
             self.parent_frame.bind('<Visibility>', self._on_visibility_changed, add='+')
             
-            # Restore Recent Results panel thumbnail zoom level
-            if 'recent_results_zoom' in self.ui_preferences:
-                try:
-                    if (hasattr(self, 'tab_instance') and self.tab_instance and 
-                        hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
-                        hasattr(self.tab_instance.main_app, 'recent_results_panel')):
-                        recent_results = self.tab_instance.main_app.recent_results_panel
+            # Restore Recent Results panel settings
+            try:
+                if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                    hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                    hasattr(self.tab_instance.main_app, 'recent_results_panel')):
+                    recent_results = self.tab_instance.main_app.recent_results_panel
+                    
+                    # Restore thumbnail zoom level
+                    if 'recent_results_zoom' in self.ui_preferences:
                         if hasattr(recent_results, 'current_thumbnail_size'):
                             zoom_size = self.ui_preferences['recent_results_zoom']
                             recent_results.current_thumbnail_size = zoom_size
                             # Update display
                             if hasattr(recent_results, 'size_label'):
                                 recent_results.size_label.config(text=f"{zoom_size}px")
-                            # Re-render with new size
-                            if hasattr(recent_results, 'render_results'):
-                                recent_results.render_results()
                             logger.info(f"Restored Recent Results zoom: {zoom_size}px")
-                except Exception as e:
-                    logger.debug(f"Could not restore Recent Results zoom: {e}")
+                    
+                    # Restore filter setting
+                    if 'recent_results_filter' in self.ui_preferences:
+                        if hasattr(recent_results, 'filter_var'):
+                            filter_value = self.ui_preferences['recent_results_filter']
+                            recent_results.filter_var.set(filter_value)
+                            recent_results.current_filter = filter_value
+                            logger.info(f"Restored Recent Results filter: {filter_value}")
+                    
+                    # Re-render with restored settings
+                    if hasattr(recent_results, 'render_results'):
+                        recent_results.render_results()
+            except Exception as e:
+                logger.debug(f"Could not restore Recent Results settings: {e}")
             
             logger.info("Layout restored successfully")
         except Exception as e:
@@ -1004,22 +1022,27 @@ class SeedreamLayoutV2:
             message = "✅ Layout saved successfully!\n\n"
             message += "Saved Settings:\n\n"
             
-            # Splitter positions
+            # Splitter positions / Panel widths
             if 'main_app_splitter_position' in current_settings:
-                message += f"📏 Recent Results Panel Splitter: {current_settings['main_app_splitter_position']}px\n"
+                message += f"📏 Recent Results Panel Width: {current_settings['main_app_splitter_position']}px\n"
             if 'splitter_position' in current_settings:
-                message += f"📏 Seedream Controls Splitter: {current_settings['splitter_position']}px\n"
+                message += f"📏 Seedream Controls Width: {current_settings['splitter_position']}px\n"
             if 'side_panel_position' in current_settings:
                 message += f"📏 Side Panel Width (Undress Prompts): {current_settings['side_panel_position']}px\n"
             
-            # Recent Results zoom
+            # Recent Results settings
             if 'recent_results_zoom' in current_settings:
                 message += f"🔍 Recent Results Thumbnail Size: {current_settings['recent_results_zoom']}px\n"
+            if 'recent_results_filter' in current_settings:
+                message += f"🔍 Recent Results Filter: {current_settings['recent_results_filter']}\n"
             
             # Show what was saved
             message += f"\n📁 Saved to: data/seedream_settings.json"
             message += f"\n📊 Total items saved: {len(current_settings)}"
-            message += f"\n💡 Use Tools → Load Seedream Layout to reload!"
+            message += f"\n\n💡 Tips:"
+            message += f"\n• Drag splitters to resize panels before saving"
+            message += f"\n• Adjust Recent Results zoom/filter before saving"
+            message += f"\n• Use Tools → Load Seedream Layout to restore"
             message += f"\n\nNote: Generation settings (resolution, seed, etc.) are saved separately."
             
             messagebox.showinfo("Layout Saved", message)
@@ -1078,40 +1101,53 @@ class SeedreamLayoutV2:
             self._splitters_restored = False  # Reset flag
             self._restore_all_splitters()
             
-            # Restore Recent Results panel thumbnail zoom level
-            if 'recent_results_zoom' in self.ui_preferences:
-                try:
-                    if (hasattr(self, 'tab_instance') and self.tab_instance and 
-                        hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
-                        hasattr(self.tab_instance.main_app, 'recent_results_panel')):
-                        recent_results = self.tab_instance.main_app.recent_results_panel
+            # Restore Recent Results panel settings
+            try:
+                if (hasattr(self, 'tab_instance') and self.tab_instance and 
+                    hasattr(self.tab_instance, 'main_app') and self.tab_instance.main_app and
+                    hasattr(self.tab_instance.main_app, 'recent_results_panel')):
+                    recent_results = self.tab_instance.main_app.recent_results_panel
+                    
+                    # Restore thumbnail zoom level
+                    if 'recent_results_zoom' in self.ui_preferences:
                         if hasattr(recent_results, 'current_thumbnail_size'):
                             zoom_size = self.ui_preferences['recent_results_zoom']
                             recent_results.current_thumbnail_size = zoom_size
                             # Update display
                             if hasattr(recent_results, 'size_label'):
                                 recent_results.size_label.config(text=f"{zoom_size}px")
-                            # Re-render with new size
-                            if hasattr(recent_results, 'render_results'):
-                                recent_results.render_results()
                             logger.info(f"Restored Recent Results zoom: {zoom_size}px")
-                except Exception as e:
-                    logger.debug(f"Could not restore Recent Results zoom: {e}")
+                    
+                    # Restore filter setting
+                    if 'recent_results_filter' in self.ui_preferences:
+                        if hasattr(recent_results, 'filter_var'):
+                            filter_value = self.ui_preferences['recent_results_filter']
+                            recent_results.filter_var.set(filter_value)
+                            recent_results.current_filter = filter_value
+                            logger.info(f"Restored Recent Results filter: {filter_value}")
+                    
+                    # Re-render with restored settings
+                    if hasattr(recent_results, 'render_results'):
+                        recent_results.render_results()
+            except Exception as e:
+                logger.debug(f"Could not restore Recent Results settings: {e}")
             
             # Build summary message
             message = "✅ Layout loaded successfully!\n\n"
             message += "Applied Settings:\n\n"
             
             if 'main_app_splitter_position' in self.ui_preferences:
-                message += f"📏 Recent Results Panel: {self.ui_preferences['main_app_splitter_position']}px\n"
+                message += f"📏 Recent Results Panel Width: {self.ui_preferences['main_app_splitter_position']}px\n"
             if 'splitter_position' in self.ui_preferences:
-                message += f"📏 Seedream Controls: {self.ui_preferences['splitter_position']}px\n"
+                message += f"📏 Seedream Controls Width: {self.ui_preferences['splitter_position']}px\n"
             if 'side_panel_position' in self.ui_preferences:
-                message += f"📏 Side Panel: {self.ui_preferences['side_panel_position']}px\n"
+                message += f"📏 Side Panel Width (Undress Prompts): {self.ui_preferences['side_panel_position']}px\n"
             if 'recent_results_zoom' in self.ui_preferences:
                 message += f"🔍 Recent Results Thumbnail Size: {self.ui_preferences['recent_results_zoom']}px\n"
+            if 'recent_results_filter' in self.ui_preferences:
+                message += f"🔍 Recent Results Filter: {self.ui_preferences['recent_results_filter']}\n"
             
-            message += f"\n💡 View settings (zoom, mode, etc.) are not saved with layout."
+            message += f"\n💡 All panel widths and Recent Results settings have been restored!"
             
             messagebox.showinfo("Layout Loaded", message)
             logger.info("✅ Layout loaded and applied by user")
