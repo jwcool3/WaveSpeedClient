@@ -12,12 +12,17 @@ This module handles all prompt-related functionality including:
 - Sample prompt loading
 """
 
-import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+# Standard library imports
 import json
 import os
 import random
 from typing import Optional, Dict, Any, List, Callable
+
+# Third-party imports
+import tkinter as tk
+from tkinter import ttk, messagebox, simpledialog
+
+# Local application imports
 from core.logger import get_logger
 
 logger = get_logger()
