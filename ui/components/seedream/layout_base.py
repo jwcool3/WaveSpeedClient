@@ -57,10 +57,10 @@ class SeedreamLayoutV2:
         self.parent_frame = parent_frame
         self.api_client = api_client
         self.tab_instance = tab_instance
-        
+
         # Core state
-        self.selected_image_path = None
-        self.selected_image_paths = []  # Support for multiple images
+        # NOTE: self.selected_image_path and self.selected_image_paths are now properties
+        # that delegate to image_manager (single source of truth) - see properties below
         self.result_image_path = None
         self.result_url = None
         self.current_task_id = None
@@ -1320,11 +1320,11 @@ class SeedreamLayoutV2:
         """Clear all inputs and results"""
         self.actions_manager.clear_all()
         self.results_manager.clear_results()
-        self.selected_image_path = None
-        self.selected_image_paths = []
+        # Clear images through image_manager (single source of truth)
+        # This also clears selected_image_path and selected_image_paths via properties
+        self.image_manager.clear_images()
         self.result_image_path = None
         self.result_url = None
-        self.image_manager.clear_images()
     
     def save_result(self) -> None:
         """Save current result"""
@@ -1551,7 +1551,63 @@ class SeedreamLayoutV2:
     # Properties for backward compatibility
     # Note: prompt_text is set directly in _setup_left_column() as an attribute
     # to avoid property setter conflicts
-    
+
+    @property
+    def selected_image_path(self):
+        """
+        Get the currently selected image path (single source of truth: image_manager).
+
+        Returns:
+            str or None: Path to first selected image, or None if no image selected
+        """
+        if not hasattr(self, 'image_manager'):
+            return None
+        paths = self.image_manager.selected_image_paths
+        return paths[0] if paths else None
+
+    @selected_image_path.setter
+    def selected_image_path(self, value):
+        """
+        Set the selected image path by updating the image manager.
+
+        Args:
+            value: Image path string or None to clear
+        """
+        if not hasattr(self, 'image_manager'):
+            logger.warning("Attempted to set selected_image_path before image_manager initialized")
+            return
+
+        if value is None:
+            self.image_manager.selected_image_paths = []
+        else:
+            self.image_manager.selected_image_paths = [value]
+
+    @property
+    def selected_image_paths(self):
+        """
+        Get all selected image paths (single source of truth: image_manager).
+
+        Returns:
+            list: List of selected image paths (may be empty)
+        """
+        if not hasattr(self, 'image_manager'):
+            return []
+        return self.image_manager.selected_image_paths
+
+    @selected_image_paths.setter
+    def selected_image_paths(self, value):
+        """
+        Set the selected image paths by updating the image manager.
+
+        Args:
+            value: List of image path strings or empty list to clear
+        """
+        if not hasattr(self, 'image_manager'):
+            logger.warning("Attempted to set selected_image_paths before image_manager initialized")
+            return
+
+        self.image_manager.selected_image_paths = value if value else []
+
     @property
     def width_var(self):
         """Access to width variable"""
@@ -1627,10 +1683,9 @@ class SeedreamLayoutV2:
         errors = []
         
         try:
-            # Validate image state consistency
-            if self.selected_image_path and not self.image_manager.selected_image_paths:
-                errors.append("Image path mismatch between layout and image manager")
-            
+            # NOTE: Image state consistency validation removed - selected_image_path
+            # is now a property that delegates to image_manager (can't be inconsistent)
+
             # Validate settings consistency
             settings = self.settings_manager.get_current_settings()
             if settings['width'] < 256 or settings['width'] > 4096:
@@ -1658,20 +1713,19 @@ class SeedreamLayoutV2:
     def sync_state(self) -> None:
         """Synchronize state across all modules"""
         try:
-            # Sync image paths
-            if self.image_manager.selected_image_paths:
-                self.selected_image_path = self.image_manager.selected_image_paths[0]
-            
+            # NOTE: Image paths no longer need syncing - they're properties that
+            # already delegate to image_manager (single source of truth)
+
             # Sync result path
             if self.results_manager.last_result_path:
                 self.result_image_path = self.results_manager.last_result_path
-            
+
             # Sync task ID
             if hasattr(self.actions_manager, 'current_task_id'):
                 self.current_task_id = self.actions_manager.current_task_id
-            
+
             logger.debug("State synchronized across modules")
-            
+
         except Exception as e:
             logger.error(f"Error synchronizing state: {e}")
     

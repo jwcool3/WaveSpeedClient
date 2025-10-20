@@ -32,7 +32,8 @@ class SeedreamV4Tab(BaseTab):
         self.result_image = None
         self.main_app = main_app
         self.tab_id = tab_id  # Unique identifier for this tab instance
-        self.selected_image_path = None
+        # NOTE: self.selected_image_path is now a property that delegates to
+        # self.improved_layout.image_manager.selected_image_paths (single source of truth)
         self.auto_resolution = True  # Auto-set resolution based on input image
         
         # Prompt storage for Seedream V4
@@ -46,7 +47,13 @@ class SeedreamV4Tab(BaseTab):
         # Aspect ratio tracking
         self.original_aspect_ratio = None
         self.aspect_ratio_locked = False
-        
+
+        # Thread safety for polling
+        self._polling_lock = threading.Lock()
+        self._polling_active = False
+        self._polling_thread = None
+        self._polling_task_id = None
+
         super().__init__(parent_frame, api_client)
     
     def apply_ai_suggestion(self, improved_prompt: str):
@@ -124,7 +131,45 @@ class SeedreamV4Tab(BaseTab):
         # Add missing variables that other methods expect
         self.size_display_var = tk.StringVar()
         self.aspect_ratio_lock_var = tk.BooleanVar()
-    
+
+    @property
+    def selected_image_path(self):
+        """
+        Get the currently selected image path from the authoritative source.
+
+        Single source of truth: self.improved_layout.image_manager.selected_image_paths
+
+        Returns:
+            str or None: Path to first selected image, or None if no image selected
+        """
+        if not hasattr(self, 'improved_layout'):
+            return None
+        if not hasattr(self.improved_layout, 'image_manager'):
+            return None
+        paths = self.improved_layout.image_manager.selected_image_paths
+        return paths[0] if paths else None
+
+    @selected_image_path.setter
+    def selected_image_path(self, value):
+        """
+        Set the selected image path by updating the authoritative source.
+
+        Args:
+            value: Image path string or None to clear
+        """
+        if not hasattr(self, 'improved_layout'):
+            logger.warning("Attempted to set selected_image_path before improved_layout initialized")
+            return
+        if not hasattr(self.improved_layout, 'image_manager'):
+            logger.warning("Attempted to set selected_image_path before image_manager initialized")
+            return
+
+        # Update the authoritative source
+        if value is None:
+            self.improved_layout.image_manager.selected_image_paths = []
+        else:
+            self.improved_layout.image_manager.selected_image_paths = [value]
+
     def update_size_display(self):
         """Update size display when dimensions change"""
         try:
@@ -229,221 +274,22 @@ class SeedreamV4Tab(BaseTab):
                 self.progress_bar = self.improved_layout.progress_bar
         except Exception as e:
             logger.error(f"Error setting up improved progress section: {e}")
-    
-    def setup_seedream_v4_settings(self):
-        """Setup Seedream V4 specific settings"""
-        settings_container = self.optimized_layout.settings_container
-        
-        # Size setting with auto-detection and slider
-        size_frame = ttk.Frame(settings_container)
-        size_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 5))
-        size_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(size_frame, text="Size:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
-        
-        # Auto size checkbox
-        self.auto_size_var = tk.BooleanVar(value=True)
-        auto_checkbox = ttk.Checkbutton(
-            size_frame, 
-            text="Auto", 
-            variable=self.auto_size_var,
-            command=self.toggle_auto_size
-        )
-        auto_checkbox.grid(row=0, column=1, sticky=tk.W, padx=(5, 0))
-        
-        # Aspect ratio lock checkbox
-        self.aspect_ratio_lock_var = tk.BooleanVar(value=False)
-        aspect_lock_checkbox = ttk.Checkbutton(
-            size_frame, 
-            text="Lock Aspect", 
-            variable=self.aspect_ratio_lock_var,
-            command=self.toggle_aspect_ratio_lock
-        )
-        aspect_lock_checkbox.grid(row=0, column=3, sticky=tk.W, padx=(5, 0))
-        
-        # Size display label
-        self.size_display_var = tk.StringVar(value="2048 x 2048")
-        size_label = ttk.Label(size_frame, textvariable=self.size_display_var, font=('Arial', 9))
-        size_label.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
-        
-        # Width slider with number input
-        width_frame = ttk.Frame(settings_container)
-        width_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
-        width_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(width_frame, text="Width:", font=('Arial', 8)).grid(row=0, column=0, sticky=tk.W)
-        
-        self.width_var = tk.IntVar(value=2048)
-        self.width_slider = ttk.Scale(
-            width_frame,
-            from_=256,
-            to=4096,
-            variable=self.width_var,
-            orient=tk.HORIZONTAL,
-            command=self.update_size_display,
-            state="disabled"  # Start disabled for auto mode
-        )
-        self.width_slider.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
-        
-        # Width number input
-        self.width_entry = ttk.Entry(width_frame, textvariable=self.width_var, width=6, state="disabled")
-        self.width_entry.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
-        self.width_entry.bind('<Return>', self.on_width_entry_change)
-        self.width_entry.bind('<FocusOut>', self.on_width_entry_change)
-        
-        # Height slider with number input
-        height_frame = ttk.Frame(settings_container)
-        height_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
-        height_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(height_frame, text="Height:", font=('Arial', 8)).grid(row=0, column=0, sticky=tk.W)
-        
-        self.height_var = tk.IntVar(value=2048)
-        self.height_slider = ttk.Scale(
-            height_frame,
-            from_=256,
-            to=4096,
-            variable=self.height_var,
-            orient=tk.HORIZONTAL,
-            command=self.update_size_display,
-            state="disabled"  # Start disabled for auto mode
-        )
-        self.height_slider.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(5, 0))
-        
-        # Height number input
-        self.height_entry = ttk.Entry(height_frame, textvariable=self.height_var, width=6, state="disabled")
-        self.height_entry.grid(row=0, column=2, sticky=tk.E, padx=(5, 0))
-        self.height_entry.bind('<Return>', self.on_height_entry_change)
-        self.height_entry.bind('<FocusOut>', self.on_height_entry_change)
-        
-        # Preset size buttons
-        preset_frame = ttk.Frame(settings_container)
-        preset_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
-        preset_frame.columnconfigure(0, weight=1)
-        preset_frame.columnconfigure(1, weight=1)
-        preset_frame.columnconfigure(2, weight=1)
-        
-        ttk.Label(preset_frame, text="Preset Sizes:", font=('Arial', 8, 'bold')).grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
-        
-        # Common sizes - now using multipliers (legacy support)
-        preset_sizes = [
-            ("1.5x", "multiplier_1.5"),
-            ("2x", "multiplier_2.0"), 
-            ("2.5x", "multiplier_2.5"),
-            ("Custom", "custom_scale"),
-            ("HD", "1920*1080"),
-            ("2K HD", "2560*1440"),
-            ("4K UHD", "3840*2160")
-        ]
-        
-        # Store preset button references for easy management
-        self.preset_buttons = []
-        for i, (label, size) in enumerate(preset_sizes):
-            btn = ttk.Button(
-                preset_frame,
-                text=label,
-                width=6,
-                command=lambda s=size: self.set_preset_size(s),
-                state="disabled"  # Start disabled for auto mode
-            )
-            btn.grid(row=1 + i//3, column=i%3, padx=2, pady=2, sticky=(tk.W, tk.E))
-            self.preset_buttons.append(btn)
-        
-        # Seed setting with random generation
-        seed_frame = ttk.Frame(settings_container)
-        seed_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
-        seed_frame.columnconfigure(1, weight=1)
-        
-        ttk.Label(seed_frame, text="Seed:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W)
-        
-        # Seed controls frame
-        seed_controls = ttk.Frame(seed_frame)
-        seed_controls.grid(row=0, column=1, sticky=tk.E, padx=(5, 0))
-        
-        self.seed_var = tk.StringVar(value="-1")
-        seed_entry = ttk.Entry(seed_controls, textvariable=self.seed_var, width=12)
-        seed_entry.grid(row=0, column=0, padx=(0, 2))
-        
-        # Random seed button
-        random_button = ttk.Button(
-            seed_controls, 
-            text="🎲", 
-            width=3,
-            command=self.generate_random_seed
-        )
-        random_button.grid(row=0, column=1)
-        
-        # Advanced options
-        advanced_frame = ttk.Frame(settings_container)
-        advanced_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
-        advanced_frame.columnconfigure(0, weight=1)
-        
-        # Sync mode checkbox
-        self.sync_mode_var = tk.BooleanVar(value=False)
-        sync_checkbox = ttk.Checkbutton(
-            advanced_frame,
-            text="Enable Sync Mode",
-            variable=self.sync_mode_var
-        )
-        sync_checkbox.grid(row=0, column=0, sticky=tk.W)
-        
-        # Base64 output checkbox
-        self.base64_output_var = tk.BooleanVar(value=False)
-        base64_checkbox = ttk.Checkbutton(
-            advanced_frame,
-            text="Enable Base64 Output",
-            variable=self.base64_output_var
-        )
-        base64_checkbox.grid(row=1, column=0, sticky=tk.W)
-    
-    def toggle_auto_size(self):
-        """Toggle auto size detection"""
-        if self.auto_size_var.get():
-            self.width_slider.config(state="disabled")
-            self.height_slider.config(state="disabled")
-            self.width_entry.config(state="disabled")
-            self.height_entry.config(state="disabled")
-            # Disable preset buttons
-            for btn in self.preset_buttons:
-                btn.config(state="disabled")
-            # If we have an image selected, auto-calculate size
-            if self.selected_image_path:
-                self.auto_set_resolution()
-        else:
-            self.width_slider.config(state="normal")
-            self.height_slider.config(state="normal")
-            self.width_entry.config(state="normal")
-            self.height_entry.config(state="normal")
-            # Enable preset buttons
-            for btn in self.preset_buttons:
-                btn.config(state="normal")
-    
-    def toggle_aspect_ratio_lock(self):
-        """Toggle aspect ratio lock"""
-        self.aspect_ratio_locked = self.aspect_ratio_lock_var.get()
-        
-        if self.aspect_ratio_locked and self.original_aspect_ratio is None:
-            # Try to get aspect ratio from current image
-            if self.selected_image_path:
-                self.calculate_original_aspect_ratio()
-            else:
-                # Use current slider values to calculate aspect ratio
-                current_width = int(self.width_var.get())
-                current_height = int(self.height_var.get())
-                if current_width > 0 and current_height > 0:
-                    self.original_aspect_ratio = current_width / current_height
-                    logger.info(f"Locked aspect ratio to current values: {self.original_aspect_ratio:.3f}")
-        
-        if self.aspect_ratio_locked:
-            logger.info(f"Aspect ratio lock enabled: {self.original_aspect_ratio:.3f}")
-        else:
-            logger.info("Aspect ratio lock disabled")
-    
+
+    # ============================================================================
+    # OLD DEAD CODE REMOVED
+    # The following methods were removed because they reference non-existent UI
+    # elements (self.optimized_layout.settings_container, self.width_slider, etc.)
+    # All this functionality is now in ui/components/seedream/ modular system:
+    # - setup_seedream_v4_settings() - replaced by SettingsPanelManager
+    # - toggle_auto_size() - replaced by SettingsPanelManager
+    # - toggle_aspect_ratio_lock() - replaced by SettingsPanelManager
+    # ============================================================================
+
     def calculate_original_aspect_ratio(self):
         """Calculate aspect ratio from the original image"""
         if not self.selected_image_path:
             return
-        
+
         try:
             from PIL import Image, ImageOps
             image = Image.open(self.selected_image_path)
@@ -454,129 +300,17 @@ class SeedreamV4Tab(BaseTab):
         except Exception as e:
             logger.error(f"Error calculating aspect ratio: {e}")
             self.original_aspect_ratio = None
-    
-    def update_size_display(self, value=None):
-        """Update size display when sliders change"""
-        width = int(self.width_var.get())
-        height = int(self.height_var.get())
-        
-        # If aspect ratio is locked, adjust the other dimension
-        if self.aspect_ratio_locked and self.original_aspect_ratio is not None:
-            # Determine which slider was moved (this is approximate)
-            if value is not None:
-                # If we have a value, it came from a slider
-                if hasattr(self, '_last_width') and hasattr(self, '_last_height'):
-                    width_diff = abs(width - self._last_width)
-                    height_diff = abs(height - self._last_height)
-                    
-                    if width_diff > height_diff:
-                        # Width slider was moved, adjust height
-                        new_height = int(width / self.original_aspect_ratio)
-                        new_height = max(256, min(4096, new_height))
-                        self.height_var.set(new_height)
-                        height = new_height
-                    else:
-                        # Height slider was moved, adjust width
-                        new_width = int(height * self.original_aspect_ratio)
-                        new_width = max(256, min(4096, new_width))
-                        self.width_var.set(new_width)
-                        width = new_width
-            
-            # Store current values for next comparison
-            self._last_width = width
-            self._last_height = height
-        
-        # Update main size display
-        self.size_display_var.set(f"{width} x {height}")
-    
-    def on_width_entry_change(self, event=None):
-        """Handle width entry field changes"""
-        try:
-            value = int(self.width_var.get())
-            if 256 <= value <= 4096:
-                self.width_var.set(value)
-                
-                # If aspect ratio is locked, adjust height accordingly
-                if self.aspect_ratio_locked and self.original_aspect_ratio is not None:
-                    new_height = int(value / self.original_aspect_ratio)
-                    new_height = max(256, min(4096, new_height))  # Clamp to valid range
-                    self.height_var.set(new_height)
-                
-                self.update_size_display()
-            else:
-                # Reset to valid range
-                if value < 256:
-                    self.width_var.set(256)
-                elif value > 4096:
-                    self.width_var.set(4096)
-                self.update_size_display()
-        except (ValueError, tk.TclError):
-            # Reset to current slider value if invalid input
-            self.width_var.set(int(self.width_slider.get()))
-            self.update_size_display()
-    
-    def on_height_entry_change(self, event=None):
-        """Handle height entry field changes"""
-        try:
-            value = int(self.height_var.get())
-            if 256 <= value <= 4096:
-                self.height_var.set(value)
-                
-                # If aspect ratio is locked, adjust width accordingly
-                if self.aspect_ratio_locked and self.original_aspect_ratio is not None:
-                    new_width = int(value * self.original_aspect_ratio)
-                    new_width = max(256, min(4096, new_width))  # Clamp to valid range
-                    self.width_var.set(new_width)
-                
-                self.update_size_display()
-            else:
-                # Reset to valid range
-                if value < 256:
-                    self.height_var.set(256)
-                elif value > 4096:
-                    self.height_var.set(4096)
-                self.update_size_display()
-        except (ValueError, tk.TclError):
-            # Reset to current slider value if invalid input
-            self.height_var.set(int(self.height_slider.get()))
-            self.update_size_display()
-    
-    def set_preset_size(self, size_string):
-        """Set size from preset button"""
-        try:
-            if size_string.startswith("multiplier_"):
-                # Handle multiplier presets
-                multiplier = float(size_string.split("_")[1])
-                if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'set_size_multiplier'):
-                    self.improved_layout.set_size_multiplier(multiplier)
-                else:
-                    logger.warning("Improved layout not available for multiplier presets")
-            elif size_string == "custom_scale":
-                # Handle custom scale
-                if hasattr(self, 'improved_layout') and hasattr(self.improved_layout, 'show_custom_scale_dialog'):
-                    self.improved_layout.show_custom_scale_dialog()
-                else:
-                    logger.warning("Improved layout not available for custom scale")
-            else:
-                # Handle traditional size presets
-                width_str, height_str = size_string.split('*')
-                width = int(width_str)
-                height = int(height_str)
-                
-                self.width_var.set(width)
-                self.height_var.set(height)
-                self.update_size_display()
-            
-            logger.info(f"Set preset size: {size_string}")
-        except (ValueError, AttributeError) as e:
-            logger.error(f"Error setting preset size {size_string}: {e}")
-            show_error("Preset Error", f"Invalid preset size: {size_string}")
-    
-    def generate_random_seed(self):
-        """Generate a random seed"""
-        random_seed = random.randint(1, 2147483647)
-        self.seed_var.set(str(random_seed))
-    
+
+    # ============================================================================
+    # MORE OLD DEAD CODE REMOVED
+    # - update_size_display() - references non-existent self.width_var, self.height_var
+    # - on_width_entry_change() - references non-existent self.width_slider
+    # - on_height_entry_change() - references non-existent self.height_slider
+    # - set_preset_size() - only called from removed UI code
+    # - generate_random_seed() - only called from removed UI code
+    # All replaced by SettingsPanelManager
+    # ============================================================================
+
     def auto_set_resolution(self):
         """Automatically set resolution based on input image - pixel perfect matching"""
         if not self.selected_image_path:
@@ -613,21 +347,17 @@ class SeedreamV4Tab(BaseTab):
                     target_width = int(target_height * aspect_ratio)
                     target_width = max(256, min(4096, target_width))
             
-            # Set the sliders to the calculated values
+            # Set the resolution (improved layout's SettingsPanelManager handles display update)
             self.width_var.set(target_width)
             self.height_var.set(target_height)
-            
-            # Update the display
-            self.update_size_display()
-            
+
             logger.info(f"Auto-set resolution to {target_width}x{target_height} for image {original_width}x{original_height}")
-            
+
         except Exception as e:
             logger.error(f"Error auto-setting resolution: {e}")
             # Fallback to default
             self.width_var.set(2048)
             self.height_var.set(2048)
-            self.update_size_display()
     
     def browse_image(self):
         """Browse for image files (supports multiple selection)"""
@@ -694,20 +424,9 @@ class SeedreamV4Tab(BaseTab):
             
             # Calculate aspect ratio for potential locking
             self.calculate_original_aspect_ratio()
-            
+
             # Update the improved layout's image display
-            if hasattr(self, 'improved_layout'):
-                self.improved_layout.load_image(file_path)
-            else:
-                # Fallback to old layout if improved layout not available
-                success = self.optimized_layout.update_input_image(file_path)
-                if not success:
-                    show_error("Load Error", "Failed to load the selected image.")
-                    return
-            
-            # Auto-set resolution if enabled
-            if hasattr(self, 'auto_size_var') and self.auto_size_var.get():
-                self.auto_set_resolution()
+            self.improved_layout.load_image(file_path)
             
             # Update status
             filename = os.path.basename(file_path)
@@ -716,124 +435,15 @@ class SeedreamV4Tab(BaseTab):
         except Exception as e:
             logger.error(f"Error selecting image: {e}")
             show_error("Error", f"Failed to load image: {str(e)}")
-    
-    def setup_compact_prompt_section(self):
-        """Setup compact prompt section in the left panel"""
-        prompt_container = self.optimized_layout.prompt_container
-        
-        # Enhanced prompt text area with guidance
-        prompt_label = ttk.Label(prompt_container, text="✨ Seedream V4 Prompt", font=('Arial', 9, 'bold'))
-        prompt_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
-        
-        # Guidance text
-        guidance_text = ("Use clear instructions: \"change action + change object + target feature\"\n"
-                        "For multiple images: \"a series of\", \"group of images\"\n"
-                        "Be specific and detailed for best results")
-        
-        guidance_label = ttk.Label(
-            prompt_container, 
-            text=guidance_text, 
-            font=('Arial', 8), 
-            foreground='gray',
-            wraplength=280
-        )
-        guidance_label.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 8))
-        
-        # Prompt text widget
-        prompt_frame = ttk.Frame(prompt_container)
-        prompt_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        prompt_frame.columnconfigure(0, weight=1)
-        prompt_frame.rowconfigure(0, weight=1)
-        
-        self.prompt_text = tk.Text(
-            prompt_frame,
-            height=8,
-            wrap=tk.WORD,
-            font=('Arial', 9),
-            bg='white',
-            relief='solid',
-            borderwidth=1
-        )
-        self.prompt_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Scrollbar for prompt text
-        prompt_scrollbar = ttk.Scrollbar(prompt_frame, orient=tk.VERTICAL, command=self.prompt_text.yview)
-        prompt_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.prompt_text.config(yscrollcommand=prompt_scrollbar.set)
-        
-        # Placeholder text
-        self.prompt_text.insert("1.0", "remove man")
-        self.prompt_text.bind("<FocusIn>", self.clear_placeholder)
-        
-        # Add AI enhancement features to the prompt section
-        try:
-            from ui.components.ai_prompt_suggestions import add_ai_features_to_prompt_section
-            add_ai_features_to_prompt_section(prompt_container, self.prompt_text, 'seedream_v4', self)
-        except ImportError:
-            logger.warning("AI prompt suggestions not available")
-        
-        # Prompt management buttons
-        prompt_buttons_frame = ttk.Frame(prompt_container)
-        prompt_buttons_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
-        prompt_buttons_frame.columnconfigure(0, weight=1)
-        prompt_buttons_frame.columnconfigure(1, weight=1)
-        prompt_buttons_frame.columnconfigure(2, weight=1)
-        
-        # Save prompt button
-        save_button = ttk.Button(
-            prompt_buttons_frame,
-            text="💾 Save",
-            command=self.save_current_prompt,
-            width=8
-        )
-        save_button.grid(row=0, column=0, sticky=tk.W)
-        
-        # Load prompt button
-        load_button = ttk.Button(
-            prompt_buttons_frame,
-            text="📂 Load",
-            command=self.load_saved_prompt,
-            width=8
-        )
-        load_button.grid(row=0, column=1, padx=5)
-        
-        # Delete prompt button
-        delete_button = ttk.Button(
-            prompt_buttons_frame,
-            text="🗑️ Delete",
-            command=self.delete_saved_prompt,
-            width=8
-        )
-        delete_button.grid(row=0, column=2, sticky=tk.E)
-    
-    def clear_placeholder(self, event):
-        """Clear placeholder text when focused"""
-        if self.prompt_text.get("1.0", tk.END).strip() == "remove man":
-            self.prompt_text.delete("1.0", tk.END)
-    
-    def setup_compact_progress_section(self):
-        """Setup compact progress section"""
-        progress_container = self.optimized_layout.progress_container
-        
-        # Progress bar
-        self.progress_bar = ttk.Progressbar(
-            progress_container,
-            mode='indeterminate',
-            length=200
-        )
-        self.progress_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
-        
-        # Status label
-        self.status_label = ttk.Label(
-            progress_container,
-            text="Ready for Seedream V4 processing",
-            font=('Arial', 9)
-        )
-        self.status_label.grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
-        
-        # Initially hide progress
-        self.progress_bar.grid_remove()
-    
+
+    # ============================================================================
+    # MORE OLD DEAD CODE REMOVED (lines 433-556)
+    # - setup_compact_prompt_section() - references non-existent self.optimized_layout.prompt_container
+    # - clear_placeholder() - only used by removed setup_compact_prompt_section()
+    # - setup_compact_progress_section() - references non-existent self.optimized_layout.progress_container
+    # All replaced by PromptSectionManager and improved layout
+    # ============================================================================
+
     def show_progress(self, message="Processing..."):
         """Show progress indicator"""
         if hasattr(self, 'progress_bar') and self.progress_bar:
@@ -1033,16 +643,22 @@ class SeedreamV4Tab(BaseTab):
             try:
                 # Upload image with rotation fix
                 image_url = self.upload_image_with_rotation_fix(self.selected_image_path)
-                
+
                 if image_url:
                     # Submit task
                     self.submit_seedream_v4_task(image_url, prompt)
                 else:
-                    self.frame.after(0, lambda: self.handle_error("Image upload failed"))
-                    
+                    # Upload returned None - error already shown to user
+                    # Just hide progress and log
+                    logger.warning("Upload failed, aborting processing")
+                    self.frame.after(0, lambda: self.hide_progress())
+                    self.frame.after(0, lambda: self.update_status("❌ Upload failed - Ready"))
+
             except Exception as e:
                 logger.error(f"Background process error: {e}")
-                self.frame.after(0, lambda: self.handle_error(f"Processing error: {str(e)}"))
+                # Use default arg to capture exception message (early binding, thread-safe)
+                error_str = str(e)
+                self.frame.after(0, lambda err=error_str: self.handle_error(f"Processing error: {err}"))
         
         thread = threading.Thread(target=background_process)
         thread.daemon = True
@@ -1082,47 +698,52 @@ class SeedreamV4Tab(BaseTab):
                 logger.info(f"Seedream V4 image uploaded: {privacy_info}")
                 return url
             else:
-                # Fallback to sample URL with explanation
-                from utils.utils import show_warning
-                show_warning(
-                    "Upload Failed - Using Sample", 
-                    f"Could not upload your image securely.\n\n"
+                # Upload failed - show error and abort
+                from utils.utils import show_error
+                show_error(
+                    "Upload Failed",
+                    f"Could not upload your image.\n\n"
                     f"Error: {privacy_info}\n\n"
-                    f"Using sample image for demonstration.\n"
-                    f"Your selected image: {image_path}\n\n"
-                    f"Note: This is a demo mode. In production, images would be uploaded securely."
+                    f"Please check your connection and try again.\n"
+                    f"Selected image: {image_path}"
                 )
-                
-                # Fallback to sample URL
-                return "https://example.com/sample-image.png"
-                
+                logger.error(f"Upload failed: {privacy_info}")
+                return None
+
         except Exception as e:
             logger.error(f"Image upload with rotation fix failed: {e}")
-            
-            # Fallback to sample URL
+
+            # Upload error - show error and abort
             from utils.utils import show_error
             show_error(
-                "Upload Error", 
+                "Upload Error",
                 f"Failed to upload image: {str(e)}\n\n"
-                f"Using sample image for demonstration."
+                f"Please try again or select a different image."
             )
-            
-            return "https://example.com/sample-image.png"
+
+            return None
     
     def start_polling(self, task_id, duration):
         """Start polling for task results with proper thread safety"""
-        # Thread-safe stopping of existing polling
-        with threading.Lock():
-            if hasattr(self, '_polling_active') and self._polling_active:
+        # Thread-safe stopping of existing polling using instance lock
+        with self._polling_lock:
+            if self._polling_active:
                 logger.info("Stopping existing polling thread")
                 self._polling_active = False
                 # Wait for existing thread to finish
-                if hasattr(self, '_polling_thread') and self._polling_thread.is_alive():
-                    self._polling_thread.join(timeout=1.0)
-            
+                if self._polling_thread and self._polling_thread.is_alive():
+                    # Don't wait while holding lock - release and rejoin
+                    thread_to_wait = self._polling_thread
+            else:
+                thread_to_wait = None
+
             self._polling_active = True
             self._polling_task_id = task_id
             logger.info(f"Starting polling for task: {task_id}")
+
+        # Wait for old thread outside lock to avoid deadlock
+        if thread_to_wait and thread_to_wait.is_alive():
+            thread_to_wait.join(timeout=1.0)
         
         # Add timeout protection (5 minutes maximum)
         self._polling_start_time = time.time()
@@ -1153,14 +774,16 @@ class SeedreamV4Tab(BaseTab):
                             logger.info(f"Task completed, stopping polling for task: {task_id}")
                             output_url = result.get('output_url')
                             if output_url:
-                                self.frame.after(0, lambda: self.handle_success(output_url, duration))
+                                # Use default args to capture variables (early binding, thread-safe)
+                                self.frame.after(0, lambda url=output_url, dur=duration: self.handle_success(url, dur))
                             else:
                                 self.frame.after(0, lambda: self.handle_error("No output URL in completed result"))
                             return
                         elif status == 'failed':
                             self._polling_active = False
                             error_msg = result.get('error', 'Task failed')
-                            self.frame.after(0, lambda: self.handle_error(error_msg))
+                            # Use default arg to capture error_msg (early binding, thread-safe)
+                            self.frame.after(0, lambda msg=error_msg: self.handle_error(msg))
                             return
                         else:
                             # Still processing, wait before next poll
@@ -1168,13 +791,16 @@ class SeedreamV4Tab(BaseTab):
                     else:
                         self._polling_active = False
                         error_msg = result.get('error', 'Failed to get task status')
-                        self.frame.after(0, lambda: self.handle_error(error_msg))
+                        # Use default arg to capture error_msg (early binding, thread-safe)
+                        self.frame.after(0, lambda msg=error_msg: self.handle_error(msg))
                         return
-                        
+
             except Exception as e:
                 self._polling_active = False
                 logger.error(f"Error polling for results: {e}")
-                self.frame.after(0, lambda: self.handle_error(f"Error checking task status: {str(e)}"))
+                # Use default arg to capture exception message (early binding, thread-safe)
+                error_str = str(e)
+                self.frame.after(0, lambda err=error_str: self.handle_error(f"Error checking task status: {err}"))
         
         # Start polling in background thread with proper reference tracking
         import threading, time
@@ -1218,11 +844,14 @@ class SeedreamV4Tab(BaseTab):
                 self.start_polling(task_id, duration)
             else:
                 error_msg = result.get('error', 'Unknown error occurred')
-                self.frame.after(0, lambda: self.handle_error(error_msg))
-                
+                # Use default arg to capture error_msg (early binding, thread-safe)
+                self.frame.after(0, lambda msg=error_msg: self.handle_error(msg))
+
         except Exception as e:
             logger.error(f"Seedream V4 task submission failed: {e}")
-            self.frame.after(0, lambda: self.handle_error(f"Task submission failed: {str(e)}"))
+            # Use default arg to capture exception message (early binding, thread-safe)
+            error_str = str(e)
+            self.frame.after(0, lambda err=error_str: self.handle_error(f"Task submission failed: {err}"))
     
     def log_request_submission(self, prompt, image_url, size, seed, sync_mode, base64_output):
         """Log request details before submission"""

@@ -976,7 +976,13 @@ class ComparisonController:
             )
             threshold_slider.pack(side=tk.LEFT, padx=5)
             
-            ttk.Label(threshold_frame, text="%").pack(side=tk.LEFT, padx=(2, 0))
+            threshold_value_label = ttk.Label(threshold_frame, text=f"{threshold_var.get():.1f}%", width=6)
+            threshold_value_label.pack(side=tk.LEFT, padx=(5, 0))
+            
+            # Update label when slider changes
+            def update_threshold_label(*args):
+                threshold_value_label.config(text=f"{threshold_var.get():.1f}%")
+            threshold_var.trace('w', update_threshold_label)
             
             # Feather control (reduced default to minimize ghost artifacts with Auto button)
             feather_frame = ttk.Frame(controls_frame)
@@ -1005,7 +1011,13 @@ class ComparisonController:
             )
             feather_slider.pack(side=tk.LEFT, padx=5)
             
-            ttk.Label(feather_frame, text="px").pack(side=tk.LEFT, padx=(2, 0))
+            feather_value_label = ttk.Label(feather_frame, text=f"{feather_var.get()}px", width=6)
+            feather_value_label.pack(side=tk.LEFT, padx=(5, 0))
+            
+            # Update label when slider changes
+            def update_feather_label(*args):
+                feather_value_label.config(text=f"{feather_var.get()}px")
+            feather_var.trace('w', update_feather_label)
             
             # Focus on primary region checkbox
             focus_frame = ttk.Frame(controls_frame)
@@ -1033,7 +1045,7 @@ class ComparisonController:
             exclude_faces_var = tk.BooleanVar(value=True)
             face_check = ttk.Checkbutton(
                 face_frame,
-                text="😊 Exclude Faces (auto-detect and preserve face/hair/skin)",
+                text="😊 Exclude Face & Hair (auto-detect and preserve)",
                 variable=exclude_faces_var
             )
             face_check.pack(side=tk.LEFT, padx=(0, 5))
@@ -1135,9 +1147,9 @@ class ComparisonController:
                     # Show loading indicator
                     preview_canvas.delete("all")
                     loading_text[0] = preview_canvas.create_text(
-                        330, 200,
-                        text="Generating preview...",
-                        font=('Arial', 12),
+                        360, 225,
+                        text="Generating preview...\n(Using full resolution pipeline)",
+                        font=('Arial', 10),
                         fill='white'
                     )
                     preview_canvas.update()
@@ -1150,7 +1162,14 @@ class ComparisonController:
                     # Run preview generation in thread to avoid freezing
                     def generate_preview():
                         try:
-                            # Generate mask
+                            from PIL import Image
+                            import numpy as np
+                            
+                            # IMPORTANT: Use SAME pipeline as final processing
+                            # Load full resolution images first
+                            original_full = Image.open(source_path).convert('RGB')
+                            
+                            # Generate mask at FULL RESOLUTION
                             mask = processor.create_difference_mask(
                                 source_path, result_path,
                                 threshold=threshold,
@@ -1162,31 +1181,28 @@ class ComparisonController:
                                 dialog.after(0, lambda: show_error_preview())
                                 return
                             
-                            # Apply face exclusion if enabled
+                            # Apply face exclusion at FULL RESOLUTION (not downsampled!)
                             if exclude_faces:
-                                original_img = Image.open(source_path)
-                                mask = processor.detect_and_exclude_faces(mask, original_img)
+                                mask = processor.detect_and_exclude_faces(mask, original_full)
                             
-                            # Now apply feathering
+                            # Now apply feathering at FULL RESOLUTION
                             if feather > 0:
                                 mask = processor._feather_mask(mask, feather)
                             
-                            # Create preview with red overlay
-                            from PIL import Image
-                            import numpy as np
-                            
-                            # Downsample for preview speed
+                            # NOW downsample both for display (but processing was at full res)
                             max_preview_size = 800
-                            original = Image.open(source_path).convert('RGB')
-                            w, h = original.size
+                            w, h = original_full.size
                             if max(w, h) > max_preview_size:
                                 scale = max_preview_size / max(w, h)
                                 new_size = (int(w * scale), int(h * scale))
-                                original = original.resize(new_size, Image.Resampling.LANCZOS)
-                                mask = mask.resize(new_size, Image.Resampling.LANCZOS)
+                                original = original_full.resize(new_size, Image.Resampling.LANCZOS)
+                                mask_display = mask.resize(new_size, Image.Resampling.LANCZOS)
+                            else:
+                                original = original_full
+                                mask_display = mask
                             
-                            # Create red overlay
-                            mask_array = np.array(mask)
+                            # Create red overlay using display-sized images
+                            mask_array = np.array(mask_display)
                             original_array = np.array(original)
                             
                             red_overlay = original_array.copy()
@@ -1197,10 +1213,14 @@ class ComparisonController:
                             )
                             
                             preview_img = Image.fromarray(red_overlay.astype(np.uint8))
-                            
+
+                            logger.info(f"Preview generated at full resolution, displayed at {original.size}")
+
                             if preview_img:
                                 # Schedule UI update on main thread
-                                dialog.after(0, lambda: display_preview(preview_img))
+                                # Use default arg to capture image (early binding, thread-safe)
+                                img = preview_img
+                                dialog.after(0, lambda i=img: display_preview(i))
                             else:
                                 dialog.after(0, lambda: show_error_preview())
                         except Exception as e:
@@ -1261,13 +1281,28 @@ class ComparisonController:
                     fill='red'
                 )
             
-            # Wire up all controls now that update_preview is defined
-            threshold_slider.config(command=lambda v: update_preview())
-            feather_slider.config(command=lambda v: update_preview())
-            focus_check.config(command=update_preview)
-            face_check.config(command=update_preview)
+            # Wire up Auto buttons (these will call update_preview internally)
             auto_threshold_btn.config(command=calculate_adaptive_threshold)
             auto_feather_btn.config(command=calculate_smart_feather)
+            
+            # Add manual Refresh Preview button
+            refresh_btn_frame = ttk.Frame(controls_frame)
+            refresh_btn_frame.pack(fill=tk.X, pady=10)
+            
+            refresh_preview_btn = ttk.Button(
+                refresh_btn_frame,
+                text="🔄 Refresh Preview",
+                command=update_preview,
+                style='Accent.TButton'  # Make it stand out
+            )
+            refresh_preview_btn.pack(pady=5)
+            
+            ttk.Label(
+                refresh_btn_frame,
+                text="Adjust settings above, then click to update preview",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack()
             
             # Initial preview
             dialog.after(100, update_preview)
@@ -1337,20 +1372,112 @@ class ComparisonController:
                             )
                             
                             if result_img:
-                                # Save to temp file
-                                import tempfile
-                                temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_smart_masked.png')
-                                result_img.save(temp_file.name, quality=95)
-                                temp_file.close()
-                                
-                                # Update UI on main thread
-                                dialog.after(0, lambda: finish_apply(temp_file.name, True))
+                                # Save to WaveSpeed_Results with metadata
+                                try:
+                                    from datetime import datetime
+                                    from pathlib import Path
+                                    import json
+                                    
+                                    # Create results directory
+                                    results_dir = Path("WaveSpeed_Results/Seedream_V4")
+                                    results_dir.mkdir(parents=True, exist_ok=True)
+                                    
+                                    # Generate filename
+                                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                    
+                                    # Get size from result image
+                                    size = f"{result_img.width}x{result_img.height}"
+                                    
+                                    # Get prompt snippet (first 30 chars of prompt, cleaned)
+                                    prompt_text = ""
+                                    if hasattr(self.layout, 'prompt_manager') and hasattr(self.layout.prompt_manager, 'get_current_prompt'):
+                                        prompt_text = self.layout.prompt_manager.get_current_prompt()
+                                    elif hasattr(self.layout, 'prompt_manager') and hasattr(self.layout.prompt_manager, 'prompt_text'):
+                                        # Fallback: access text widget directly
+                                        try:
+                                            prompt_text = self.layout.prompt_manager.prompt_text.get("1.0", "end-1c").strip()
+                                        except:
+                                            pass
+                                    
+                                    # Clean prompt for filename
+                                    prompt_snippet = "SmartMasked"
+                                    if prompt_text:
+                                        import re
+                                        cleaned = re.sub(r'[^a-zA-Z0-9\s_-]', '', prompt_text[:30])
+                                        cleaned = re.sub(r'\s+', '_', cleaned.strip())
+                                        if cleaned:
+                                            prompt_snippet = cleaned
+                                    
+                                    filename = f"seedream_v4_{timestamp}_{prompt_snippet}_{size}.png"
+                                    save_path = results_dir / filename
+                                    
+                                    # Save image
+                                    result_img.save(str(save_path), quality=95, optimize=True)
+                                    logger.info(f"Smart masked result saved: {save_path}")
+                                    
+                                    # Create metadata
+                                    metadata = {
+                                        "ai_model": "seedream_v4",
+                                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        "prompt": prompt_text,
+                                        "result_path": str(save_path.absolute()),
+                                        "result_filename": filename,
+                                        "processing_type": "smart_mask",
+                                        "smart_mask_settings": {
+                                            "threshold": float(threshold),
+                                            "feather": int(feather),
+                                            "focus_primary": bool(focus_primary),
+                                            "exclude_faces": bool(exclude_faces)
+                                        },
+                                        "input_image_path": source_path,
+                                        "original_ai_result_path": result_path,
+                                        "tab_id": getattr(self.layout.tab_instance, 'tab_id', '1') if hasattr(self.layout, 'tab_instance') else '1'
+                                    }
+                                    
+                                    # Get original settings if available
+                                    if hasattr(self.layout, 'settings_manager'):
+                                        try:
+                                            original_settings = {
+                                                "width": self.layout.settings_manager.width_var.get(),
+                                                "height": self.layout.settings_manager.height_var.get(),
+                                                "seed": self.layout.settings_manager.seed_var.get() if hasattr(self.layout.settings_manager, 'seed_var') else None
+                                            }
+                                            metadata["original_settings"] = original_settings
+                                        except:
+                                            pass
+                                    
+                                    # Save JSON metadata
+                                    json_path = save_path.with_suffix('.json')
+                                    try:
+                                        with open(json_path, 'w', encoding='utf-8') as f:
+                                            json.dump(metadata, f, indent=2, ensure_ascii=False)
+                                        logger.info(f"Metadata saved: {json_path}")
+                                    except Exception as json_error:
+                                        logger.error(f"Error saving JSON metadata: {json_error}")
+
+                                    # Update UI on main thread with saved path
+                                    # Use default arg to capture path (early binding, thread-safe)
+                                    path_str = str(save_path)
+                                    dialog.after(0, lambda p=path_str: finish_apply(p, True))
+
+                                except Exception as save_error:
+                                    logger.error(f"Error saving smart masked result: {save_error}")
+                                    # Fall back to temp file
+                                    import tempfile
+                                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='_smart_masked.png')
+                                    result_img.save(temp_file.name, quality=95)
+                                    temp_file.close()
+                                    # Use default arg to capture temp path (early binding, thread-safe)
+                                    temp_path = temp_file.name
+                                    dialog.after(0, lambda p=temp_path: finish_apply(p, True))
                             else:
                                 dialog.after(0, lambda: finish_apply(None, False))
-                                
+
                         except Exception as e:
                             logger.error(f"Error in mask processing thread: {e}")
-                            dialog.after(0, lambda: finish_apply(None, False, str(e)))
+                            # Use default arg to capture error message (early binding, thread-safe)
+                            error_str = str(e)
+                            dialog.after(0, lambda err=error_str: finish_apply(None, False, err))
                     
                     def finish_apply(temp_path, success, error_msg=None):
                         """Complete the apply operation on main thread"""
@@ -1384,7 +1511,34 @@ class ComparisonController:
                                 elif hasattr(self.layout, 'result_image_path'):
                                     self.layout.result_image_path = temp_path
                                 
-                                messagebox.showinfo("Success", "Smart mask applied! Use 'Toggle Mask' button to compare before/after.")
+                                # Refresh recent results panel to show new result
+                                try:
+                                    # Try to refresh recent results if panel exists
+                                    if hasattr(self.layout, 'parent_frame'):
+                                        # Get the main app window
+                                        main_window = self.layout.parent_frame.winfo_toplevel()
+                                        # Trigger a refresh by sending a custom event
+                                        main_window.event_generate('<<ResultsChanged>>', when='tail')
+                                        logger.info("Triggered recent results refresh event")
+                                except Exception as refresh_error:
+                                    logger.debug(f"Could not trigger results refresh: {refresh_error}")
+                                
+                                # Show success message with save location
+                                from pathlib import Path
+                                saved_filename = Path(temp_path).name
+                                message = (
+                                    f"✅ Smart mask applied and saved!\n\n"
+                                    f"📁 Location: WaveSpeed_Results/Seedream_V4/\n"
+                                    f"📄 File: {saved_filename}\n\n"
+                                    f"Settings:\n"
+                                    f"• Threshold: {threshold:.1f}%\n"
+                                    f"• Feather: {feather}px\n"
+                                    f"• Focus Primary: {'Yes' if focus_primary else 'No'}\n"
+                                    f"• Exclude Faces: {'Yes' if exclude_faces else 'No'}\n\n"
+                                    f"Use 'Toggle Mask' button to compare before/after.\n"
+                                    f"Check Recent Results panel to view again."
+                                )
+                                messagebox.showinfo("Success", message)
                                 dialog.destroy()
                             else:
                                 error_text = f"Failed to apply mask: {error_msg}" if error_msg else "Failed to apply smart mask."
