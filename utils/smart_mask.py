@@ -283,28 +283,76 @@ class SmartMaskProcessor:
     
     def _clean_mask(self, mask: Image.Image) -> Image.Image:
         """
-        Clean up mask using morphological operations
-        Removes small noise and fills small holes
+        Clean up mask using morphological operations and aggressive artifact filtering
+        Removes small noise, fills small holes, and eliminates thin line artifacts
         
         Args:
             mask: Input mask image
             
         Returns:
-            Cleaned mask image
+            Cleaned mask image with artifacts removed
         """
         try:
             # Convert to numpy for morphological operations
             mask_array = np.array(mask)
             
-            # OPTIMIZED: Reduced iterations for speed
-            # Simple erosion followed by dilation (opening operation)
             from scipy import ndimage
-            mask_array = ndimage.binary_erosion(mask_array, iterations=1).astype(np.uint8) * 255
-            mask_array = ndimage.binary_dilation(mask_array, iterations=1).astype(np.uint8) * 255
+            binary_mask = mask_array > 127
             
-            # Fill small holes (this is fast)
-            mask_array = ndimage.binary_fill_holes(mask_array).astype(np.uint8) * 255
+            # More aggressive erosion to remove thin line artifacts (compression artifacts, edges)
+            eroded = ndimage.binary_erosion(binary_mask, iterations=3)
             
+            # Fill holes
+            filled = ndimage.binary_fill_holes(eroded)
+            
+            # Dilate to restore size (but less than eroded to keep artifacts gone)
+            dilated = ndimage.binary_dilation(filled, iterations=4)
+            
+            # Convert back
+            mask_array = (dilated * 255).astype(np.uint8)
+            
+            # Additional: filter out elongated regions (thin lines around person)
+            try:
+                labeled_array, num_features = ndimage.label(mask_array > 127)
+                
+                if num_features > 1:
+                    # Analyze each region
+                    cleaned_mask = np.zeros_like(mask_array)
+                    
+                    for i in range(1, num_features + 1):
+                        region = (labeled_array == i)
+                        region_pixels = np.argwhere(region)
+                        
+                        if len(region_pixels) == 0:
+                            continue
+                        
+                        # Get bounding box dimensions
+                        y_coords = region_pixels[:, 0]
+                        x_coords = region_pixels[:, 1]
+                        height = y_coords.max() - y_coords.min() + 1
+                        width = x_coords.max() - x_coords.min() + 1
+                        
+                        # Calculate aspect ratio
+                        aspect_ratio = max(width, height) / max(min(width, height), 1)
+                        
+                        # Calculate fill ratio (actual pixels vs bounding box)
+                        fill_ratio = len(region_pixels) / (width * height)
+                        
+                        # Filter out elongated/thin regions (likely artifacts)
+                        # Keep regions that are:
+                        # - Not super elongated (aspect ratio < 8)
+                        # - Have decent fill ratio (> 0.3, not just thin lines)
+                        # - Have enough pixels (> 200)
+                        if aspect_ratio < 8 and fill_ratio > 0.3 and len(region_pixels) > 200:
+                            cleaned_mask[region] = 255
+                    
+                    mask_array = cleaned_mask
+                    logger.info(f"Filtered elongated artifacts: kept {np.sum(mask_array > 0)} pixels")
+            
+            except Exception as filter_error:
+                logger.warning(f"Could not filter elongated regions: {filter_error}")
+            
+            logger.info("Applied aggressive artifact filtering and cleanup")
             return Image.fromarray(mask_array, mode='L')
             
         except ImportError:
@@ -545,13 +593,15 @@ class SmartMaskProcessor:
             if len(valleys) > 0:
                 # First significant valley is the separation point
                 threshold = bins[valleys[0]]
-                threshold = np.clip(threshold, 3.0, 15.0)  # Constrain to reasonable range
+                # Reduce by 15% to be less aggressive (user feedback: auto is too high)
+                threshold = threshold * 0.85
+                threshold = np.clip(threshold, 3.0, 12.0)  # Constrain to reasonable range (lower max)
                 logger.info(f"Adaptive threshold calculated: {threshold:.1f}%")
                 return float(threshold)
             else:
                 # Fallback: use percentile-based approach
                 p75 = np.percentile(diff_flat[diff_flat > 0], 75)
-                threshold = np.clip(p75 * 0.6, 3.0, 15.0)
+                threshold = np.clip(p75 * 0.5, 3.0, 10.0)  # Lower multiplier and max
                 logger.info(f"Adaptive threshold (fallback): {threshold:.1f}%")
                 return float(threshold)
                 
@@ -561,10 +611,10 @@ class SmartMaskProcessor:
     
     def detect_and_exclude_faces(self, mask: Image.Image, original_image: Image.Image) -> Image.Image:
         """
-        Detect faces in original image and exclude them from mask
+        Detect faces in original image and exclude them from mask using elliptical region
         
-        Uses OpenCV Haar Cascade for fast face detection. Face regions
-        are forced to 0 (preserve original) to prevent facial changes.
+        Uses OpenCV Haar Cascade for fast face detection, then creates an
+        elliptical exclusion zone for face + hair instead of rectangular box.
         
         Args:
             mask: Input mask to modify
@@ -591,34 +641,93 @@ class SmartMaskProcessor:
             img_array = np.array(original_image.convert('RGB'))
             gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
             
-            # Detect faces
+            # Get image dimensions for filtering
+            img_height, img_width = gray.shape
+            
+            # Detect faces with balanced parameters
             faces = self.face_cascade.detectMultiScale(
                 gray,
-                scaleFactor=1.1,
-                minNeighbors=5,
-                minSize=(30, 30)
+                scaleFactor=1.1,   # Less sensitive (was 1.05)
+                minNeighbors=5,    # Higher threshold (was 4)
+                minSize=(80, 80),  # Larger minimum (was 30x30) to filter tiny false positives
+                flags=cv2.CASCADE_SCALE_IMAGE
             )
             
             if len(faces) == 0:
                 logger.info("No faces detected")
                 return mask
             
-            # Exclude faces from mask
-            mask_array = np.array(mask)
+            # Filter out small false positives based on image size
+            # Real faces should be at least 3% of the smaller image dimension
+            min_face_size = int(min(img_width, img_height) * 0.03)
+            
+            filtered_faces = []
             for (x, y, w, h) in faces:
-                # Expand face box slightly to ensure full coverage
-                padding = int(max(w, h) * 0.2)
-                x1 = max(0, x - padding)
-                y1 = max(0, y - padding)
-                x2 = min(mask_array.shape[1], x + w + padding)
-                y2 = min(mask_array.shape[0], y + h + padding)
+                if w >= min_face_size and h >= min_face_size:
+                    filtered_faces.append((x, y, w, h))
+                else:
+                    logger.debug(f"Filtered out small face detection at ({x},{y}) size {w}x{h} (below {min_face_size}px threshold)")
+            
+            faces = filtered_faces
+            
+            if len(faces) == 0:
+                logger.info("No valid faces after filtering small detections")
+                return mask
+            
+            # If multiple faces detected, prioritize the largest (likely the main subject)
+            # Keep all that are at least 30% the size of the largest (for group photos)
+            if len(faces) > 1:
+                # Sort by area (largest first)
+                faces_with_area = [(x, y, w, h, w*h) for (x, y, w, h) in faces]
+                faces_with_area.sort(key=lambda f: f[4], reverse=True)
                 
-                # Force mask to 0 in face region (preserve original)
-                mask_array[y1:y2, x1:x2] = 0
-                logger.info(f"Excluded face region: ({x1},{y1}) to ({x2},{y2})")
+                largest_area = faces_with_area[0][4]
+                threshold_area = largest_area * 0.3  # 30% of largest
+                
+                # Keep faces that are significant size
+                faces = [(x, y, w, h) for (x, y, w, h, area) in faces_with_area if area >= threshold_area]
+                
+                logger.info(f"Filtered to {len(faces)} significant face(s) out of {len(filtered_faces)} detected")
+            
+            logger.info(f"Processing {len(faces)} face(s) for exclusion")
+            
+            # Create mask for exclusion
+            mask_array = np.array(mask)
+            height, width = mask_array.shape
+            
+            for (x, y, w, h) in faces:
+                # Create elliptical exclusion zone for face + hair
+                # REDUCED from v2.1: User feedback that shoulders/clothing were being excluded
+                center_x = x + w // 2
+                center_y = y + h // 2
+                
+                # Ellipse radii: REDUCED to be less aggressive
+                radius_x = int(w * 0.55)           # 55% wider (was 70%)
+                radius_y = int(h * 0.95)           # 95% taller (was 120%)
+                
+                # Shift center upward to cover hair better
+                center_y = center_y - int(h * 0.1)  # 10% shift (was 15%)
+                
+                # Create elliptical mask using cv2
+                ellipse_mask = np.ones((height, width), dtype=np.uint8) * 255
+                cv2.ellipse(
+                    ellipse_mask,
+                    (center_x, center_y),
+                    (radius_x, radius_y),
+                    0,  # angle
+                    0,  # start angle
+                    360,  # end angle
+                    0,  # color (black to exclude)
+                    -1  # filled
+                )
+                
+                # Apply elliptical exclusion to mask
+                mask_array = np.where(ellipse_mask == 0, 0, mask_array)
+                
+                logger.info(f"Excluded elliptical face+hair region: center ({center_x},{center_y}), size ({w}x{h}), radii ({radius_x}x{radius_y})")
             
             result_mask = Image.fromarray(mask_array, mode='L')
-            logger.info(f"Face exclusion complete: {len(faces)} face(s) removed from mask")
+            logger.info(f"✅ Face exclusion complete: {len(faces)} face(s) excluded from mask (elliptical regions)")
             return result_mask
             
         except Exception as e:

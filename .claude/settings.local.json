@@ -1,9 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)",
-      "Bash(python:*)",
-      "Bash(cat:*)"
+      "Bash(for f in *_tab.py)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
