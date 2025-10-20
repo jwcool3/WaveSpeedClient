@@ -13,6 +13,15 @@ from core.logger import get_logger
 
 logger = get_logger()
 
+# Optional: OpenCV for face detection (graceful fallback if not available)
+try:
+    import cv2
+    OPENCV_AVAILABLE = True
+    logger.info("OpenCV available - face detection enabled")
+except ImportError:
+    OPENCV_AVAILABLE = False
+    logger.warning("OpenCV not available - face detection disabled")
+
 
 class SmartMaskProcessor:
     """
@@ -25,6 +34,7 @@ class SmartMaskProcessor:
         self.default_feather = 3      # Feather radius in pixels (0-50, low to avoid ghosting)
         self.default_focus_primary = True  # Focus on largest changed region
         self.default_min_region_size = 0.03  # Minimum region size (3% of image, more lenient)
+        self.face_cascade = None  # Lazy-loaded OpenCV face detector
     
     def create_difference_mask(
         self, 
@@ -499,6 +509,180 @@ class SmartMaskProcessor:
         except Exception as e:
             logger.error(f"Error creating mask preview: {e}")
             return None
+    
+    def calculate_adaptive_threshold(self, difference_image: np.ndarray) -> float:
+        """
+        Automatically calculate optimal threshold from difference histogram
+        
+        Uses valley detection to find the separation between noise/artifacts
+        and legitimate transformations.
+        
+        Args:
+            difference_image: Normalized difference array (0-100%)
+            
+        Returns:
+            Recommended threshold value (0-20%)
+        """
+        try:
+            from scipy.ndimage import gaussian_filter1d
+            from scipy.signal import find_peaks
+            
+            logger.info("Calculating adaptive threshold from difference histogram")
+            
+            # Flatten to 1D and get histogram
+            diff_flat = difference_image.flatten()
+            hist, bins = np.histogram(diff_flat, bins=100, range=(0, 20))  # Focus on 0-20% range
+            
+            # Smooth histogram to find valleys
+            smoothed_hist = gaussian_filter1d(hist.astype(float), sigma=2)
+            
+            # Invert to find valleys as peaks
+            inverted = np.max(smoothed_hist) - smoothed_hist
+            
+            # Find valleys (peaks in inverted)
+            valleys, _ = find_peaks(inverted, prominence=np.max(inverted) * 0.1)
+            
+            if len(valleys) > 0:
+                # First significant valley is the separation point
+                threshold = bins[valleys[0]]
+                threshold = np.clip(threshold, 3.0, 15.0)  # Constrain to reasonable range
+                logger.info(f"Adaptive threshold calculated: {threshold:.1f}%")
+                return float(threshold)
+            else:
+                # Fallback: use percentile-based approach
+                p75 = np.percentile(diff_flat[diff_flat > 0], 75)
+                threshold = np.clip(p75 * 0.6, 3.0, 15.0)
+                logger.info(f"Adaptive threshold (fallback): {threshold:.1f}%")
+                return float(threshold)
+                
+        except Exception as e:
+            logger.warning(f"Error calculating adaptive threshold: {e}, using default")
+            return self.default_threshold
+    
+    def detect_and_exclude_faces(self, mask: Image.Image, original_image: Image.Image) -> Image.Image:
+        """
+        Detect faces in original image and exclude them from mask
+        
+        Uses OpenCV Haar Cascade for fast face detection. Face regions
+        are forced to 0 (preserve original) to prevent facial changes.
+        
+        Args:
+            mask: Input mask to modify
+            original_image: Original image for face detection
+            
+        Returns:
+            Modified mask with faces excluded
+        """
+        if not OPENCV_AVAILABLE:
+            logger.debug("Face detection skipped - OpenCV not available")
+            return mask
+        
+        try:
+            # Lazy-load face detector
+            if self.face_cascade is None:
+                self.face_cascade = cv2.CascadeClassifier(
+                    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                )
+                if self.face_cascade.empty():
+                    logger.warning("Failed to load face cascade, disabling face detection")
+                    return mask
+            
+            # Convert to OpenCV format
+            img_array = np.array(original_image.convert('RGB'))
+            gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+            
+            # Detect faces
+            faces = self.face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30)
+            )
+            
+            if len(faces) == 0:
+                logger.info("No faces detected")
+                return mask
+            
+            # Exclude faces from mask
+            mask_array = np.array(mask)
+            for (x, y, w, h) in faces:
+                # Expand face box slightly to ensure full coverage
+                padding = int(max(w, h) * 0.2)
+                x1 = max(0, x - padding)
+                y1 = max(0, y - padding)
+                x2 = min(mask_array.shape[1], x + w + padding)
+                y2 = min(mask_array.shape[0], y + h + padding)
+                
+                # Force mask to 0 in face region (preserve original)
+                mask_array[y1:y2, x1:x2] = 0
+                logger.info(f"Excluded face region: ({x1},{y1}) to ({x2},{y2})")
+            
+            result_mask = Image.fromarray(mask_array, mode='L')
+            logger.info(f"Face exclusion complete: {len(faces)} face(s) removed from mask")
+            return result_mask
+            
+        except Exception as e:
+            logger.error(f"Error in face detection: {e}")
+            return mask
+    
+    def calculate_smart_feather(self, mask: Image.Image) -> int:
+        """
+        Analyze mask structure and recommend optimal feather amount
+        
+        Detects gaps between disconnected regions and suggests feather
+        radius to bridge them without excessive ghosting.
+        
+        Args:
+            mask: Binary mask to analyze
+            
+        Returns:
+            Recommended feather radius (0-50 pixels)
+        """
+        try:
+            from scipy.ndimage import label
+            
+            logger.info("Calculating smart feather based on mask structure")
+            
+            mask_array = np.array(mask)
+            binary_mask = (mask_array > 127).astype(np.uint8)
+            
+            # Find connected components
+            labeled_array, num_features = label(binary_mask)
+            
+            if num_features <= 1:
+                # No gaps - minimal feather needed
+                logger.info("Single connected region detected - minimal feather recommended")
+                return 3
+            
+            # Calculate region centroids
+            centroids = []
+            for i in range(1, num_features + 1):
+                region_pixels = np.argwhere(labeled_array == i)
+                if len(region_pixels) > 0:
+                    centroid = np.mean(region_pixels, axis=0)
+                    centroids.append(centroid)
+            
+            if len(centroids) < 2:
+                return 3
+            
+            # Calculate distances between all pairs of centroids
+            min_gap = float('inf')
+            for i in range(len(centroids)):
+                for j in range(i + 1, len(centroids)):
+                    distance = np.linalg.norm(centroids[i] - centroids[j])
+                    min_gap = min(min_gap, distance)
+            
+            # Recommend feather of half the minimum gap (to bridge it)
+            # But cap at reasonable values to avoid excessive ghosting
+            recommended_feather = int(min_gap / 2)
+            recommended_feather = np.clip(recommended_feather, 3, 20)  # Conservative max
+            
+            logger.info(f"Smart feather calculated: {recommended_feather}px (detected {num_features} regions, min gap {min_gap:.1f}px)")
+            return recommended_feather
+            
+        except Exception as e:
+            logger.warning(f"Error calculating smart feather: {e}, using default")
+            return self.default_feather
 
 
 # Convenience functions

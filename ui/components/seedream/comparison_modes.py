@@ -948,11 +948,20 @@ class ComparisonController:
             controls_frame = ttk.LabelFrame(dialog, text="Mask Settings", padding="10")
             controls_frame.pack(fill=tk.X, padx=10, pady=5)
             
-            # Threshold control (fine-tuned for 0-20% sweet spot)
+            # Threshold control (fine-tuned for 0-20% sweet spot with Auto button)
             threshold_frame = ttk.Frame(controls_frame)
             threshold_frame.pack(fill=tk.X, pady=5)
             
-            ttk.Label(threshold_frame, text="Threshold (% difference):").pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Label(threshold_frame, text="Threshold:").pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Auto-calculate button (command will be set after function definition)
+            auto_threshold_btn = ttk.Button(
+                threshold_frame,
+                text="🔮 Auto",
+                width=8
+            )
+            auto_threshold_btn.pack(side=tk.LEFT, padx=(0, 10))
+            
             threshold_var = tk.DoubleVar(value=8.0)
             threshold_slider = tk.Scale(
                 threshold_frame,
@@ -961,19 +970,28 @@ class ComparisonController:
                 resolution=0.1,
                 orient=tk.HORIZONTAL,
                 variable=threshold_var,
-                length=300,
+                length=220,
                 showvalue=1,
                 digits=3  # Show decimal places
             )
             threshold_slider.pack(side=tk.LEFT, padx=5)
             
-            ttk.Label(threshold_frame, text="Sweet spot: 3-12%").pack(side=tk.LEFT, padx=(10, 0))
+            ttk.Label(threshold_frame, text="%").pack(side=tk.LEFT, padx=(2, 0))
             
-            # Feather control (reduced default to minimize ghost artifacts)
+            # Feather control (reduced default to minimize ghost artifacts with Auto button)
             feather_frame = ttk.Frame(controls_frame)
             feather_frame.pack(fill=tk.X, pady=5)
             
-            ttk.Label(feather_frame, text="Edge Feather (pixels):").pack(side=tk.LEFT, padx=(0, 10))
+            ttk.Label(feather_frame, text="Feather:").pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Auto-calculate button (command will be set after function definition)
+            auto_feather_btn = ttk.Button(
+                feather_frame,
+                text="🔮 Auto",
+                width=8
+            )
+            auto_feather_btn.pack(side=tk.LEFT, padx=(0, 10))
+            
             feather_var = tk.IntVar(value=3)
             feather_slider = tk.Scale(
                 feather_frame,
@@ -982,12 +1000,12 @@ class ComparisonController:
                 resolution=1,
                 orient=tk.HORIZONTAL,
                 variable=feather_var,
-                length=300,
+                length=220,
                 showvalue=1
             )
             feather_slider.pack(side=tk.LEFT, padx=5)
             
-            ttk.Label(feather_frame, text="Caution: high values cause ghosting").pack(side=tk.LEFT, padx=(10, 0))
+            ttk.Label(feather_frame, text="px").pack(side=tk.LEFT, padx=(2, 0))
             
             # Focus on primary region checkbox
             focus_frame = ttk.Frame(controls_frame)
@@ -997,8 +1015,7 @@ class ComparisonController:
             focus_check = ttk.Checkbutton(
                 focus_frame,
                 text="🎯 Focus on Primary Region (isolate main clothing change, filter artifacts)",
-                variable=focus_primary_var,
-                command=lambda: None  # Will update preview when changed
+                variable=focus_primary_var
             )
             focus_check.pack(side=tk.LEFT, padx=(0, 5))
             
@@ -1009,10 +1026,110 @@ class ComparisonController:
                 foreground='gray'
             ).pack(side=tk.LEFT)
             
+            # Face exclusion checkbox (NEW - prevents facial changes)
+            face_frame = ttk.Frame(controls_frame)
+            face_frame.pack(fill=tk.X, pady=5)
+            
+            exclude_faces_var = tk.BooleanVar(value=True)
+            face_check = ttk.Checkbutton(
+                face_frame,
+                text="😊 Exclude Faces (auto-detect and preserve face/hair/skin)",
+                variable=exclude_faces_var
+            )
+            face_check.pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Label(
+                face_frame,
+                text="← Highly recommended",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack(side=tk.LEFT)
+            
             # Loading indicator
             loading_text = [None]  # Store text ID
             
+            # Auto-calculate threshold function
+            def calculate_adaptive_threshold():
+                """Calculate and set adaptive threshold from difference image"""
+                try:
+                    # Disable button during calculation
+                    auto_threshold_btn.config(state='disabled', text="⏳ Calculating...")
+                    dialog.update()
+                    
+                    # Load images and calculate difference
+                    from PIL import Image
+                    import numpy as np
+                    
+                    original = Image.open(source_path).convert('RGB')
+                    result = Image.open(result_path).convert('RGB')
+                    
+                    # Ensure same size
+                    if original.size != result.size:
+                        result = result.resize(original.size, Image.Resampling.LANCZOS)
+                    
+                    # Calculate difference array
+                    orig_array = np.array(original, dtype=np.float32)
+                    result_array = np.array(result, dtype=np.float32)
+                    diff = np.abs(orig_array - result_array)
+                    gray_diff = np.mean(diff, axis=2)
+                    normalized_diff = (gray_diff / 255.0) * 100  # Percentage
+                    
+                    # Use processor's adaptive threshold method
+                    recommended_threshold = processor.calculate_adaptive_threshold(normalized_diff)
+                    
+                    # Set the threshold
+                    threshold_var.set(recommended_threshold)
+                    
+                    # Trigger preview update
+                    update_preview()
+                    
+                    logger.info(f"Adaptive threshold set to {recommended_threshold:.1f}%")
+                    
+                except Exception as e:
+                    logger.error(f"Error calculating adaptive threshold: {e}")
+                finally:
+                    auto_threshold_btn.config(state='normal', text="🔮 Auto")
+            
+            # Auto-calculate feather function
+            def calculate_smart_feather():
+                """Calculate and set smart feather from mask structure"""
+                try:
+                    # Disable button during calculation
+                    auto_feather_btn.config(state='disabled', text="⏳ Calculating...")
+                    dialog.update()
+                    
+                    # Generate current mask to analyze
+                    threshold = threshold_var.get()
+                    focus_primary = focus_primary_var.get()
+                    
+                    mask = processor.create_difference_mask(
+                        source_path, result_path,
+                        threshold=threshold,
+                        feather=0,  # No feather for analysis
+                        focus_primary=focus_primary
+                    )
+                    
+                    if mask:
+                        # Use processor's smart feather method
+                        recommended_feather = processor.calculate_smart_feather(mask)
+                        
+                        # Set the feather
+                        feather_var.set(recommended_feather)
+                        
+                        # Trigger preview update
+                        update_preview()
+                        
+                        logger.info(f"Smart feather set to {recommended_feather}px")
+                    else:
+                        logger.warning("Could not generate mask for smart feather calculation")
+                    
+                except Exception as e:
+                    logger.error(f"Error calculating smart feather: {e}")
+                finally:
+                    auto_feather_btn.config(state='normal', text="🔮 Auto")
+            
             # Update preview function (async with threading)
+            # MUST BE DEFINED BEFORE wiring up commands that reference it
             def update_preview():
                 try:
                     # Show loading indicator
@@ -1028,11 +1145,58 @@ class ComparisonController:
                     threshold = threshold_var.get()
                     feather = feather_var.get()
                     focus_primary = focus_primary_var.get()
+                    exclude_faces = exclude_faces_var.get()
                     
                     # Run preview generation in thread to avoid freezing
                     def generate_preview():
                         try:
-                            preview_img = processor.preview_mask(source_path, result_path, threshold, feather, focus_primary)
+                            # Generate mask
+                            mask = processor.create_difference_mask(
+                                source_path, result_path,
+                                threshold=threshold,
+                                feather=0,  # Apply feather after face exclusion
+                                focus_primary=focus_primary
+                            )
+                            
+                            if not mask:
+                                dialog.after(0, lambda: show_error_preview())
+                                return
+                            
+                            # Apply face exclusion if enabled
+                            if exclude_faces:
+                                original_img = Image.open(source_path)
+                                mask = processor.detect_and_exclude_faces(mask, original_img)
+                            
+                            # Now apply feathering
+                            if feather > 0:
+                                mask = processor._feather_mask(mask, feather)
+                            
+                            # Create preview with red overlay
+                            from PIL import Image
+                            import numpy as np
+                            
+                            # Downsample for preview speed
+                            max_preview_size = 800
+                            original = Image.open(source_path).convert('RGB')
+                            w, h = original.size
+                            if max(w, h) > max_preview_size:
+                                scale = max_preview_size / max(w, h)
+                                new_size = (int(w * scale), int(h * scale))
+                                original = original.resize(new_size, Image.Resampling.LANCZOS)
+                                mask = mask.resize(new_size, Image.Resampling.LANCZOS)
+                            
+                            # Create red overlay
+                            mask_array = np.array(mask)
+                            original_array = np.array(original)
+                            
+                            red_overlay = original_array.copy()
+                            mask_normalized = mask_array / 255.0
+                            red_overlay[:, :, 0] = np.clip(
+                                original_array[:, :, 0] + (255 - original_array[:, :, 0]) * mask_normalized * 0.5,
+                                0, 255
+                            )
+                            
+                            preview_img = Image.fromarray(red_overlay.astype(np.uint8))
                             
                             if preview_img:
                                 # Schedule UI update on main thread
@@ -1097,10 +1261,13 @@ class ComparisonController:
                     fill='red'
                 )
             
-            # Bind slider changes to preview update
+            # Wire up all controls now that update_preview is defined
             threshold_slider.config(command=lambda v: update_preview())
             feather_slider.config(command=lambda v: update_preview())
             focus_check.config(command=update_preview)
+            face_check.config(command=update_preview)
+            auto_threshold_btn.config(command=calculate_adaptive_threshold)
+            auto_feather_btn.config(command=calculate_smart_feather)
             
             # Initial preview
             dialog.after(100, update_preview)
@@ -1121,8 +1288,9 @@ class ComparisonController:
                     threshold = threshold_var.get()
                     feather = feather_var.get()
                     focus_primary = focus_primary_var.get()
+                    exclude_faces = exclude_faces_var.get()
                     
-                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}")
+                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}")
                     
                     # Disable buttons during processing
                     for widget in button_frame.winfo_children():
@@ -1136,13 +1304,36 @@ class ComparisonController:
                     # Run in background thread
                     def process_mask():
                         try:
+                            # Generate mask with all settings
+                            mask = processor.create_difference_mask(
+                                source_path, result_path,
+                                threshold=threshold,
+                                feather=0,  # Apply feather after face exclusion
+                                focus_primary=focus_primary
+                            )
+                            
+                            if not mask:
+                                dialog.after(0, lambda: finish_apply(None, False, "Failed to create mask"))
+                                return
+                            
+                            # Apply face exclusion if enabled
+                            if exclude_faces:
+                                from PIL import Image
+                                original_img = Image.open(source_path)
+                                mask = processor.detect_and_exclude_faces(mask, original_img)
+                            
+                            # Now apply feathering
+                            if feather > 0:
+                                mask = processor._feather_mask(mask, feather)
+                            
+                            # Apply composite with the prepared mask
                             result_img = processor.apply_smart_composite(
                                 source_path, 
                                 result_path,
-                                None,
-                                threshold,
-                                feather,
-                                focus_primary
+                                mask=mask,  # Pass the pre-generated mask
+                                threshold=None,  # Not needed since we have mask
+                                feather=None,
+                                focus_primary=None
                             )
                             
                             if result_img:
