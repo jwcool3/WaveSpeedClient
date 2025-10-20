@@ -915,44 +915,198 @@ class ComparisonController:
             logger.error(f"Error showing smart mask controls: {e}")
             messagebox.showerror("Error", f"Failed to open smart mask: {str(e)}")
     
+    def _update_smart_mask_dialog(self, source_path: str, result_path: str):
+        """Update existing Smart Mask dialog with new images"""
+        try:
+            from pathlib import Path
+            
+            # Update stored paths
+            self.smart_mask_source_path = source_path
+            self.smart_mask_result_path = result_path
+            
+            # Update dialog title to show new image
+            if hasattr(self, 'smart_mask_dialog') and self.smart_mask_dialog:
+                filename = Path(result_path).stem
+                self.smart_mask_dialog.title(f"🎯 Smart Mask - {filename}")
+            
+            # Trigger preview refresh if the update_preview function exists
+            if hasattr(self, 'smart_mask_update_preview_func') and self.smart_mask_update_preview_func:
+                logger.info("Refreshing preview with new images")
+                self.smart_mask_update_preview_func()
+            
+        except Exception as e:
+            logger.error(f"Error updating smart mask dialog: {e}")
+    
     def _show_smart_mask_dialog(self, source_path: str, result_path: str):
-        """Show smart mask dialog with controls"""
+        """Show smart mask dialog with controls (non-modal, reusable)"""
         try:
             from utils.smart_mask import SmartMaskProcessor
             
             # Create processor
             processor = SmartMaskProcessor()
             
-            # Create dialog window
+            # Check if dialog already exists and is open
+            if hasattr(self, 'smart_mask_dialog') and self.smart_mask_dialog and self.smart_mask_dialog.winfo_exists():
+                # Dialog already open, just update the images
+                logger.info("Smart Mask dialog already open, updating with new images")
+                self._update_smart_mask_dialog(source_path, result_path)
+                self.smart_mask_dialog.lift()  # Bring to front
+                return
+            
+            # Create dialog window (non-modal)
             dialog = tk.Toplevel(self.layout.parent_frame)
             dialog.title("🎯 Smart Mask - Selective Compositing")
-            dialog.geometry("750x850")  # Increased height to fit all controls
-            dialog.transient(self.layout.parent_frame.winfo_toplevel())
-            dialog.grab_set()
+            dialog.geometry("800x900")  # Increased width and height
+            # Make it stay on top but not block interaction
+            dialog.attributes('-topmost', False)  # Not always on top
+            # Remove grab_set() to allow interaction with main window
+            
+            # Store dialog reference for reuse
+            self.smart_mask_dialog = dialog
+            
+            # Store current paths
+            self.smart_mask_source_path = source_path
+            self.smart_mask_result_path = result_path
+            
+            # Cleanup function to unbind mousewheel when dialog closes
+            def on_dialog_close():
+                try:
+                    dialog.unbind_all("<MouseWheel>")
+                except:
+                    pass
+                # Clear reference
+                if hasattr(self, 'smart_mask_dialog'):
+                    self.smart_mask_dialog = None
+                dialog.destroy()
+            
+            # Set up proper cleanup on close
+            dialog.protocol("WM_DELETE_WINDOW", on_dialog_close)
             
             # Instructions
             instructions = ttk.Label(
                 dialog,
-                text="Preserves background/face by only applying AI changes to modified areas (red preview).\nAdjust settings and click Apply to composite.",
+                text="Preserves background/face by only applying AI changes to modified areas (red preview).\nAdjust settings and click Apply to composite.\n💡 Keep this window open - it will update when you compare new results!",
                 font=('Arial', 9),
                 justify=tk.CENTER
             )
             instructions.pack(pady=10, padx=10)
             
+            # Track if processing to prevent multiple clicks
+            processing = [False]
+            
+            # Action buttons frame at TOP for easy access
+            top_button_frame = ttk.Frame(dialog)
+            top_button_frame.pack(fill=tk.X, padx=10, pady=(0, 5))
+            
             # Preview canvas
             preview_frame = ttk.LabelFrame(dialog, text="Mask Preview (Red = AI Changes Applied)", padding="5")
-            preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+            preview_frame.pack(fill=tk.BOTH, expand=False, padx=10, pady=5)
             
-            preview_canvas = tk.Canvas(preview_frame, bg='gray', width=720, height=450)
-            preview_canvas.pack(fill=tk.BOTH, expand=True)
+            preview_canvas = tk.Canvas(preview_frame, bg='gray', width=720, height=350)
+            preview_canvas.pack(fill=tk.BOTH, expand=False)
             
             # Store preview image reference
             preview_photo = [None]  # Use list to allow modification in nested function
             
-            # Controls frame
-            controls_frame = ttk.LabelFrame(dialog, text="Mask Settings", padding="10")
-            controls_frame.pack(fill=tk.X, padx=10, pady=5)
+            # Scrollable frame for controls
+            controls_container = ttk.Frame(dialog)
+            controls_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
             
+            # Create canvas and scrollbar for scrollable controls
+            controls_canvas = tk.Canvas(controls_container, highlightthickness=0)
+            scrollbar = ttk.Scrollbar(controls_container, orient="vertical", command=controls_canvas.yview)
+            scrollable_frame = ttk.Frame(controls_canvas)
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: controls_canvas.configure(scrollregion=controls_canvas.bbox("all"))
+            )
+            
+            controls_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            controls_canvas.configure(yscrollcommand=scrollbar.set)
+            
+            controls_canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Bind mousewheel to scroll (only when mouse is over the control)
+            def _on_mousewheel(event):
+                try:
+                    controls_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+                except tk.TclError:
+                    # Canvas was destroyed, ignore
+                    pass
+            
+            def _bind_mousewheel(event):
+                controls_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+            
+            def _unbind_mousewheel(event):
+                controls_canvas.unbind_all("<MouseWheel>")
+            
+            # Bind/unbind on enter/leave
+            controls_canvas.bind("<Enter>", _bind_mousewheel)
+            controls_canvas.bind("<Leave>", _unbind_mousewheel)
+            
+            # Controls frame (now inside scrollable frame)
+            controls_frame = ttk.LabelFrame(scrollable_frame, text="Mask Settings", padding="10")
+            controls_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+            # Preset selector (NEW - quick settings profiles)
+            preset_frame = ttk.Frame(controls_frame)
+            preset_frame.pack(fill=tk.X, pady=(0, 10))
+
+            ttk.Label(preset_frame, text="🎯 Preset:").pack(side=tk.LEFT, padx=(0, 5))
+
+            # Get available presets
+            from utils.smart_mask import get_presets
+            presets = get_presets()
+            preset_names = ["Custom"] + [name for _, name, _ in presets]
+            preset_var = tk.StringVar(value="Custom")
+
+            preset_combo = ttk.Combobox(
+                preset_frame,
+                textvariable=preset_var,
+                values=preset_names,
+                state='readonly',
+                width=25
+            )
+            preset_combo.pack(side=tk.LEFT, padx=5)
+
+            # Preset info label
+            preset_info_label = ttk.Label(
+                preset_frame,
+                text="← Select a preset or use Custom",
+                font=('Arial', 8),
+                foreground='gray'
+            )
+            preset_info_label.pack(side=tk.LEFT, padx=5)
+
+            # Function to apply preset (will be updated after all vars defined)
+            def apply_preset_settings(event=None):
+                selected = preset_var.get()
+                if selected == "Custom":
+                    preset_info_label.config(text="← Manual settings", foreground='gray')
+                    return
+
+                # Find preset details
+                for key, name, desc in presets:
+                    if name == selected:
+                        preset = processor.get_preset(key)
+                        threshold_var.set(preset['threshold'])
+                        feather_var.set(preset['feather'])
+                        focus_primary_var.set(preset['focus_primary'])
+
+                        # Apply new v2.5 settings if present
+                        if 'use_poisson' in preset:
+                            use_poisson_var.set(preset['use_poisson'])
+                        if 'harmonize_colors' in preset:
+                            harmonize_colors_var.set(preset['harmonize_colors'])
+
+                        preset_info_label.config(text=f"← {desc}", foreground='green')
+                        update_preview()  # Update preview with new settings
+                        break
+
+            preset_combo.bind('<<ComboboxSelected>>', apply_preset_settings)
+
             # Threshold control (fine-tuned for 0-20% sweet spot with Auto button)
             threshold_frame = ttk.Frame(controls_frame)
             threshold_frame.pack(fill=tk.X, pady=5)
@@ -1024,6 +1178,29 @@ class ComparisonController:
                 feather_value_label.config(text=f"{feather_var.get()}px")
             feather_var.trace('w', update_feather_label)
             
+            # Difference calculation method selector (NEW - A/B test feature)
+            method_frame = ttk.Frame(controls_frame)
+            method_frame.pack(fill=tk.X, pady=5)
+            
+            ttk.Label(method_frame, text="Difference Method:").pack(side=tk.LEFT, padx=(0, 5))
+            
+            diff_method_var = tk.StringVar(value='rgb')
+            method_dropdown = ttk.Combobox(
+                method_frame,
+                textvariable=diff_method_var,
+                values=['rgb', 'lab'],
+                state='readonly',
+                width=15
+            )
+            method_dropdown.pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Label(
+                method_frame,
+                text="← RGB (default/fast) | LAB (perceptual/better)",
+                font=('Arial', 8),
+                foreground='blue'
+            ).pack(side=tk.LEFT)
+            
             # Focus on primary region checkbox
             focus_frame = ttk.Frame(controls_frame)
             focus_frame.pack(fill=tk.X, pady=5)
@@ -1062,23 +1239,23 @@ class ComparisonController:
                 foreground='gray'
             ).pack(side=tk.LEFT)
             
-            # Inverted blend checkbox (EXPERIMENTAL - test different feathering direction)
+            # Inverted blend checkbox (Legacy fallback - mostly superseded by Poisson)
             blend_frame = ttk.Frame(controls_frame)
             blend_frame.pack(fill=tk.X, pady=5)
-            
+
             invert_blend_var = tk.BooleanVar(value=False)
             blend_check = ttk.Checkbutton(
                 blend_frame,
-                text="🎨 Reduce Ghosting (favor original in blend zones)",
+                text="🎨 Reduce Ghosting (legacy method, favor original in blend zones)",
                 variable=invert_blend_var
             )
             blend_check.pack(side=tk.LEFT, padx=(0, 5))
-            
+
             ttk.Label(
                 blend_frame,
-                text="← Try if old clothes bleeding through",
+                text="← Use if Poisson fails (fallback method)",
                 font=('Arial', 8),
-                foreground='orange'
+                foreground='gray'
             ).pack(side=tk.LEFT)
             
             # Color harmonization checkbox (NEW - fixes tint mismatches)
@@ -1099,7 +1276,121 @@ class ComparisonController:
                 font=('Arial', 8),
                 foreground='green'
             ).pack(side=tk.LEFT)
-            
+
+            # Poisson blending checkbox (NEW - eliminates ghosting!)
+            poisson_frame = ttk.Frame(controls_frame)
+            poisson_frame.pack(fill=tk.X, pady=5)
+
+            use_poisson_var = tk.BooleanVar(value=True)  # Changed to True - breakthrough feature, should be default
+            poisson_check = ttk.Checkbutton(
+                poisson_frame,
+                text="✨ Poisson Blending (gradient-domain, eliminates ghosting)",
+                variable=use_poisson_var
+            )
+            poisson_check.pack(side=tk.LEFT, padx=(0, 5))
+
+            ttk.Label(
+                poisson_frame,
+                text="← HIGHLY RECOMMENDED! Solves neck ghosting",
+                font=('Arial', 8),
+                foreground='#00AA00',
+                style='Bold.TLabel'
+            ).pack(side=tk.LEFT)
+
+            # Edge-aware feathering checkbox (NEW)
+            edge_aware_frame = ttk.Frame(controls_frame)
+            edge_aware_frame.pack(fill=tk.X, pady=5)
+
+            use_edge_aware_var = tk.BooleanVar(value=False)
+            edge_aware_check = ttk.Checkbutton(
+                edge_aware_frame,
+                text="🔍 Edge-Aware Feathering (preserves face/background edges)",
+                variable=use_edge_aware_var
+            )
+            edge_aware_check.pack(side=tk.LEFT, padx=(0, 5))
+
+            ttk.Label(
+                edge_aware_frame,
+                text="← Fills gaps without bleeding",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack(side=tk.LEFT)
+
+            # Preview display controls frame
+            preview_controls_frame = ttk.LabelFrame(controls_frame, text="Preview Display", padding="5")
+            preview_controls_frame.pack(fill=tk.X, pady=10)
+
+            # Red overlay opacity slider
+            opacity_frame = ttk.Frame(preview_controls_frame)
+            opacity_frame.pack(fill=tk.X, pady=2)
+
+            ttk.Label(opacity_frame, text="Red Overlay:").pack(side=tk.LEFT, padx=(0, 5))
+
+            red_opacity_var = tk.DoubleVar(value=0.5)
+            opacity_slider = tk.Scale(
+                opacity_frame,
+                from_=0.0,
+                to=1.0,
+                resolution=0.05,
+                orient=tk.HORIZONTAL,
+                variable=red_opacity_var,
+                length=180,
+                showvalue=0
+            )
+            opacity_slider.pack(side=tk.LEFT, padx=5)
+
+            opacity_value_label = ttk.Label(opacity_frame, text=f"{int(red_opacity_var.get()*100)}%", width=5)
+            opacity_value_label.pack(side=tk.LEFT, padx=(5, 0))
+
+            def update_opacity_label(*args):
+                opacity_value_label.config(text=f"{int(red_opacity_var.get()*100)}%")
+                # Auto-refresh preview when opacity changes
+                update_preview()
+            red_opacity_var.trace('w', update_opacity_label)
+
+            ttk.Label(
+                opacity_frame,
+                text="← Adjust red mask visibility",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack(side=tk.LEFT, padx=5)
+
+            # Preview zoom control
+            zoom_frame = ttk.Frame(preview_controls_frame)
+            zoom_frame.pack(fill=tk.X, pady=2)
+
+            ttk.Label(zoom_frame, text="Preview Zoom:").pack(side=tk.LEFT, padx=(0, 5))
+
+            preview_zoom_var = tk.DoubleVar(value=1.0)
+            zoom_slider = tk.Scale(
+                zoom_frame,
+                from_=0.5,
+                to=2.0,
+                resolution=0.1,
+                orient=tk.HORIZONTAL,
+                variable=preview_zoom_var,
+                length=180,
+                showvalue=0
+            )
+            zoom_slider.pack(side=tk.LEFT, padx=5)
+
+            zoom_value_label = ttk.Label(zoom_frame, text=f"{int(preview_zoom_var.get()*100)}%", width=5)
+            zoom_value_label.pack(side=tk.LEFT, padx=(5, 0))
+
+            def update_zoom_label(*args):
+                zoom_value_label.config(text=f"{int(preview_zoom_var.get()*100)}%")
+                # Redisplay current preview with new zoom
+                if hasattr(display_preview, 'original_preview'):
+                    display_preview(display_preview.original_preview)
+            preview_zoom_var.trace('w', update_zoom_label)
+
+            ttk.Label(
+                zoom_frame,
+                text="← Zoom in/out on preview",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack(side=tk.LEFT, padx=5)
+
             # Loading indicator
             loading_text = [None]  # Store text ID
             
@@ -1156,12 +1447,14 @@ class ComparisonController:
                     # Generate current mask to analyze
                     threshold = threshold_var.get()
                     focus_primary = focus_primary_var.get()
+                    diff_method = diff_method_var.get()
                     
                     mask = processor.create_difference_mask(
                         source_path, result_path,
                         threshold=threshold,
                         feather=0,  # No feather for analysis
-                        focus_primary=focus_primary
+                        focus_primary=focus_primary,
+                        method=diff_method
                     )
                     
                     if mask:
@@ -1210,14 +1503,19 @@ class ComparisonController:
                             
                             # IMPORTANT: Use SAME pipeline as final processing
                             # Load full resolution images first
-                            original_full = Image.open(source_path).convert('RGB')
+                            # Use instance variables so dialog can be updated with new images
+                            current_source = self.smart_mask_source_path if hasattr(self, 'smart_mask_source_path') else source_path
+                            current_result = self.smart_mask_result_path if hasattr(self, 'smart_mask_result_path') else result_path
+                            original_full = Image.open(current_source).convert('RGB')
+                            diff_method = diff_method_var.get()
                             
                             # Generate mask at FULL RESOLUTION
                             mask = processor.create_difference_mask(
-                                source_path, result_path,
+                                current_source, current_result,
                                 threshold=threshold,
                                 feather=0,  # Apply feather after face exclusion
-                                focus_primary=focus_primary
+                                focus_primary=focus_primary,
+                                method=diff_method
                             )
                             
                             if not mask:
@@ -1247,14 +1545,17 @@ class ComparisonController:
                             # Create red overlay using display-sized images
                             mask_array = np.array(mask_display)
                             original_array = np.array(original)
-                            
+
+                            # Use adjustable red overlay opacity from slider
+                            red_intensity = red_opacity_var.get()
+
                             red_overlay = original_array.copy()
                             mask_normalized = mask_array / 255.0
                             red_overlay[:, :, 0] = np.clip(
-                                original_array[:, :, 0] + (255 - original_array[:, :, 0]) * mask_normalized * 0.5,
+                                original_array[:, :, 0] + (255 - original_array[:, :, 0]) * mask_normalized * red_intensity,
                                 0, 255
                             )
-                            
+
                             preview_img = Image.fromarray(red_overlay.astype(np.uint8))
 
                             logger.info(f"Preview generated at full resolution, displayed at {original.size}")
@@ -1279,23 +1580,38 @@ class ComparisonController:
                     logger.error(f"Error updating preview: {e}")
                     show_error_preview()
             
+            # Store reference to update function for when dialog is reused
+            self.smart_mask_update_preview_func = update_preview
+            
             def display_preview(preview_img):
-                """Display the generated preview on main thread"""
+                """Display the generated preview on main thread with zoom support"""
                 try:
                     from PIL import Image, ImageTk
-                    
+
+                    # Store original preview for zoom operations
+                    if not hasattr(display_preview, 'original_preview'):
+                        display_preview.original_preview = preview_img
+                    else:
+                        display_preview.original_preview = preview_img
+
+                    # Apply zoom factor
+                    zoom_factor = preview_zoom_var.get()
+                    if zoom_factor != 1.0:
+                        new_size = (int(preview_img.width * zoom_factor), int(preview_img.height * zoom_factor))
+                        preview_img = preview_img.resize(new_size, Image.Resampling.LANCZOS)
+
                     # Resize to fit canvas
                     canvas_width = preview_canvas.winfo_width()
                     canvas_height = preview_canvas.winfo_height()
-                    
+
                     if canvas_width < 10:  # Canvas not yet sized
-                        canvas_width = 660
-                        canvas_height = 400
-                    
+                        canvas_width = 720
+                        canvas_height = 350
+
                     # Calculate scaling to fit
                     img_ratio = preview_img.width / preview_img.height
                     canvas_ratio = canvas_width / canvas_height
-                    
+
                     if img_ratio > canvas_ratio:
                         new_width = canvas_width - 10
                         new_height = int(new_width / img_ratio)
@@ -1371,8 +1687,10 @@ class ComparisonController:
                     exclude_faces = exclude_faces_var.get()
                     invert_blend = invert_blend_var.get()
                     harmonize_colors = harmonize_colors_var.get()
-                    
-                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}, invert_blend={invert_blend}, harmonize_colors={harmonize_colors}")
+                    use_poisson = use_poisson_var.get()
+                    use_edge_aware = use_edge_aware_var.get()
+
+                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}, invert_blend={invert_blend}, harmonize_colors={harmonize_colors}, use_poisson={use_poisson}, use_edge_aware={use_edge_aware}")
                     
                     # Disable buttons during processing
                     for widget in button_frame.winfo_children():
@@ -1386,12 +1704,19 @@ class ComparisonController:
                     # Run in background thread
                     def process_mask():
                         try:
+                            # Use current paths (may have been updated if dialog was reused)
+                            current_source = self.smart_mask_source_path if hasattr(self, 'smart_mask_source_path') else source_path
+                            current_result = self.smart_mask_result_path if hasattr(self, 'smart_mask_result_path') else result_path
+                            
+                            diff_method = diff_method_var.get()
+                            
                             # Generate mask with all settings
                             mask = processor.create_difference_mask(
-                                source_path, result_path,
+                                current_source, current_result,
                                 threshold=threshold,
                                 feather=0,  # Apply feather after face exclusion
-                                focus_primary=focus_primary
+                                focus_primary=focus_primary,
+                                method=diff_method
                             )
                             
                             if not mask:
@@ -1401,24 +1726,31 @@ class ComparisonController:
                             # Apply face exclusion if enabled
                             if exclude_faces:
                                 from PIL import Image
-                                original_img = Image.open(source_path)
+                                original_img = Image.open(current_source)
                                 mask = processor.detect_and_exclude_faces(mask, original_img)
                             
-                            # Now apply feathering
+                            # Now apply feathering (edge-aware if enabled)
                             if feather > 0:
-                                mask = processor._feather_mask(mask, feather)
-                            
+                                if use_edge_aware:
+                                    from PIL import Image
+                                    original_img = Image.open(current_source)
+                                    mask = processor._apply_edge_aware_feathering(mask, original_img, feather)
+                                else:
+                                    mask = processor._feather_mask(mask, feather)
+
                             # Apply composite with the prepared mask
                             result_img = processor.apply_smart_composite(
-                                source_path, 
-                                result_path,
+                                current_source,
+                                current_result,
                                 mask=mask,  # Pass the pre-generated mask
                                 threshold=None,  # Not needed since we have mask
                                 feather=None,
                                 focus_primary=None,
                                 min_region_size=None,
                                 invert_blend=invert_blend,  # Apply blend direction setting
-                                harmonize_colors=harmonize_colors  # Apply color harmonization
+                                harmonize_colors=harmonize_colors,  # Apply color harmonization
+                                use_poisson=use_poisson,  # Use Poisson blending if enabled
+                                use_edge_aware_feather=False  # Already applied above if needed
                             )
                             
                             if result_img:
@@ -1470,6 +1802,8 @@ class ComparisonController:
                                         "ai_model": "seedream_v4",
                                         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                         "prompt": prompt_text,
+                                        "input_image_path": str(current_source),
+                                        "original_ai_result_path": str(current_result),
                                         "result_path": str(save_path.absolute()),
                                         "result_filename": filename,
                                         "processing_type": "smart_mask",
@@ -1479,7 +1813,10 @@ class ComparisonController:
                                             "focus_primary": bool(focus_primary),
                                             "exclude_faces": bool(exclude_faces),
                                             "invert_blend": bool(invert_blend),
-                                            "harmonize_colors": bool(harmonize_colors)
+                                            "harmonize_colors": bool(harmonize_colors),
+                                            "use_poisson": bool(use_poisson),
+                                            "use_edge_aware_feather": bool(use_edge_aware),
+                                            "diff_method": diff_method
                                         },
                                         "input_image_path": source_path,
                                         "original_ai_result_path": result_path,
@@ -1578,22 +1915,25 @@ class ComparisonController:
                                 # Show success message with save location
                                 from pathlib import Path
                                 saved_filename = Path(temp_path).name
+                                # Capture method from outer scope
+                                method_name = diff_method_var.get().upper()
                                 message = (
                                     f"✅ Smart mask applied and saved!\n\n"
                                     f"📁 Location: WaveSpeed_Results/Seedream_V4/\n"
                                     f"📄 File: {saved_filename}\n\n"
                                     f"Settings:\n"
+                                    f"• Method: {method_name}\n"
                                     f"• Threshold: {threshold:.1f}%\n"
-                                    f"• Feather: {feather}px\n"
+                                    f"• Feather: {feather}px {'(Edge-Aware)' if use_edge_aware else ''}\n"
                                     f"• Focus Primary: {'Yes' if focus_primary else 'No'}\n"
                                     f"• Exclude Faces: {'Yes' if exclude_faces else 'No'}\n"
-                                    f"• Blend Direction: {'Inverted' if invert_blend else 'Standard'}\n"
+                                    f"• Blend Mode: {'Poisson (Gradient)' if use_poisson else 'Inverted' if invert_blend else 'Standard'}\n"
                                     f"• Color Harmony: {'Yes' if harmonize_colors else 'No'}\n\n"
-                                    f"Use 'Toggle Mask' button to compare before/after.\n"
-                                    f"Check Recent Results panel to view again."
+                                    f"Dialog remains open for refinement.\n"
+                                    f"Adjust settings and Apply again, or click Cancel to close."
                                 )
                                 messagebox.showinfo("Success", message)
-                                dialog.destroy()
+                                # Dialog stays open for refinement - user can adjust and re-apply
                             else:
                                 error_text = f"Failed to apply mask: {error_msg}" if error_msg else "Failed to apply smart mask."
                                 messagebox.showerror("Error", error_text)
@@ -1612,26 +1952,29 @@ class ComparisonController:
                     logger.error(f"Error applying smart mask: {e}")
                     messagebox.showerror("Error", f"Failed to apply mask: {str(e)}")
             
-            ttk.Button(
-                button_frame,
+            # Main action buttons at TOP for easy access
+            apply_btn = ttk.Button(
+                top_button_frame,
                 text="✅ Apply Smart Mask",
                 command=apply_masking,
-                width=20
-            ).pack(side=tk.LEFT, padx=5)
+                width=22
+            )
+            apply_btn.pack(side=tk.LEFT, padx=5)
             
             ttk.Button(
-                button_frame,
-                text="❌ Cancel",
-                command=dialog.destroy,
-                width=15
-            ).pack(side=tk.LEFT, padx=5)
-            
-            ttk.Button(
-                button_frame,
+                top_button_frame,
                 text="🔄 Refresh Preview",
                 command=update_preview,
                 width=18
-            ).pack(side=tk.RIGHT, padx=5)
+            ).pack(side=tk.LEFT, padx=5)
+            
+            # Cancel at bottom
+            ttk.Button(
+                button_frame,
+                text="❌ Cancel",
+                command=on_dialog_close,
+                width=15
+            ).pack(side=tk.LEFT, padx=5)
             
         except Exception as e:
             logger.error(f"Error creating smart mask dialog: {e}")

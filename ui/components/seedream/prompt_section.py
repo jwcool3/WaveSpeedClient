@@ -595,6 +595,39 @@ class PromptSectionManager:
                 with open(prompts_file, 'w', encoding='utf-8') as f:
                     json.dump(saved_prompts, f, indent=2, ensure_ascii=False)
                 
+                # Track this as a successful prompt (user explicitly saved it)
+                try:
+                    from core.prompt_result_tracker import get_prompt_tracker
+                    tracker = get_prompt_tracker()
+                    
+                    # Get current result path if available
+                    result_path = None
+                    if hasattr(self.parent_layout, 'results_manager') and hasattr(self.parent_layout.results_manager, 'result_image_path'):
+                        result_path = self.parent_layout.results_manager.result_image_path
+                    elif hasattr(self.parent_layout, 'result_image_path'):
+                        result_path = self.parent_layout.result_image_path
+                    
+                    # Get image description for context
+                    image_description = None
+                    if hasattr(self.parent_layout, 'filter_manager') and hasattr(self.parent_layout.filter_manager, 'last_image_description'):
+                        image_description = self.parent_layout.filter_manager.last_image_description
+                    elif hasattr(self.parent_layout, 'image_description'):
+                        image_description = self.parent_layout.image_description
+                    
+                    tracker.track_result_saved(
+                        prompt=prompt,
+                        result_path=result_path or "explicit_save",
+                        metadata={
+                            'source': 'Seedream V4',
+                            'explicit_save': True,
+                            'image_description': image_description
+                        },
+                        image_description=image_description
+                    )
+                    logger.info("✅ Tracked explicitly saved prompt as successful")
+                except Exception as track_error:
+                    logger.debug(f"Could not track prompt save: {track_error}")
+                
                 self.refresh_preset_dropdown()
                 messagebox.showinfo("Saved", "Prompt saved successfully!")
             else:

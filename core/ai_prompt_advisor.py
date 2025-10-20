@@ -1298,6 +1298,7 @@ class AIPromptAdvisor:
     async def generate_moderate_examples_only(self, description: str, count: int = 6) -> List[str]:
         """Generate moderate examples using batched requests to avoid token limits (default: 6 prompts via 2 requests of 3 each)"""
         from core.moderate_filter_training_prompt_v2 import get_moderate_filter_prompt_with_analysis
+        from core.prompt_learning_analyzer import format_learning_for_generation
         import re
         
         # Parse description into structured analysis format
@@ -1305,6 +1306,12 @@ class AIPromptAdvisor:
         
         # Get the comprehensive moderate filter prompt with integrated analysis
         system_prompt = get_moderate_filter_prompt_with_analysis(image_analysis)
+        
+        # Enhance with AI-learned patterns from saved prompts
+        learning_enhancement = format_learning_for_generation()
+        if learning_enhancement:
+            system_prompt += "\n\n" + learning_enhancement
+            logger.info("✅ Enhanced moderate generation with AI learning insights")
         
         # Split into multiple smaller requests to avoid token limits
         # Default: 2 batches of 3 prompts each = 6 total
@@ -1623,10 +1630,17 @@ CATEGORY: [Different randomly selected category]
     async def generate_undress_transformations(self, description: str) -> List[str]:
         """Generate 6 ultra-minimal clothing transformation prompts: bikini, lingerie, nude (current + zoomed out)"""
         from core.undress_transformation_prompt_v2 import get_undress_transformation_prompt
+        from core.prompt_learning_analyzer import format_learning_for_generation
         import re
         
         # Get the undress transformation prompt with integrated analysis
         system_prompt = get_undress_transformation_prompt(description)
+        
+        # Enhance with AI-learned patterns from saved prompts
+        learning_enhancement = format_learning_for_generation()
+        if learning_enhancement:
+            system_prompt += "\n\n" + learning_enhancement
+            logger.info("✅ Enhanced undress generation with AI learning insights")
         
         logger.info("🔄 Generating 5 undress transformation prompts (bikini, lingerie, fantasy, nude, AI's choice)")
         
@@ -1856,6 +1870,7 @@ CATEGORY: [Different randomly selected category]
     async def generate_mild_examples_only(self, description: str, count: int = 6) -> List[str]:
         """Generate multiple mild examples using batched requests to avoid token limits (default: 6 prompts via 2 requests of 3 each)"""
         from core.mild_filter_training_prompt_v2 import get_mild_filter_prompt_with_analysis
+        from core.prompt_learning_analyzer import format_learning_for_generation
         import re
         
         # Parse description into structured analysis format
@@ -1863,6 +1878,12 @@ CATEGORY: [Different randomly selected category]
         
         # Get the comprehensive mild filter prompt with integrated analysis
         system_prompt = get_mild_filter_prompt_with_analysis(image_analysis)
+        
+        # Enhance with AI-learned patterns from saved prompts
+        learning_enhancement = format_learning_for_generation()
+        if learning_enhancement:
+            system_prompt += "\n\n" + learning_enhancement
+            logger.info("✅ Enhanced generation with AI learning insights")
         
         # Split into multiple smaller requests to avoid token limits
         # Default: 2 batches of 3 prompts each = 6 total

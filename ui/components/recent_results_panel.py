@@ -396,13 +396,19 @@ class RecentResultsPanel:
                                     # Extract tab_id from metadata (for dual Seedream tabs)
                                     tab_id = metadata.get('tab_id', '1') if metadata else '1'
                                     
+                                    # Extract feedback and prompt
+                                    feedback = metadata.get('feedback', None) if metadata else None
+                                    prompt = metadata.get('prompt', '') if metadata else ''
+                                    
                                     result_info = {
                                         'image_path': image_path,
                                         'tab_name': tab_name,
                                         'tab_id': tab_id,
                                         'timestamp': mod_time,
                                         'metadata': metadata,
-                                        'filename': os.path.basename(image_path)
+                                        'filename': os.path.basename(image_path),
+                                        'feedback': feedback,
+                                        'prompt': prompt
                                     }
                                     results.append(result_info)
                                     
@@ -557,6 +563,43 @@ class RecentResultsPanel:
             )
             time_label.pack()
             
+            # Feedback buttons frame
+            feedback_frame = tk.Frame(info_frame, bg='white')
+            feedback_frame.pack(fill=tk.X, pady=(2, 0))
+            
+            # Get current feedback status
+            feedback_status = result.get('feedback', None)
+            
+            # Thumbs up button
+            thumbs_up_btn = tk.Button(
+                feedback_frame,
+                text="👍",
+                font=('Arial', 8),
+                bg='#e8f5e9' if feedback_status == 'good' else 'white',
+                fg='#4caf50' if feedback_status == 'good' else '#999',
+                relief=tk.FLAT,
+                bd=0,
+                padx=2,
+                pady=0,
+                command=lambda r=result: self.mark_result_good(r)
+            )
+            thumbs_up_btn.pack(side=tk.LEFT, padx=1)
+            
+            # Thumbs down button
+            thumbs_down_btn = tk.Button(
+                feedback_frame,
+                text="👎",
+                font=('Arial', 8),
+                bg='#ffebee' if feedback_status == 'bad' else 'white',
+                fg='#f44336' if feedback_status == 'bad' else '#999',
+                relief=tk.FLAT,
+                bd=0,
+                padx=2,
+                pady=0,
+                command=lambda r=result: self.mark_result_bad(r)
+            )
+            thumbs_down_btn.pack(side=tk.LEFT, padx=1)
+            
             # Bind right-click for context menu
             def show_context_menu(event):
                 self.show_result_actions(result, event.x_root, event.y_root)
@@ -573,6 +616,7 @@ class RecentResultsPanel:
                 info_frame.config(bg='#f0f8ff')
                 tab_label.config(bg='#f0f8ff')
                 time_label.config(bg='#f0f8ff')
+                feedback_frame.config(bg='#f0f8ff')
             
             def on_leave(event):
                 parent.config(relief=tk.RAISED, bd=1)
@@ -580,12 +624,13 @@ class RecentResultsPanel:
                 info_frame.config(bg='white')
                 tab_label.config(bg='white')
                 time_label.config(bg='white')
+                feedback_frame.config(bg='white')
             
             parent.bind("<Enter>", on_enter)
             parent.bind("<Leave>", on_leave)
             
             # Bind mousewheel to all item widgets for smooth scrolling
-            for widget in [parent, img_button, main_frame, info_frame, tab_label, time_label]:
+            for widget in [parent, img_button, main_frame, info_frame, tab_label, time_label, feedback_frame, thumbs_up_btn, thumbs_down_btn]:
                 widget.bind("<MouseWheel>", self._on_mousewheel)
             
         except Exception as e:
@@ -1070,9 +1115,25 @@ class RecentResultsPanel:
         """Delete result file"""
         try:
             from tkinter import messagebox
+            from core.prompt_result_tracker import get_prompt_tracker
             
             if messagebox.askyesno("Delete Result", 
                                  f"Are you sure you want to delete this result?\n\n{result['filename']}"):
+                # Track deletion as negative feedback (before deleting)
+                prompt = result.get('prompt', '')
+                if prompt:
+                    tracker = get_prompt_tracker()
+                    
+                    # Get image description from metadata if available
+                    image_desc = result.get('metadata', {}).get('image_description') if result.get('metadata') else None
+                    
+                    metadata_dict = {
+                        'source': result.get('tab_name', 'manual'),
+                        'tab_id': result.get('tab_id', '1'),
+                        'image_description': image_desc
+                    }
+                    tracker.track_result_deleted(prompt, result['image_path'], metadata_dict, image_desc)
+                
                 # Delete image file
                 if os.path.exists(result['image_path']):
                     os.remove(result['image_path'])
@@ -1091,6 +1152,104 @@ class RecentResultsPanel:
         except Exception as e:
             logger.error(f"Error deleting result: {e}")
             show_error("Error", f"Failed to delete result: {str(e)}")
+    
+    def mark_result_good(self, result):
+        """Mark result as good (positive feedback)"""
+        try:
+            from core.prompt_result_tracker import get_prompt_tracker
+            
+            # Get prompt from metadata
+            prompt = result.get('prompt', '')
+            if not prompt:
+                # Try loading from metadata file
+                json_path = os.path.splitext(result['image_path'])[0] + ".json"
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                        prompt = metadata.get('prompt', '')
+            
+            if prompt:
+                tracker = get_prompt_tracker()
+                
+                # Get image description from metadata if available
+                image_desc = result.get('metadata', {}).get('image_description') if result.get('metadata') else None
+                
+                metadata_dict = {
+                    'source': result.get('tab_name', 'manual'),
+                    'tab_id': result.get('tab_id', '1'),
+                    'image_description': image_desc
+                }
+                tracker.track_feedback(prompt, 'good', result['image_path'], metadata_dict, image_desc)
+                
+                # Update result feedback in memory
+                result['feedback'] = 'good'
+                
+                # Save feedback to metadata file
+                json_path = os.path.splitext(result['image_path'])[0] + ".json"
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        metadata_file = json.load(f)
+                    metadata_file['feedback'] = 'good'
+                    with open(json_path, 'w', encoding='utf-8') as f:
+                        json.dump(metadata_file, f, indent=2)
+                
+                logger.info(f"✅ Marked result as GOOD")
+                # Refresh to update button colors
+                self.render_results_grid()
+            else:
+                logger.warning("No prompt found for result, cannot track feedback")
+                
+        except Exception as e:
+            logger.error(f"Error marking result as good: {e}")
+    
+    def mark_result_bad(self, result):
+        """Mark result as bad (negative feedback)"""
+        try:
+            from core.prompt_result_tracker import get_prompt_tracker
+            
+            # Get prompt from metadata
+            prompt = result.get('prompt', '')
+            if not prompt:
+                # Try loading from metadata file
+                json_path = os.path.splitext(result['image_path'])[0] + ".json"
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        metadata = json.load(f)
+                        prompt = metadata.get('prompt', '')
+            
+            if prompt:
+                tracker = get_prompt_tracker()
+                
+                # Get image description from metadata if available
+                image_desc = result.get('metadata', {}).get('image_description') if result.get('metadata') else None
+                
+                metadata_dict = {
+                    'source': result.get('tab_name', 'manual'),
+                    'tab_id': result.get('tab_id', '1'),
+                    'image_description': image_desc
+                }
+                tracker.track_feedback(prompt, 'bad', result['image_path'], metadata_dict, image_desc)
+                
+                # Update result feedback in memory
+                result['feedback'] = 'bad'
+                
+                # Save feedback to metadata file
+                json_path = os.path.splitext(result['image_path'])[0] + ".json"
+                if os.path.exists(json_path):
+                    with open(json_path, 'r', encoding='utf-8') as f:
+                        metadata_file = json.load(f)
+                    metadata_file['feedback'] = 'bad'
+                    with open(json_path, 'w', encoding='utf-8') as f:
+                        json.dump(metadata_file, f, indent=2)
+                
+                logger.info(f"❌ Marked result as BAD")
+                # Refresh to update button colors
+                self.render_results_grid()
+            else:
+                logger.warning("No prompt found for result, cannot track feedback")
+                
+        except Exception as e:
+            logger.error(f"Error marking result as bad: {e}")
     
     def get_current_tab_name(self):
         """Get the name of currently active tab"""

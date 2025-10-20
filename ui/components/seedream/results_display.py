@@ -347,6 +347,9 @@ class ResultsDisplayManager:
                 except Exception as json_error:
                     logger.error(f"Error saving JSON metadata: {json_error}")
                 
+                # NOTE: Auto-save does NOT indicate success
+                # Only explicit user saves to seedream_v4_prompts.json are tracked as successful
+                
                 return saved_path
             else:
                 logger.warning(f"Auto-save failed: {error or 'Unknown error'}")
@@ -397,6 +400,9 @@ class ResultsDisplayManager:
                         json.dump(metadata, f, indent=2, ensure_ascii=False)
                 except Exception as json_error:
                     logger.error(f"Error saving JSON metadata for result {request_num}: {json_error}")
+                
+                # NOTE: Auto-save does NOT indicate success
+                # Only explicit user saves to seedream_v4_prompts.json are tracked as successful
                 
                 return saved_path
             else:
@@ -462,6 +468,17 @@ class ResultsDisplayManager:
                 metadata["input_image_path"] = None
                 metadata["input_image_filename"] = None
                 logger.warning("No input image path found for metadata")
+            
+            # Add image description if available (for learning context)
+            image_description = None
+            if hasattr(self.parent_layout, 'filter_manager') and hasattr(self.parent_layout.filter_manager, 'last_image_description'):
+                image_description = self.parent_layout.filter_manager.last_image_description
+            elif hasattr(self.parent_layout, 'image_description'):
+                image_description = self.parent_layout.image_description
+            
+            if image_description:
+                metadata["image_description"] = image_description
+                logger.debug(f"Added image description to metadata ({len(image_description)} chars)")
             
             return metadata
             
