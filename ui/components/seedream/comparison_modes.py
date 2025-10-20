@@ -292,6 +292,21 @@ class ComparisonController:
             width=14
         ).pack(side=tk.RIGHT, padx=2)
         
+        # Smart Mask Toggle button (appears after mask is applied)
+        self.smart_mask_toggle_btn = ttk.Button(
+            controls_frame,
+            text="👁️ Toggle Mask",
+            command=self.toggle_smart_mask_view,
+            width=14,
+            state='disabled'  # Initially disabled until mask is applied
+        )
+        self.smart_mask_toggle_btn.pack(side=tk.RIGHT, padx=2)
+        
+        # Store paths for smart mask toggle
+        self.smart_mask_applied_path = None
+        self.smart_mask_original_result_path = None
+        self.smart_mask_showing_masked = True
+        
         logger.info("Comparison controls UI created with enhanced features")
         return controls_frame
     
@@ -818,6 +833,37 @@ class ComparisonController:
             logger.error(f"Error applying color matching: {e}")
             messagebox.showerror("Error", f"Color matching failed: {str(e)}")
     
+    def toggle_smart_mask_view(self):
+        """Toggle between smart masked result and original AI result"""
+        try:
+            if not self.smart_mask_applied_path or not self.smart_mask_original_result_path:
+                return
+            
+            # Toggle the state
+            self.smart_mask_showing_masked = not self.smart_mask_showing_masked
+            
+            # Display the appropriate image
+            if self.smart_mask_showing_masked:
+                display_path = self.smart_mask_applied_path
+                self.smart_mask_toggle_btn.config(text="👁️ Show Original")
+                logger.info("Showing smart masked result")
+            else:
+                display_path = self.smart_mask_original_result_path
+                self.smart_mask_toggle_btn.config(text="👁️ Show Masked")
+                logger.info("Showing original AI result")
+            
+            # Display in result panel
+            self.layout.display_image_in_panel(display_path, 'result')
+            
+            # Update result path reference
+            if hasattr(self.layout, 'results_manager'):
+                self.layout.results_manager.result_image_path = display_path
+            elif hasattr(self.layout, 'result_image_path'):
+                self.layout.result_image_path = display_path
+            
+        except Exception as e:
+            logger.error(f"Error toggling smart mask view: {e}")
+    
     def show_smart_mask_controls(self):
         """Show smart mask dialog with preview and controls"""
         try:
@@ -875,7 +921,7 @@ class ComparisonController:
             # Create dialog window
             dialog = tk.Toplevel(self.layout.parent_frame)
             dialog.title("🎯 Smart Mask - Selective Compositing")
-            dialog.geometry("700x650")
+            dialog.geometry("750x850")  # Increased height to fit all controls
             dialog.transient(self.layout.parent_frame.winfo_toplevel())
             dialog.grab_set()
             
@@ -892,7 +938,7 @@ class ComparisonController:
             preview_frame = ttk.LabelFrame(dialog, text="Mask Preview (Red = AI Changes Applied)", padding="5")
             preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
             
-            preview_canvas = tk.Canvas(preview_frame, bg='gray', width=660, height=400)
+            preview_canvas = tk.Canvas(preview_frame, bg='gray', width=720, height=450)
             preview_canvas.pack(fill=tk.BOTH, expand=True)
             
             # Store preview image reference
@@ -902,45 +948,46 @@ class ComparisonController:
             controls_frame = ttk.LabelFrame(dialog, text="Mask Settings", padding="10")
             controls_frame.pack(fill=tk.X, padx=10, pady=5)
             
-            # Threshold control
+            # Threshold control (fine-tuned for 0-20% sweet spot)
             threshold_frame = ttk.Frame(controls_frame)
             threshold_frame.pack(fill=tk.X, pady=5)
             
             ttk.Label(threshold_frame, text="Threshold (% difference):").pack(side=tk.LEFT, padx=(0, 10))
-            threshold_var = tk.IntVar(value=15)
+            threshold_var = tk.DoubleVar(value=8.0)
             threshold_slider = tk.Scale(
                 threshold_frame,
-                from_=5,
-                to=50,
-                resolution=1,
+                from_=0.0,
+                to=20.0,
+                resolution=0.1,
                 orient=tk.HORIZONTAL,
                 variable=threshold_var,
-                length=250,
-                showvalue=1
+                length=300,
+                showvalue=1,
+                digits=3  # Show decimal places
             )
             threshold_slider.pack(side=tk.LEFT, padx=5)
             
-            ttk.Label(threshold_frame, text="Lower = more preservation").pack(side=tk.LEFT, padx=(10, 0))
+            ttk.Label(threshold_frame, text="Sweet spot: 3-12%").pack(side=tk.LEFT, padx=(10, 0))
             
-            # Feather control
+            # Feather control (reduced default to minimize ghost artifacts)
             feather_frame = ttk.Frame(controls_frame)
             feather_frame.pack(fill=tk.X, pady=5)
             
             ttk.Label(feather_frame, text="Edge Feather (pixels):").pack(side=tk.LEFT, padx=(0, 10))
-            feather_var = tk.IntVar(value=20)
+            feather_var = tk.IntVar(value=3)
             feather_slider = tk.Scale(
                 feather_frame,
                 from_=0,
                 to=50,
-                resolution=5,
+                resolution=1,
                 orient=tk.HORIZONTAL,
                 variable=feather_var,
-                length=250,
+                length=300,
                 showvalue=1
             )
             feather_slider.pack(side=tk.LEFT, padx=5)
             
-            ttk.Label(feather_frame, text="Higher = softer edges").pack(side=tk.LEFT, padx=(10, 0))
+            ttk.Label(feather_frame, text="Caution: high values cause ghosting").pack(side=tk.LEFT, padx=(10, 0))
             
             # Focus on primary region checkbox
             focus_frame = ttk.Frame(controls_frame)
@@ -1128,6 +1175,15 @@ class ComparisonController:
                             if success and temp_path:
                                 logger.info(f"Smart masked image saved to: {temp_path}")
                                 
+                                # Store paths for toggle functionality
+                                self.smart_mask_applied_path = temp_path
+                                self.smart_mask_original_result_path = result_path
+                                self.smart_mask_showing_masked = True
+                                
+                                # Enable toggle button
+                                if hasattr(self, 'smart_mask_toggle_btn'):
+                                    self.smart_mask_toggle_btn.config(state='normal', text="👁️ Show Original")
+                                
                                 # Display result in result panel
                                 self.layout.display_image_in_panel(temp_path, 'result')
                                 
@@ -1137,7 +1193,7 @@ class ComparisonController:
                                 elif hasattr(self.layout, 'result_image_path'):
                                     self.layout.result_image_path = temp_path
                                 
-                                messagebox.showinfo("Success", "Smart mask applied! Background and face preserved.")
+                                messagebox.showinfo("Success", "Smart mask applied! Use 'Toggle Mask' button to compare before/after.")
                                 dialog.destroy()
                             else:
                                 error_text = f"Failed to apply mask: {error_msg}" if error_msg else "Failed to apply smart mask."
