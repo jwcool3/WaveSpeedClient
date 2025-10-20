@@ -406,6 +406,84 @@ class SmartMaskProcessor:
             logger.error(f"Error feathering mask: {e}")
             return mask
     
+    def _harmonize_masked_regions(
+        self,
+        original: Image.Image,
+        result: Image.Image,
+        mask: Image.Image,
+        strength: float = 0.3
+    ) -> Image.Image:
+        """
+        Harmonize colors in masked regions (preserved areas) to match result's tone
+        
+        This prevents visible color/tint mismatches when the original's face/background
+        is composited back onto the AI result.
+        
+        Args:
+            original: Original input image
+            result: AI-generated result image
+            mask: Mask image (white=result, black=original)
+            strength: How much to apply correction (0.0-1.0, default 0.3 for subtlety)
+            
+        Returns:
+            Original image with harmonized colors in masked regions
+        """
+        try:
+            # Convert to numpy arrays
+            orig_array = np.array(original, dtype=np.float32)
+            result_array = np.array(result, dtype=np.float32)
+            mask_array = np.array(mask, dtype=np.float32) / 255.0
+            
+            # Invert mask: we want to harmonize the BLACK areas (preserved regions)
+            preserved_mask = 1.0 - mask_array
+            
+            # Calculate mean color of each image in preserved regions
+            # Only sample areas that will be preserved (threshold: >50% preserved)
+            preserve_threshold = preserved_mask > 0.5
+            
+            if not np.any(preserve_threshold):
+                # No preserved regions, return original as-is
+                return original
+            
+            # Get mean RGB values for preserved regions
+            orig_mean_r = np.mean(orig_array[:,:,0][preserve_threshold])
+            orig_mean_g = np.mean(orig_array[:,:,1][preserve_threshold])
+            orig_mean_b = np.mean(orig_array[:,:,2][preserve_threshold])
+            
+            # Get mean RGB values for entire result (the target tone)
+            result_mean_r = np.mean(result_array[:,:,0])
+            result_mean_g = np.mean(result_array[:,:,1])
+            result_mean_b = np.mean(result_array[:,:,2])
+            
+            # Calculate color shift needed
+            shift_r = result_mean_r - orig_mean_r
+            shift_g = result_mean_g - orig_mean_g
+            shift_b = result_mean_b - orig_mean_b
+            
+            # Apply subtle shift only to preserved regions
+            # Use mask to blend: full strength in fully preserved areas, 0 in result areas
+            harmonized = orig_array.copy()
+            
+            # Expand mask to 3 channels
+            preserved_mask_3ch = np.stack([preserved_mask, preserved_mask, preserved_mask], axis=2)
+            
+            # Apply shift with strength multiplier
+            harmonized[:,:,0] += shift_r * preserved_mask_3ch[:,:,0] * strength
+            harmonized[:,:,1] += shift_g * preserved_mask_3ch[:,:,1] * strength
+            harmonized[:,:,2] += shift_b * preserved_mask_3ch[:,:,2] * strength
+            
+            # Clip to valid range
+            harmonized = np.clip(harmonized, 0, 255).astype(np.uint8)
+            
+            harmonized_img = Image.fromarray(harmonized)
+            logger.info(f"Applied color harmonization: RGB shifts ({shift_r:.1f}, {shift_g:.1f}, {shift_b:.1f}) at {strength*100:.0f}% strength")
+            
+            return harmonized_img
+            
+        except Exception as e:
+            logger.warning(f"Error harmonizing colors, using original: {e}")
+            return original
+    
     def apply_smart_composite(
         self,
         original_path: str,
@@ -415,7 +493,8 @@ class SmartMaskProcessor:
         feather: int = None,
         focus_primary: bool = None,
         min_region_size: float = None,
-        invert_blend: bool = False
+        invert_blend: bool = False,
+        harmonize_colors: bool = True
     ) -> Optional[Image.Image]:
         """
         Apply smart masking to composite result with original
@@ -430,6 +509,8 @@ class SmartMaskProcessor:
             min_region_size: Minimum region size if creating mask
             invert_blend: If True, use inverted blend direction (result bleeds INTO original)
                          If False (default), use standard blend (original bleeds INTO result)
+            harmonize_colors: If True, apply subtle color correction to masked regions
+                             to match the result's color tone (reduces visible tint mismatch)
             
         Returns:
             Composited image or None if error
@@ -460,6 +541,11 @@ class SmartMaskProcessor:
             if mask.size != original.size:
                 mask = mask.resize(original.size, Image.Resampling.LANCZOS)
             
+            # Color harmonization: Adjust original's colors in masked regions to match result
+            # This prevents visible tint/color mismatches when compositing
+            if harmonize_colors:
+                original = self._harmonize_masked_regions(original, result, mask)
+            
             # Composite using mask
             # PIL's composite: composite(image1, image2, mask)
             # Where mask is white, use image1; where black, use image2
@@ -467,21 +553,30 @@ class SmartMaskProcessor:
             # Standard approach: composite(result, original, mask)
             # - White mask areas = result (new clothes)
             # - Black mask areas = original (face/background)
-            # - Feathered edges blend original INTO result
+            # - Feathered edges: 50% gray = 50% result + 50% original
             #
-            # Inverted approach: composite(original, result, inverted_mask)
-            # - Inverts the mask so result bleeds INTO original instead
-            # - May reduce ghosting by prioritizing original in blend zone
+            # Inverted approach: Adjust mask opacity to favor original more
+            # - Instead of 50/50 blend, use weighted blend that favors original
+            # - This makes result "sit on top" with less bleed-through
             
             if invert_blend:
-                # Invert mask for opposite blend direction
-                inverted_mask = ImageOps.invert(mask)
-                composited = Image.composite(original, result, inverted_mask)
-                logger.info("Applied smart composite with INVERTED blend direction (result → original)")
+                # Adjust mask to favor original in feathered regions
+                # Convert mask to array for manipulation
+                mask_array = np.array(mask, dtype=np.float32)
+                
+                # Apply inverse power curve to feathered regions (gray values)
+                # This makes mid-tones darker, favoring the original more
+                mask_array = mask_array / 255.0  # Normalize to 0-1
+                mask_array = mask_array ** 0.5   # Square root (opposite of power curve)
+                mask_array = (mask_array * 255).astype(np.uint8)
+                
+                adjusted_mask = Image.fromarray(mask_array, mode='L')
+                composited = Image.composite(result, original, adjusted_mask)
+                logger.info("Applied smart composite with INVERTED blend (favors original, reduces ghosting)")
             else:
                 # Standard blend direction
                 composited = Image.composite(result, original, mask)
-                logger.info("Applied smart composite with STANDARD blend direction (original → result)")
+                logger.info("Applied smart composite with STANDARD blend (50/50 feather blend)")
             
             return composited
             
@@ -716,17 +811,17 @@ class SmartMaskProcessor:
             height, width = mask_array.shape
             
             for (x, y, w, h) in faces:
-                # Create elliptical exclusion zone for face + hair
-                # REDUCED from v2.1: User feedback that shoulders/clothing were being excluded
+                # Create elliptical exclusion zone for INNER FACE ONLY
+                # User feedback: Only protect core face, allow clothes to overlap hair/neck
                 center_x = x + w // 2
                 center_y = y + h // 2
                 
-                # Ellipse radii: REDUCED to be less aggressive
-                radius_x = int(w * 0.55)           # 55% wider (was 70%)
-                radius_y = int(h * 0.95)           # 95% taller (was 120%)
+                # Ellipse radii: MINIMAL - just the core face area
+                radius_x = int(w * 0.40)           # 40% wider - just face width
+                radius_y = int(h * 0.50)           # 50% taller - just face height, no hair
                 
-                # Shift center upward to cover hair better
-                center_y = center_y - int(h * 0.1)  # 10% shift (was 15%)
+                # NO upward shift - keep centered on detected face
+                # This allows clothing to overlap hair and neck areas
                 
                 # Create elliptical mask using cv2
                 ellipse_mask = np.ones((height, width), dtype=np.uint8) * 255
@@ -744,10 +839,10 @@ class SmartMaskProcessor:
                 # Apply elliptical exclusion to mask
                 mask_array = np.where(ellipse_mask == 0, 0, mask_array)
                 
-                logger.info(f"Excluded elliptical face+hair region: center ({center_x},{center_y}), size ({w}x{h}), radii ({radius_x}x{radius_y})")
+                logger.info(f"Excluded inner face region: center ({center_x},{center_y}), detected ({w}x{h}), exclusion radii ({radius_x}x{radius_y})")
             
             result_mask = Image.fromarray(mask_array, mode='L')
-            logger.info(f"✅ Face exclusion complete: {len(faces)} face(s) excluded from mask (elliptical regions)")
+            logger.info(f"✅ Face exclusion complete: {len(faces)} inner face(s) protected (hair/neck allowed)")
             return result_mask
             
         except Exception as e:
@@ -828,9 +923,9 @@ def create_smart_mask(original_path: str, result_path: str,
 def apply_smart_masking(original_path: str, result_path: str,
                        threshold: int = 15, feather: int = 20,
                        focus_primary: bool = True, min_region_size: float = 0.05, 
-                       invert_blend: bool = False) -> Optional[Image.Image]:
+                       invert_blend: bool = False, harmonize_colors: bool = True) -> Optional[Image.Image]:
     """Apply smart masking and return composited result"""
-    return _processor.apply_smart_composite(original_path, result_path, None, threshold, feather, focus_primary, min_region_size, invert_blend)
+    return _processor.apply_smart_composite(original_path, result_path, None, threshold, feather, focus_primary, min_region_size, invert_blend, harmonize_colors)
 
 
 def preview_smart_mask(original_path: str, result_path: str,
