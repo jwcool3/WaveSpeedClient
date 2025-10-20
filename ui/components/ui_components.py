@@ -21,46 +21,50 @@ except ImportError:
 
 class BaseTab(ABC):
     """Base class for all tabs in the application"""
-    
-    def __init__(self, parent_frame, api_client):
+
+    def __init__(self, parent_frame, api_client, create_content_frame=True):
         # Create main container frame (no padding to eliminate top gap)
         self.container = ttk.Frame(parent_frame, padding="0")
         self.container.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
-        
+
         # Create scrollable canvas
         self.canvas = tk.Canvas(self.container, highlightthickness=0, borderwidth=0)
         self.scrollbar = ttk.Scrollbar(self.container, orient="vertical", command=self.canvas.yview)
         self.scrollable_frame = ttk.Frame(self.canvas, padding="0")
-        
+
         # Configure scrolling
         self.scrollable_frame.bind(
             "<Configure>",
             lambda e: self._update_scroll_region()
         )
-        
+
         # Create window in canvas
         self.canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-        
+
         # Configure canvas scrolling
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
+
         # Pack canvas and scrollbar (no padding)
         self.canvas.pack(side="left", fill="both", expand=True, padx=0, pady=0)
         self.scrollbar.pack(side="right", fill="y", padx=0, pady=0)
-        
+
         # Bind canvas resize
         self.canvas.bind('<Configure>', self._on_canvas_configure)
-        
+
         # Bind mouse wheel scrolling
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
-        
-        # The actual content frame (zero top/bottom padding, minimal side padding)
-        self.frame = ttk.Frame(self.scrollable_frame, padding="5 0 5 0")  # left, top, right, bottom
-        self.frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
-        
-        # Configure main frame column weights for responsiveness
-        self.frame.columnconfigure(0, weight=1)
-        self.frame.columnconfigure(1, weight=1)
+
+        # The actual content frame (optional - some tabs use custom layouts)
+        # Tabs that use their own layout system can skip this by passing create_content_frame=False
+        if create_content_frame:
+            self.frame = ttk.Frame(self.scrollable_frame, padding="5 0 5 0")  # left, top, right, bottom
+            self.frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+
+            # Configure main frame column weights for responsiveness
+            self.frame.columnconfigure(0, weight=1)
+            self.frame.columnconfigure(1, weight=1)
+        else:
+            self.frame = None
         
         # Create sticky button frame at the bottom of the main container
         self.button_frame = ttk.Frame(self.container, padding="5")  # Reduced padding

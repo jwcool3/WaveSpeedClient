@@ -7,7 +7,7 @@ to intended areas while preserving original background, face, and objects.
 """
 
 import numpy as np
-from PIL import Image, ImageFilter, ImageChops
+from PIL import Image, ImageFilter, ImageChops, ImageOps
 from typing import Tuple, Optional
 from core.logger import get_logger
 
@@ -414,7 +414,8 @@ class SmartMaskProcessor:
         threshold: int = None,
         feather: int = None,
         focus_primary: bool = None,
-        min_region_size: float = None
+        min_region_size: float = None,
+        invert_blend: bool = False
     ) -> Optional[Image.Image]:
         """
         Apply smart masking to composite result with original
@@ -427,6 +428,8 @@ class SmartMaskProcessor:
             feather: Feather radius if creating mask
             focus_primary: Focus on largest changed region if creating mask
             min_region_size: Minimum region size if creating mask
+            invert_blend: If True, use inverted blend direction (result bleeds INTO original)
+                         If False (default), use standard blend (original bleeds INTO result)
             
         Returns:
             Composited image or None if error
@@ -460,9 +463,26 @@ class SmartMaskProcessor:
             # Composite using mask
             # PIL's composite: composite(image1, image2, mask)
             # Where mask is white, use image1; where black, use image2
-            composited = Image.composite(result, original, mask)
+            # 
+            # Standard approach: composite(result, original, mask)
+            # - White mask areas = result (new clothes)
+            # - Black mask areas = original (face/background)
+            # - Feathered edges blend original INTO result
+            #
+            # Inverted approach: composite(original, result, inverted_mask)
+            # - Inverts the mask so result bleeds INTO original instead
+            # - May reduce ghosting by prioritizing original in blend zone
             
-            logger.info("Applied smart composite successfully")
+            if invert_blend:
+                # Invert mask for opposite blend direction
+                inverted_mask = ImageOps.invert(mask)
+                composited = Image.composite(original, result, inverted_mask)
+                logger.info("Applied smart composite with INVERTED blend direction (result → original)")
+            else:
+                # Standard blend direction
+                composited = Image.composite(result, original, mask)
+                logger.info("Applied smart composite with STANDARD blend direction (original → result)")
+            
             return composited
             
         except Exception as e:
@@ -807,9 +827,10 @@ def create_smart_mask(original_path: str, result_path: str,
 
 def apply_smart_masking(original_path: str, result_path: str,
                        threshold: int = 15, feather: int = 20,
-                       focus_primary: bool = True, min_region_size: float = 0.05) -> Optional[Image.Image]:
+                       focus_primary: bool = True, min_region_size: float = 0.05, 
+                       invert_blend: bool = False) -> Optional[Image.Image]:
     """Apply smart masking and return composited result"""
-    return _processor.apply_smart_composite(original_path, result_path, None, threshold, feather, focus_primary, min_region_size)
+    return _processor.apply_smart_composite(original_path, result_path, None, threshold, feather, focus_primary, min_region_size, invert_blend)
 
 
 def preview_smart_mask(original_path: str, result_path: str,

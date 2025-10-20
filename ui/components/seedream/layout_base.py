@@ -9,12 +9,18 @@ sets up the UI structure, and coordinates communication between modules.
 This module replaces the monolithic improved_seedream_layout.py file.
 """
 
-import tkinter as tk
-from tkinter import ttk
+# Standard library imports
 import os
 import random
 from typing import Optional, Dict, Any
+
+# Third-party imports
+import tkinter as tk
+from tkinter import ttk
+
+# Local application imports
 from core.logger import get_logger
+from ui.components.unified_status_console import UnifiedStatusConsole
 
 # Import all the refactored modules
 from .image_section import (
@@ -27,12 +33,9 @@ from .prompt_section import PromptSectionManager
 from .filter_training import FilterTrainingManager
 from .actions_handler import ActionsHandlerManager
 from .results_display import ResultsDisplayManager
-
-# Import new feature modules
 from .canvas_sync import ImprovedImageSync
 from .progress_overlay import ProgressOverlay
 from .comparison_modes import ComparisonController
-from ui.components.unified_status_console import UnifiedStatusConsole
 
 logger = get_logger()
 
@@ -108,9 +111,9 @@ class SeedreamLayoutV2:
         
         # Restore saved UI state (zoom, comparison mode, etc.)
         self.load_ui_state()
-        
-        # Note: Auto-save is disabled. Use Tools > Save Layout to save manually.
-        
+
+        # Note: Settings auto-save is now enabled (debounced). Use Tools > Save Layout for manual layout saves.
+
         logger.info("SeedreamLayoutV2 initialized successfully - Refactoring Complete!")
     
     def _initialize_managers(self) -> None:
@@ -1766,6 +1769,49 @@ class SeedreamLayoutV2:
         """Setup learning components (placeholder for compatibility)"""
         logger.info("Learning components integrated into filter training module")
 
+    def cleanup(self):
+        """
+        Clean up all resources when layout is destroyed or tab is switched.
+
+        Cascades cleanup to all child managers to prevent memory leaks.
+        """
+        try:
+            logger.info("Cleaning up SeedreamLayoutV2 and all child managers")
+
+            # Cleanup managers in reverse initialization order
+            managers = [
+                ('comparison_controller', 'Comparison Controller'),
+                ('sync_manager', 'Sync Manager'),
+                ('results_manager', 'Results Display Manager'),
+                ('actions_manager', 'Actions Handler Manager'),
+                ('filter_manager', 'Filter Training Manager'),
+                ('prompt_manager', 'Prompt Section Manager'),
+                ('settings_manager', 'Settings Panel Manager'),
+                ('image_manager', 'Image Section Manager')
+            ]
+
+            for manager_attr, manager_name in managers:
+                if hasattr(self, manager_attr):
+                    manager = getattr(self, manager_attr)
+                    if hasattr(manager, 'cleanup'):
+                        try:
+                            logger.debug(f"Cleaning up {manager_name}")
+                            manager.cleanup()
+                        except Exception as e:
+                            logger.error(f"Error cleaning up {manager_name}: {e}")
+
+            # Clear progress overlay
+            if hasattr(self, 'progress_overlay') and self.progress_overlay:
+                try:
+                    self.progress_overlay.hide()
+                except:
+                    pass
+
+            logger.info("SeedreamLayoutV2 cleanup completed")
+
+        except Exception as e:
+            logger.error(f"Error during SeedreamLayoutV2 cleanup: {e}")
+
 
 # Backward compatibility alias
 ImprovedSeedreamLayout = SeedreamLayoutV2
@@ -2067,7 +2113,7 @@ LAYOUT BASE COORDINATOR MODULE - FEATURES
   - **Facade pattern** - Simplified interface
   - **Factory pattern** - create_seedream_layout()
   - **Singleton-like** - One layout per tab
-  
+
 🎯 Key Responsibilities:
   1. **Initialize** all managers
   2. **Setup** UI structure
@@ -2076,7 +2122,7 @@ LAYOUT BASE COORDINATOR MODULE - FEATURES
   5. **Provide** backward-compatible API
   6. **Persist** user preferences
   7. **Report** comprehensive status
-  
+
 ⚠️ Notes:
   - This file should remain thin and focused on coordination
   - Business logic belongs in individual managers

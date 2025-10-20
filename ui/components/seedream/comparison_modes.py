@@ -9,12 +9,17 @@ Features:
 - Split view
 """
 
+# Standard library imports
+import os
+import tempfile
+from typing import Optional, Callable
+
+# Third-party imports
 import tkinter as tk
 from tkinter import ttk, messagebox
-from PIL import Image, ImageTk
-from typing import Optional, Callable
-import tempfile
-import os
+# PIL lazy-loaded when needed (saves ~61ms on startup)
+
+# Local application imports
 from core.logger import get_logger
 from utils.color_matcher import ColorMatcher
 
@@ -1057,6 +1062,25 @@ class ComparisonController:
                 foreground='gray'
             ).pack(side=tk.LEFT)
             
+            # Inverted blend checkbox (EXPERIMENTAL - test different feathering direction)
+            blend_frame = ttk.Frame(controls_frame)
+            blend_frame.pack(fill=tk.X, pady=5)
+            
+            invert_blend_var = tk.BooleanVar(value=False)
+            blend_check = ttk.Checkbutton(
+                blend_frame,
+                text="🔄 Invert Feather Direction (EXPERIMENTAL)",
+                variable=invert_blend_var
+            )
+            blend_check.pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Label(
+                blend_frame,
+                text="← Try if seeing ghosting artifacts",
+                font=('Arial', 8),
+                foreground='orange'
+            ).pack(side=tk.LEFT)
+            
             # Loading indicator
             loading_text = [None]  # Store text ID
             
@@ -1162,7 +1186,7 @@ class ComparisonController:
                     # Run preview generation in thread to avoid freezing
                     def generate_preview():
                         try:
-                            from PIL import Image
+                            from PIL import Image, ImageTk
                             import numpy as np
                             
                             # IMPORTANT: Use SAME pipeline as final processing
@@ -1324,8 +1348,9 @@ class ComparisonController:
                     feather = feather_var.get()
                     focus_primary = focus_primary_var.get()
                     exclude_faces = exclude_faces_var.get()
+                    invert_blend = invert_blend_var.get()
                     
-                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}")
+                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}, invert_blend={invert_blend}")
                     
                     # Disable buttons during processing
                     for widget in button_frame.winfo_children():
@@ -1368,7 +1393,9 @@ class ComparisonController:
                                 mask=mask,  # Pass the pre-generated mask
                                 threshold=None,  # Not needed since we have mask
                                 feather=None,
-                                focus_primary=None
+                                focus_primary=None,
+                                min_region_size=None,
+                                invert_blend=invert_blend  # Apply blend direction setting
                             )
                             
                             if result_img:
@@ -1427,7 +1454,8 @@ class ComparisonController:
                                             "threshold": float(threshold),
                                             "feather": int(feather),
                                             "focus_primary": bool(focus_primary),
-                                            "exclude_faces": bool(exclude_faces)
+                                            "exclude_faces": bool(exclude_faces),
+                                            "invert_blend": bool(invert_blend)
                                         },
                                         "input_image_path": source_path,
                                         "original_ai_result_path": result_path,
@@ -1534,7 +1562,8 @@ class ComparisonController:
                                     f"• Threshold: {threshold:.1f}%\n"
                                     f"• Feather: {feather}px\n"
                                     f"• Focus Primary: {'Yes' if focus_primary else 'No'}\n"
-                                    f"• Exclude Faces: {'Yes' if exclude_faces else 'No'}\n\n"
+                                    f"• Exclude Faces: {'Yes' if exclude_faces else 'No'}\n"
+                                    f"• Blend Direction: {'Inverted' if invert_blend else 'Standard'}\n\n"
                                     f"Use 'Toggle Mask' button to compare before/after.\n"
                                     f"Check Recent Results panel to view again."
                                 )
@@ -1978,6 +2007,46 @@ class ComparisonController:
             logger.debug("Color match state cleaned up")
         except Exception as e:
             logger.error(f"Error cleaning up color match: {e}")
+
+    def cleanup(self):
+        """Clean up resources and cancel pending timers"""
+        try:
+            logger.debug("Cleaning up ComparisonController")
+
+            # Cancel animation timers
+            if hasattr(self, 'animation_timer') and self.animation_timer:
+                try:
+                    self.layout.parent_frame.after_cancel(self.animation_timer)
+                    self.animation_timer = None
+                except:
+                    pass
+
+            # Cancel opacity update timer
+            if hasattr(self, 'opacity_update_timer') and self.opacity_update_timer:
+                try:
+                    self.layout.parent_frame.after_cancel(self.opacity_update_timer)
+                    self.opacity_update_timer = None
+                except:
+                    pass
+
+            # Cancel zoom update timer
+            if hasattr(self, 'zoom_update_timer') and self.zoom_update_timer:
+                try:
+                    self.layout.parent_frame.after_cancel(self.zoom_update_timer)
+                    self.zoom_update_timer = None
+                except:
+                    pass
+
+            # Clean up color match state
+            try:
+                self._cleanup_color_match()
+            except:
+                pass
+
+            logger.debug("ComparisonController cleanup completed")
+
+        except Exception as e:
+            logger.error(f"Error during ComparisonController cleanup: {e}")
 
 
 # Export

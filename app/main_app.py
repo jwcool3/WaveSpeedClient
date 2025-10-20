@@ -90,6 +90,7 @@ class WaveSpeedAIApp:
         self.video_tab = None
         self.seededit_tab = None
         self.notebook = None
+        self.previous_tab_index = None  # Track previous tab for cleanup
         
         # Setup UI
         self.setup_ui()
@@ -130,9 +131,11 @@ class WaveSpeedAIApp:
                 (self.video_tab, "video_generation", "prompt_text")
             ]
             
-            # Check if Seedream V4 tab exists
-            if hasattr(self, 'seedream_tab') and self.seedream_tab:
-                integrations.append((self.seedream_tab, "seedream_v4", "prompt_text"))
+            # Check if Seedream V4 tabs exist (both instances)
+            if hasattr(self, 'seedream_tab_1') and self.seedream_tab_1:
+                integrations.append((self.seedream_tab_1, "seedream_v4", "prompt_text"))
+            if hasattr(self, 'seedream_tab_2') and self.seedream_tab_2:
+                integrations.append((self.seedream_tab_2, "seedream_v4", "prompt_text"))
             
             successful_integrations = 0
             for tab_instance, model_type, prompt_widget_name in integrations:
@@ -410,11 +413,26 @@ class WaveSpeedAIApp:
             show_error("Tab Creation Error", f"Failed to create application tabs: {str(e)}")
     
     def on_tab_changed(self, event=None):
-        """Handle tab change events - auto-load Seedream layout when tab is selected"""
+        """Handle tab change events - cleanup previous tab and auto-load Seedream layout when tab is selected"""
         try:
             # Get the currently selected tab index
             current_index = self.notebook.index(self.notebook.select())
-            
+
+            # Cleanup previous tab if it was a Seedream tab (stop polling threads, etc.)
+            if self.previous_tab_index is not None and self.previous_tab_index in [2, 3]:
+                # Switching away from a Seedream tab - cleanup resources
+                if self.previous_tab_index == 2 and hasattr(self, 'seedream_tab_1') and self.seedream_tab_1:
+                    if hasattr(self.seedream_tab_1, 'cleanup'):
+                        self.seedream_tab_1.cleanup()
+                        logger.debug("Cleaned up Seedream V4 #1 on tab switch")
+                elif self.previous_tab_index == 3 and hasattr(self, 'seedream_tab_2') and self.seedream_tab_2:
+                    if hasattr(self.seedream_tab_2, 'cleanup'):
+                        self.seedream_tab_2.cleanup()
+                        logger.debug("Cleaned up Seedream V4 #2 on tab switch")
+
+            # Update previous tab index
+            self.previous_tab_index = current_index
+
             # Seedream V4 tabs are at indices 2 and 3
             if current_index in [2, 3]:
                 # Determine which Seedream tab was selected
@@ -422,7 +440,7 @@ class WaveSpeedAIApp:
                     self._auto_load_seedream_layout(self.seedream_tab_1, "Seedream V4 #1")
                 elif current_index == 3 and hasattr(self, 'seedream_tab_2') and self.seedream_tab_2:
                     self._auto_load_seedream_layout(self.seedream_tab_2, "Seedream V4 #2")
-                    
+
         except Exception as e:
             logger.debug(f"Tab change event error: {e}")
     

@@ -275,6 +275,24 @@ class ImprovedImageSync:
             'image_info': self.image_info
         }
 
+    def cleanup(self):
+        """Clean up resources and cancel pending timers"""
+        try:
+            logger.debug("Cleaning up ImprovedImageSync")
+
+            # Cancel zoom debounce timer
+            if hasattr(self, 'zoom_debounce_id') and self.zoom_debounce_id:
+                try:
+                    self.layout.parent_frame.after_cancel(self.zoom_debounce_id)
+                    self.zoom_debounce_id = None
+                except:
+                    pass
+
+            logger.debug("ImprovedImageSync cleanup completed")
+
+        except Exception as e:
+            logger.error(f"Error during ImprovedImageSync cleanup: {e}")
+
 
 # Export
 __all__ = ['ImprovedImageSync']
