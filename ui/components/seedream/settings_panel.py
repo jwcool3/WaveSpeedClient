@@ -196,7 +196,46 @@ class SettingsPanelManager:
             justify='center'
         )
         self.height_entry.grid(row=1, column=2, sticky="w", padx=(4, 0), pady=(0, 2))
-    
+
+        # Aspect ratio display (Row 2)
+        self.aspect_ratio_label = ttk.Label(
+            self.settings_frame,
+            text="",
+            font=('Arial', 7),
+            foreground="gray"
+        )
+        self.aspect_ratio_label.grid(row=2, column=1, sticky="w", pady=(0, 4))
+
+        # Update aspect ratio display initially
+        self._update_aspect_ratio_display()
+
+    def _update_aspect_ratio_display(self):
+        """Update the aspect ratio display label"""
+        try:
+            w = self.width_var.get()
+            h = self.height_var.get()
+            if h > 0:
+                ratio = w / h
+                # Common aspect ratios
+                if abs(ratio - 1.0) < 0.01:
+                    ratio_text = "Square (1:1)"
+                elif abs(ratio - 16/9) < 0.01:
+                    ratio_text = "Wide (16:9)"
+                elif abs(ratio - 4/3) < 0.01:
+                    ratio_text = "Standard (4:3)"
+                elif abs(ratio - 3/2) < 0.01:
+                    ratio_text = "Photo (3:2)"
+                elif abs(ratio - 9/16) < 0.01:
+                    ratio_text = "Portrait (9:16)"
+                elif abs(ratio - 2/3) < 0.01:
+                    ratio_text = "Tall Portrait (2:3)"
+                else:
+                    ratio_text = f"{ratio:.2f}:1"
+
+                self.aspect_ratio_label.config(text=f"📐 Aspect: {ratio_text}")
+        except:
+            self.aspect_ratio_label.config(text="")
+
     def _setup_resolution_analyzer(self) -> None:
         """Setup resolution analysis and optimization UI"""
         try:
@@ -389,9 +428,10 @@ class SettingsPanelManager:
         """Handle width scale changes"""
         if self._updating_size:
             return
-        
+
         try:
             self._handle_aspect_lock_change('width', int(float(value)))
+            self._update_aspect_ratio_display()  # Update aspect ratio display
             self._on_setting_changed()
         except Exception as e:
             logger.error(f"Error handling width change: {e}")
@@ -400,9 +440,10 @@ class SettingsPanelManager:
         """Handle height scale changes"""
         if self._updating_size:
             return
-        
+
         try:
             self._handle_aspect_lock_change('height', int(float(value)))
+            self._update_aspect_ratio_display()  # Update aspect ratio display
             self._on_setting_changed()
         except Exception as e:
             logger.error(f"Error handling height change: {e}")

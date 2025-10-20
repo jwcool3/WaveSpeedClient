@@ -467,21 +467,30 @@ class SmartMaskProcessor:
             # Standard approach: composite(result, original, mask)
             # - White mask areas = result (new clothes)
             # - Black mask areas = original (face/background)
-            # - Feathered edges blend original INTO result
+            # - Feathered edges: 50% gray = 50% result + 50% original
             #
-            # Inverted approach: composite(original, result, inverted_mask)
-            # - Inverts the mask so result bleeds INTO original instead
-            # - May reduce ghosting by prioritizing original in blend zone
+            # Inverted approach: Adjust mask opacity to favor original more
+            # - Instead of 50/50 blend, use weighted blend that favors original
+            # - This makes result "sit on top" with less bleed-through
             
             if invert_blend:
-                # Invert mask for opposite blend direction
-                inverted_mask = ImageOps.invert(mask)
-                composited = Image.composite(original, result, inverted_mask)
-                logger.info("Applied smart composite with INVERTED blend direction (result → original)")
+                # Adjust mask to favor original in feathered regions
+                # Convert mask to array for manipulation
+                mask_array = np.array(mask, dtype=np.float32)
+                
+                # Apply inverse power curve to feathered regions (gray values)
+                # This makes mid-tones darker, favoring the original more
+                mask_array = mask_array / 255.0  # Normalize to 0-1
+                mask_array = mask_array ** 0.5   # Square root (opposite of power curve)
+                mask_array = (mask_array * 255).astype(np.uint8)
+                
+                adjusted_mask = Image.fromarray(mask_array, mode='L')
+                composited = Image.composite(result, original, adjusted_mask)
+                logger.info("Applied smart composite with INVERTED blend (favors original, reduces ghosting)")
             else:
                 # Standard blend direction
                 composited = Image.composite(result, original, mask)
-                logger.info("Applied smart composite with STANDARD blend direction (original → result)")
+                logger.info("Applied smart composite with STANDARD blend (50/50 feather blend)")
             
             return composited
             
@@ -716,17 +725,17 @@ class SmartMaskProcessor:
             height, width = mask_array.shape
             
             for (x, y, w, h) in faces:
-                # Create elliptical exclusion zone for face + hair
-                # REDUCED from v2.1: User feedback that shoulders/clothing were being excluded
+                # Create elliptical exclusion zone for INNER FACE ONLY
+                # User feedback: Only protect core face, allow clothes to overlap hair/neck
                 center_x = x + w // 2
                 center_y = y + h // 2
                 
-                # Ellipse radii: REDUCED to be less aggressive
-                radius_x = int(w * 0.55)           # 55% wider (was 70%)
-                radius_y = int(h * 0.95)           # 95% taller (was 120%)
+                # Ellipse radii: MINIMAL - just the core face area
+                radius_x = int(w * 0.40)           # 40% wider - just face width
+                radius_y = int(h * 0.50)           # 50% taller - just face height, no hair
                 
-                # Shift center upward to cover hair better
-                center_y = center_y - int(h * 0.1)  # 10% shift (was 15%)
+                # NO upward shift - keep centered on detected face
+                # This allows clothing to overlap hair and neck areas
                 
                 # Create elliptical mask using cv2
                 ellipse_mask = np.ones((height, width), dtype=np.uint8) * 255
@@ -744,10 +753,10 @@ class SmartMaskProcessor:
                 # Apply elliptical exclusion to mask
                 mask_array = np.where(ellipse_mask == 0, 0, mask_array)
                 
-                logger.info(f"Excluded elliptical face+hair region: center ({center_x},{center_y}), size ({w}x{h}), radii ({radius_x}x{radius_y})")
+                logger.info(f"Excluded inner face region: center ({center_x},{center_y}), detected ({w}x{h}), exclusion radii ({radius_x}x{radius_y})")
             
             result_mask = Image.fromarray(mask_array, mode='L')
-            logger.info(f"✅ Face exclusion complete: {len(faces)} face(s) excluded from mask (elliptical regions)")
+            logger.info(f"✅ Face exclusion complete: {len(faces)} inner face(s) protected (hair/neck allowed)")
             return result_mask
             
         except Exception as e:

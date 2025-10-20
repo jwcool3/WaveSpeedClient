@@ -416,6 +416,9 @@ class SeedreamLayoutV2:
             width=8
         )
         browse_btn.pack(side=tk.RIGHT, padx=(2, 0))
+
+        # Add tooltip
+        self._create_tooltip(browse_btn, "Select an input image to edit (Ctrl+O)")
         
         # Image editing tools
         resize_btn = ttk.Button(
@@ -426,7 +429,8 @@ class SeedreamLayoutV2:
             state="disabled"
         )
         resize_btn.pack(side=tk.RIGHT, padx=(2, 0))
-        
+        self._create_tooltip(resize_btn, "Resize the selected image before processing")
+
         crop_btn = ttk.Button(
             info_frame,
             text="✂️ Crop",
@@ -435,7 +439,8 @@ class SeedreamLayoutV2:
             state="disabled"
         )
         crop_btn.pack(side=tk.RIGHT, padx=(2, 0))
-        
+        self._create_tooltip(crop_btn, "Crop the selected image to focus area")
+
         reorder_btn = ttk.Button(
             info_frame,
             text="⚡ Order",
@@ -444,6 +449,7 @@ class SeedreamLayoutV2:
             state="disabled"
         )
         reorder_btn.pack(side=tk.RIGHT, padx=(2, 0))
+        self._create_tooltip(reorder_btn, "Reorder multiple selected images")
         
         # Pass references to image manager
         self.image_manager.set_ui_references(
@@ -1768,6 +1774,24 @@ class SeedreamLayoutV2:
     def setup_learning_components(self) -> None:
         """Setup learning components (placeholder for compatibility)"""
         logger.info("Learning components integrated into filter training module")
+
+    def _create_tooltip(self, widget, text):
+        """Create a tooltip for a widget"""
+        def on_enter(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            label = ttk.Label(tooltip, text=text, background="#ffffe0", relief="solid", borderwidth=1, padding=4)
+            label.pack()
+            widget._tooltip = tooltip
+
+        def on_leave(event):
+            if hasattr(widget, '_tooltip'):
+                widget._tooltip.destroy()
+                delattr(widget, '_tooltip')
+
+        widget.bind('<Enter>', on_enter)
+        widget.bind('<Leave>', on_leave)
 
     def cleanup(self):
         """

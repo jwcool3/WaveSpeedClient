@@ -1050,14 +1050,14 @@ class ComparisonController:
             exclude_faces_var = tk.BooleanVar(value=True)
             face_check = ttk.Checkbutton(
                 face_frame,
-                text="😊 Exclude Face & Hair (auto-detect and preserve)",
+                text="😊 Protect Inner Face (auto-detect core facial features)",
                 variable=exclude_faces_var
             )
             face_check.pack(side=tk.LEFT, padx=(0, 5))
             
             ttk.Label(
                 face_frame,
-                text="← Highly recommended",
+                text="← Allows clothes on hair/neck",
                 font=('Arial', 8),
                 foreground='gray'
             ).pack(side=tk.LEFT)
@@ -1069,14 +1069,14 @@ class ComparisonController:
             invert_blend_var = tk.BooleanVar(value=False)
             blend_check = ttk.Checkbutton(
                 blend_frame,
-                text="🔄 Invert Feather Direction (EXPERIMENTAL)",
+                text="🎨 Reduce Ghosting (favor original in blend zones)",
                 variable=invert_blend_var
             )
             blend_check.pack(side=tk.LEFT, padx=(0, 5))
             
             ttk.Label(
                 blend_frame,
-                text="← Try if seeing ghosting artifacts",
+                text="← Try if old clothes bleeding through",
                 font=('Arial', 8),
                 foreground='orange'
             ).pack(side=tk.LEFT)
@@ -1263,6 +1263,8 @@ class ComparisonController:
             def display_preview(preview_img):
                 """Display the generated preview on main thread"""
                 try:
+                    from PIL import Image, ImageTk
+                    
                     # Resize to fit canvas
                     canvas_width = preview_canvas.winfo_width()
                     canvas_height = preview_canvas.winfo_height()

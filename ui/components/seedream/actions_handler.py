@@ -150,11 +150,18 @@ class ActionsHandlerManager:
         # Main generate button
         self.generate_btn = ttk.Button(
             buttons_frame,
-            text="🌟 Apply Seedream V4",
+            text="🌟 Apply Seedream V4 (Ctrl+Enter)",
             command=self.process_seedream,
             style="Accent.TButton"
         )
         self.generate_btn.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+
+        # Add tooltip with shortcut
+        if hasattr(self.parent_layout, '_create_tooltip'):
+            self.parent_layout._create_tooltip(
+                self.generate_btn,
+                "Generate AI-enhanced image with current settings\nShortcut: Ctrl+Enter"
+            )
         
         # Secondary actions frame
         secondary_frame = ttk.Frame(buttons_frame)
