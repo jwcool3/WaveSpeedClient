@@ -21,10 +21,10 @@ class SmartMaskProcessor:
     """
     
     def __init__(self):
-        self.default_threshold = 15  # Percentage difference threshold
-        self.default_feather = 20    # Feather radius in pixels
+        self.default_threshold = 8.0  # Percentage difference threshold (0.0-20.0, sweet spot 3-12)
+        self.default_feather = 3      # Feather radius in pixels (0-50, low to avoid ghosting)
         self.default_focus_primary = True  # Focus on largest changed region
-        self.default_min_region_size = 0.05  # Minimum region size (5% of image)
+        self.default_min_region_size = 0.03  # Minimum region size (3% of image, more lenient)
     
     def create_difference_mask(
         self, 
@@ -310,18 +310,40 @@ class SmartMaskProcessor:
     
     def _feather_mask(self, mask: Image.Image, radius: int) -> Image.Image:
         """
-        Apply Gaussian blur to mask edges for smooth transitions
+        Apply Gaussian blur to mask edges with anti-ghosting power curve
+        
+        The power curve (^2.5) reduces "ghost" artifacts by creating a steeper
+        transition. This minimizes the blend zone where original clothing shows
+        through semi-transparently.
         
         Args:
             mask: Input mask image
             radius: Blur radius in pixels
             
         Returns:
-            Feathered mask image
+            Feathered mask image with steep transition curve
         """
         try:
+            if radius == 0:
+                return mask
+            
+            logger.info(f"Applying anti-ghost feathering with {radius}px blur + power curve")
+            
             # Apply Gaussian blur
-            return mask.filter(ImageFilter.GaussianBlur(radius=radius))
+            blurred = mask.filter(ImageFilter.GaussianBlur(radius=radius))
+            
+            # Convert to numpy for power curve application
+            mask_array = np.array(blurred).astype(float) / 255.0
+            
+            # Apply power curve to reduce ghosting (steeper transition)
+            # Power of 2.5: smooth edges but minimal blend zone
+            # This pushes values toward 0 or 1, avoiding 0.5 ghosting zone
+            mask_array = np.power(mask_array, 2.5)
+            
+            # Convert back to PIL Image
+            result_array = (mask_array * 255).astype(np.uint8)
+            return Image.fromarray(result_array, mode='L')
+            
         except Exception as e:
             logger.error(f"Error feathering mask: {e}")
             return mask
