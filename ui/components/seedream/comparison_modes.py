@@ -1081,6 +1081,25 @@ class ComparisonController:
                 foreground='orange'
             ).pack(side=tk.LEFT)
             
+            # Color harmonization checkbox (NEW - fixes tint mismatches)
+            harmony_frame = ttk.Frame(controls_frame)
+            harmony_frame.pack(fill=tk.X, pady=5)
+            
+            harmonize_colors_var = tk.BooleanVar(value=True)
+            harmony_check = ttk.Checkbutton(
+                harmony_frame,
+                text="🎨 Harmonize Colors (match tint in preserved areas)",
+                variable=harmonize_colors_var
+            )
+            harmony_check.pack(side=tk.LEFT, padx=(0, 5))
+            
+            ttk.Label(
+                harmony_frame,
+                text="← Recommended (prevents color mismatches)",
+                font=('Arial', 8),
+                foreground='green'
+            ).pack(side=tk.LEFT)
+            
             # Loading indicator
             loading_text = [None]  # Store text ID
             
@@ -1351,8 +1370,9 @@ class ComparisonController:
                     focus_primary = focus_primary_var.get()
                     exclude_faces = exclude_faces_var.get()
                     invert_blend = invert_blend_var.get()
+                    harmonize_colors = harmonize_colors_var.get()
                     
-                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}, invert_blend={invert_blend}")
+                    logger.info(f"Applying smart mask with threshold={threshold}, feather={feather}, focus_primary={focus_primary}, exclude_faces={exclude_faces}, invert_blend={invert_blend}, harmonize_colors={harmonize_colors}")
                     
                     # Disable buttons during processing
                     for widget in button_frame.winfo_children():
@@ -1397,7 +1417,8 @@ class ComparisonController:
                                 feather=None,
                                 focus_primary=None,
                                 min_region_size=None,
-                                invert_blend=invert_blend  # Apply blend direction setting
+                                invert_blend=invert_blend,  # Apply blend direction setting
+                                harmonize_colors=harmonize_colors  # Apply color harmonization
                             )
                             
                             if result_img:
@@ -1457,7 +1478,8 @@ class ComparisonController:
                                             "feather": int(feather),
                                             "focus_primary": bool(focus_primary),
                                             "exclude_faces": bool(exclude_faces),
-                                            "invert_blend": bool(invert_blend)
+                                            "invert_blend": bool(invert_blend),
+                                            "harmonize_colors": bool(harmonize_colors)
                                         },
                                         "input_image_path": source_path,
                                         "original_ai_result_path": result_path,
@@ -1565,7 +1587,8 @@ class ComparisonController:
                                     f"• Feather: {feather}px\n"
                                     f"• Focus Primary: {'Yes' if focus_primary else 'No'}\n"
                                     f"• Exclude Faces: {'Yes' if exclude_faces else 'No'}\n"
-                                    f"• Blend Direction: {'Inverted' if invert_blend else 'Standard'}\n\n"
+                                    f"• Blend Direction: {'Inverted' if invert_blend else 'Standard'}\n"
+                                    f"• Color Harmony: {'Yes' if harmonize_colors else 'No'}\n\n"
                                     f"Use 'Toggle Mask' button to compare before/after.\n"
                                     f"Check Recent Results panel to view again."
                                 )
